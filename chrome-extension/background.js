@@ -94,12 +94,173 @@ class WebSocketManager {
   handleMessage(message) {
     console.log('Получено сообщение от сервера:', message);
     
+    // Обрабатываем команды от сервера
+    if (message.command) {
+      this.handleServerCommand(message);
+    }
+    
     // Отправляем сообщение в DevTools панель
     chrome.runtime.sendMessage({
       type: 'SERVER_RESPONSE',
       data: message
     }).catch(error => {
       console.log('DevTools панель не активна:', error);
+    });
+  }
+
+  async handleServerCommand(message) {
+    console.log('Обработка команды от сервера:', message);
+    
+    try {
+      let response = null;
+      
+      // Получаем активную вкладку
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const activeTab = tabs[0];
+      
+      if (!activeTab) {
+        throw new Error('Нет активной вкладки');
+      }
+      
+      switch (message.command) {
+        case 'GET_HTML':
+          response = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'GET_HTML',
+            params: message.params || {}
+          });
+          break;
+          
+        case 'GET_HTML_BY_SELECTOR':
+          response = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'GET_HTML_BY_SELECTOR',
+            params: message.params || {}
+          });
+          break;
+          
+        case 'CLICK_ELEMENT':
+          response = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'CLICK_ELEMENT',
+            params: message.params || {}
+          });
+          break;
+          
+        case 'INPUT_DATA':
+          response = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'INPUT_DATA',
+            params: message.params || {}
+          });
+          break;
+          
+        case 'GET_CONSOLE_LOG':
+          response = await this.getConsoleLogs(activeTab.id);
+          break;
+          
+        case 'GET_NETWORK_LOG':
+          response = await this.getNetworkLogs(activeTab.id);
+          break;
+          
+        case 'GET_TABS':
+          response = await this.getAllTabs();
+          break;
+          
+        default:
+          throw new Error(`Неизвестная команда: ${message.command}`);
+      }
+      
+      // Отправляем ответ обратно на сервер
+      this.sendMessage({
+        id: message.id,
+        command: message.command,
+        data: response,
+        success: true,
+        tabId: activeTab.id
+      });
+      
+    } catch (error) {
+      console.error('Ошибка выполнения команды:', error);
+      
+      // Отправляем ошибку обратно на сервер
+      this.sendMessage({
+        id: message.id,
+        command: message.command,
+        data: null,
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  async getConsoleLogs(tabId) {
+    return new Promise((resolve, reject) => {
+      chrome.debugger.attach({ tabId }, "1.0", () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        
+        chrome.debugger.sendCommand({ tabId }, "Runtime.enable", {}, () => {
+          chrome.debugger.sendCommand({ tabId }, "Log.enable", {}, () => {
+            chrome.debugger.sendCommand({ tabId }, "Runtime.getConsoleAPICalls", {}, (result) => {
+              chrome.debugger.detach({ tabId });
+              resolve(result);
+            });
+          });
+        });
+      });
+    });
+  }
+
+  async getAllTabs() {
+    try {
+      // Получаем все вкладки
+      const allTabs = await chrome.tabs.query({});
+      
+      // Получаем активную вкладку в текущем окне
+      const activeTabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      const activeTabId = activeTabs.length > 0 ? activeTabs[0].id : null;
+      
+      // Формируем список вкладок с информацией
+      const tabsInfo = allTabs.map(tab => ({
+        id: tab.id,
+        title: tab.title,
+        url: tab.url,
+        active: tab.id === activeTabId,
+        windowId: tab.windowId,
+        index: tab.index,
+        pinned: tab.pinned,
+        status: tab.status, // loading, complete
+        favIconUrl: tab.favIconUrl,
+        incognito: tab.incognito
+      }));
+      
+      return {
+        success: true,
+        tabs: tabsInfo,
+        totalCount: tabsInfo.length,
+        activeTabId: activeTabId,
+        timestamp: new Date().toISOString()
+      };
+      
+    } catch (error) {
+      throw new Error(`Ошибка получения списка вкладок: ${error.message}`);
+    }
+  }
+
+  async getNetworkLogs(tabId) {
+    return new Promise((resolve, reject) => {
+      chrome.debugger.attach({ tabId }, "1.0", () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        
+        chrome.debugger.sendCommand({ tabId }, "Network.enable", {}, () => {
+          // Для network логов нужна более сложная логика
+          // Пока возвращаем заглушку
+          chrome.debugger.detach({ tabId });
+          resolve({ message: "Network logs feature in development" });
+        });
+      });
     });
   }
 

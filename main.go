@@ -21,13 +21,22 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		return true // Разрешаем подключения с любых источников
 	},
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
 
-// Структура для хранения WebSocket соединений
+// Обновленная структура для хранения WebSocket соединений
 type WebSocketManager struct {
-	connections map[string]*websocket.Conn
+	connections map[string]*ConnectionInfo
 	mutex       sync.RWMutex
 	logger      *log.Logger
+}
+
+// Структура для хранения информации о соединении
+type ConnectionInfo struct {
+	conn     *websocket.Conn
+	lastPing time.Time
+	stopChan chan bool
 }
 
 // Глобальный менеджер WebSocket соединений
@@ -102,7 +111,7 @@ func main() {
 
 	// Инициализируем WebSocket менеджер
 	wsManager = &WebSocketManager{
-		connections: make(map[string]*websocket.Conn),
+		connections: make(map[string]*ConnectionInfo),
 		logger:      log.New(log.Writer(), "[WebSocket] ", log.LstdFlags),
 	}
 
@@ -159,10 +168,20 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	wsManager.logger.Printf("Новое WebSocket соединение: %s", clientID)
 
+	// Устанавливаем обработчики ping/pong
+	conn.SetPingHandler(func(appData string) error {
+		wsManager.logger.Printf("Получен ping от %s", clientID)
+		return conn.WriteMessage(websocket.PongMessage, []byte{})
+	})
+
+	conn.SetPongHandler(func(appData string) error {
+		wsManager.logger.Printf("Получен pong от %s", clientID)
+		return nil
+	})
+
 	// Читаем сообщения от клиента
 	for {
-		var msg WebSocketMessage
-		err := conn.ReadJSON(&msg)
+		messageType, data, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				wsManager.logger.Printf("Ошибка чтения сообщения от %s: %v", clientID, err)
@@ -170,10 +189,31 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 
-		wsManager.logger.Printf("Получено сообщение от %s: %+v", clientID, msg)
+		// Обработка ping сообщений
+		if messageType == websocket.TextMessage && string(data) == "ping" {
+			wsManager.logger.Printf("Получен ping от %s", clientID)
+			err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
+			if err != nil {
+				wsManager.logger.Printf("Ошибка отправки pong клиенту %s: %v", clientID, err)
+				break
+			}
+			continue
+		}
 
-		// Здесь можно добавить обработку входящих сообщений от расширения
-		// Например, сохранение результатов выполнения команд
+		// Обработка обычных JSON сообщений
+		if messageType == websocket.TextMessage {
+			var msg WebSocketMessage
+			err := json.Unmarshal(data, &msg)
+			if err != nil {
+				wsManager.logger.Printf("Ошибка парсинга JSON от %s: %v", clientID, err)
+				continue
+			}
+
+			wsManager.logger.Printf("Получено сообщение от %s: %+v", clientID, msg)
+
+			// Здесь можно добавить обработку входящих сообщений от расширения
+			// Например, сохранение результатов выполнения команд
+		}
 	}
 
 	wsManager.logger.Printf("WebSocket соединение закрыто: %s", clientID)
@@ -183,7 +223,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 func (wsm *WebSocketManager) addConnection(id string, conn *websocket.Conn) {
 	wsm.mutex.Lock()
 	defer wsm.mutex.Unlock()
-	wsm.connections[id] = conn
+	wsm.connections[id] = &ConnectionInfo{
+		conn:     conn,
+		lastPing: time.Now(),
+		stopChan: make(chan bool),
+	}
 }
 
 func (wsm *WebSocketManager) removeConnection(id string) {
@@ -203,8 +247,8 @@ func (wsm *WebSocketManager) sendToAll(message WebSocketMessage) error {
 	var lastError error
 	sentCount := 0
 
-	for clientID, conn := range wsm.connections {
-		err := conn.WriteJSON(message)
+	for clientID, connInfo := range wsm.connections {
+		err := connInfo.conn.WriteJSON(message)
 		if err != nil {
 			wsm.logger.Printf("Ошибка отправки сообщения клиенту %s: %v", clientID, err)
 			lastError = err

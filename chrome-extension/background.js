@@ -4,10 +4,14 @@ class WebSocketManager {
     this.ws = null;
     this.isConnected = false;
     this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
+    this.maxReconnectAttempts = 10;
     this.reconnectDelay = 1000;
     this.serverUrl = 'ws://localhost:8090/ws';
     this.messageQueue = [];
+    this.pingInterval = null;
+    this.pingIntervalTime = 30000; // 30 секунд
+    this.lastPongTime = Date.now();
+    this.connectionTimeout = 60000; // 60 секунд тайм-аут
   }
 
   connect() {
@@ -18,11 +22,20 @@ class WebSocketManager {
         console.log('WebSocket соединение установлено');
         this.isConnected = true;
         this.reconnectAttempts = 0;
+        this.lastPongTime = Date.now();
+        this.startPingInterval();
         this.processMessageQueue();
       };
 
       this.ws.onmessage = (event) => {
         try {
+          // Обработка pong сообщений
+          if (event.data === 'pong') {
+            this.lastPongTime = Date.now();
+            console.log('Получен pong от сервера');
+            return;
+          }
+          
           const message = JSON.parse(event.data);
           this.handleMessage(message);
         } catch (error) {
@@ -30,9 +43,10 @@ class WebSocketManager {
         }
       };
 
-      this.ws.onclose = () => {
-        console.log('WebSocket соединение закрыто');
+      this.ws.onclose = (event) => {
+        console.log('WebSocket соединение закрыто', event.code, event.reason);
         this.isConnected = false;
+        this.stopPingInterval();
         this.attemptReconnect();
       };
 
@@ -91,9 +105,41 @@ class WebSocketManager {
 
   disconnect() {
     if (this.ws) {
+      this.stopPingInterval();
       this.ws.close();
       this.ws = null;
       this.isConnected = false;
+    }
+  }
+
+  startPingInterval() {
+    this.stopPingInterval();
+    this.pingInterval = setInterval(() => {
+      if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+        // Проверяем, получали ли мы pong в течение тайм-аута
+        const timeSinceLastPong = Date.now() - this.lastPongTime;
+        if (timeSinceLastPong > this.connectionTimeout) {
+          console.warn('Не получен pong в течение', this.connectionTimeout, 'мс. Переподключение...');
+          this.ws.close();
+          return;
+        }
+        
+        // Отправляем ping
+        try {
+          this.ws.send('ping');
+          console.log('Отправлен ping серверу');
+        } catch (error) {
+          console.error('Ошибка отправки ping:', error);
+          this.ws.close();
+        }
+      }
+    }, this.pingIntervalTime);
+  }
+
+  stopPingInterval() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
     }
   }
 }

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Browser Extension Tool</title>
+    <style>
+        body {
+            width: 300px;
+            padding: 16px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 14px;
+            margin: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        
+        .header h1 {
+            font-size: 18px;
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+        
+        .header p {
+            margin: 0;
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .info-section {
+            background-color: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+        }
+        
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 12px;
+        }
+        
+        .info-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .info-value {
+            color: #666;
+        }
+        
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .status-connected {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-disconnected {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .btn {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #fff;
+            color: #333;
+            font-size: 12px;
+            cursor: pointer;
+            text-decoration: none;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        
+        .btn:hover {
+            background-color: #f8f9fa;
+            border-color: #adb5bd;
+        }
+        
+        .btn-primary {
+            background-color: #007bff;
+            border-color: #007bff;
+            color: #fff;
+        }
+        
+        .btn-primary:hover {
+            background-color: #0056b3;
+            border-color: #0056b3;
+        }
+        
+        .footer {
+            margin-top: 16px;
+            padding-top: 12px;
+            border-top: 1px solid #eee;
+            text-align: center;
+            font-size: 11px;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Browser Extension Tool</h1>
+        <p>Инструмент для взаимодействия с браузером</p>
+    </div>
+    
+    <div class="info-section">
+        <div class="info-item">
+            <span class="info-label">Статус:</span>
+            <span id="connectionStatus" class="status status-disconnected">Отключено</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Сервер:</span>
+            <span class="info-value">localhost:8090</span>
+        </div>
+        <div class="info-item">
+            <span class="info-label">Версия:</span>
+            <span class="info-value">1.0.0</span>
+        </div>
+    </div>
+    
+    <div class="actions">
+        <button id="openDevToolsBtn" class="btn btn-primary">Открыть DevTools панель</button>
+        <button id="connectBtn" class="btn">Подключиться к серверу</button>
+    </div>
+    
+    <div class="footer">
+        Используйте DevTools панель для полного функционала
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>

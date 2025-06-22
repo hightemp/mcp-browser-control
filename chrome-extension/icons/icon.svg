@@ -1,0 +1,28 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#007bff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0056b3;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="url(#grad1)" stroke="#004085" stroke-width="2"/>
+  
+  <!-- Browser window icon -->
+  <rect x="24" y="32" width="80" height="56" rx="4" fill="white" stroke="#004085" stroke-width="2"/>
+  
+  <!-- Browser tabs -->
+  <rect x="28" y="28" width="16" height="8" rx="2" fill="#004085"/>
+  <rect x="48" y="28" width="16" height="8" rx="2" fill="#6c757d"/>
+  <rect x="68" y="28" width="16" height="8" rx="2" fill="#6c757d"/>
+  
+  <!-- Browser content area -->
+  <rect x="28" y="40" width="72" height="44" fill="#f8f9fa" stroke="#dee2e6" stroke-width="1"/>
+  
+  <!-- Code/tool icon -->
+  <text x="64" y="68" text-anchor="middle" font-family="monospace" font-size="24" fill="#007bff">&lt;/&gt;</text>
+  
+  <!-- Connection indicator -->
+  <circle cx="96" cy="40" r="4" fill="#28a745"/>
+</svg>

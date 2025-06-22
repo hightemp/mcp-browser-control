@@ -2,7 +2,10 @@ module github.com/hightemp/go_mcp_browser_ext_tool
 
 go 1.23.5
 
-require github.com/mark3labs/mcp-go v0.32.0
+require (
+	github.com/gorilla/websocket v1.5.3
+	github.com/mark3labs/mcp-go v0.32.0
+)
 
 require (
 	github.com/google/uuid v1.6.0 // indirect

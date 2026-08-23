@@ -3,6 +3,8 @@ export const PROTOCOL_VERSION = "1.0";
 export const MessageType = Object.freeze({
   HELLO: "hello",
   WELCOME: "welcome",
+  AUTH_ERROR: "auth_error",
+  REVOKE: "revoke",
   REQUEST: "request",
   RESPONSE: "response",
   CANCEL: "cancel",
@@ -20,6 +22,7 @@ export const ErrorCode = Object.freeze({
   STRICT_MODE_VIOLATION: "STRICT_MODE_VIOLATION",
   PERMISSION_REQUIRED: "PERMISSION_REQUIRED",
   CAPABILITY_UNAVAILABLE: "CAPABILITY_UNAVAILABLE",
+  PAIRING_REQUIRED: "PAIRING_REQUIRED",
   INVALID_MESSAGE: "INVALID_MESSAGE",
   INVALID_COMMAND: "INVALID_COMMAND",
   CANCELLED: "CANCELLED",
@@ -55,6 +58,14 @@ export function validateServerEndpoint(value) {
     );
   }
   return endpoint.toString();
+}
+
+export function normalizePairingCode(value) {
+  const digits = String(value || "").replace(/[\s-]/g, "");
+  if (!/^\d{8}$/.test(digits)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Pairing code must contain eight digits");
+  }
+  return `${digits.slice(0, 4)}-${digits.slice(4)}`;
 }
 
 export function protocolError(code, message, retryable = false, details = undefined) {

@@ -28,9 +28,24 @@
         Connect automatically
       </label>
 
+	  <section class="pairing">
+	    <h2>Pair browser</h2>
+	    <p>Enter the one-time code printed by the server.</p>
+	    <label>
+	      Pairing code
+	      <input id="pairing-code" type="text" inputmode="numeric" maxlength="9" autocomplete="one-time-code" placeholder="1234-5678">
+	    </label>
+	    <div class="pairing-actions">
+	      <button id="pair" type="button">Pair</button>
+	      <button id="revoke-pairing" type="button" class="secondary">Revoke pairing</button>
+	    </div>
+	  </section>
+
       <dl>
         <dt>Browser ID</dt>
         <dd id="browser-id">—</dd>
+		<dt>Paired</dt>
+		<dd id="paired">No</dd>
       </dl>
 
       <p id="error" class="error" hidden></p>

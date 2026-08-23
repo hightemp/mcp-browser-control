@@ -30,6 +30,8 @@ func TestParseConfig(t *testing.T) {
 				WebSocketHost:  "127.0.0.1",
 				WebSocketPort:  "8090",
 				CommandTimeout: 15 * time.Second,
+				CredentialFile: defaultCredentialFile(),
+				PairingTTL:     10 * time.Minute,
 			},
 		},
 		{
@@ -42,6 +44,8 @@ func TestParseConfig(t *testing.T) {
 				WebSocketHost:  "127.0.0.1",
 				WebSocketPort:  "8090",
 				CommandTimeout: 3 * time.Second,
+				CredentialFile: defaultCredentialFile(),
+				PairingTTL:     10 * time.Minute,
 			},
 		},
 		{
@@ -52,6 +56,11 @@ func TestParseConfig(t *testing.T) {
 		{
 			name:      "bad timeout",
 			args:      []string{"-command_timeout", "0s"},
+			wantError: true,
+		},
+		{
+			name:      "bad pairing ttl",
+			args:      []string{"-pairing_ttl", "0s"},
 			wantError: true,
 		},
 	}

@@ -12,15 +12,17 @@ The first multi-browser vertical slice is implemented:
 - every command is routed to exactly one browser connection;
 - browser selection is isolated per MCP session;
 - reconnecting a browser atomically replaces its old connection;
+- one-time pairing issues persistent per-browser credentials and every later
+  handshake is authenticated;
 - STDIO, Streamable HTTP, and legacy SSE transports are available;
 - tab listing, HTML inspection, CSS queries, clicking, and input work through
   the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-Pairing authentication, full tab/window control, semantic snapshots, waits,
-screenshots, console capture, and network capture are planned but not complete.
-Do not expose either server port outside the local machine.
+Full tab/window control, semantic snapshots, waits, screenshots, console
+capture, and network capture are planned but not complete. Remote mode is not
+implemented; do not expose either server port outside the local machine.
 
 ## Architecture
 
@@ -80,6 +82,28 @@ Options:
 - `-ws_host` — extension WebSocket host; default `127.0.0.1`
 - `-ws_port` — extension WebSocket port; default `8090`
 - `-command_timeout` — default browser command timeout; default `15s`
+- `-credential_file` — persistent hashed credential store; defaults to the
+  operating system's user configuration directory
+- `-pairing_ttl` — lifetime of each one-time pairing code; default `10m`
+
+## Pair a Browser
+
+The server prints an eight-digit one-time code during startup:
+
+```text
+Browser pairing code: 1234-5678 (expires at 2026-08-23T22:00:00+03:00)
+```
+
+Open the extension popup, enter the current code, and click **Pair**. A
+successful pairing consumes that code immediately, stores a new credential in
+`chrome.storage.local`, and causes the server to print the next one-time code.
+Use that new code when pairing another browser profile.
+
+The raw long-lived credential is never written to the server store. The server
+persists only its SHA-256 hash in a file with owner-only permissions. To revoke
+the current credential, connect the browser and click **Revoke pairing** in the
+popup; the extension waits for the server acknowledgement before deleting its
+local copy.
 
 ## Install the Extension
 
@@ -170,26 +194,35 @@ The extension starts with a `hello` envelope:
   "params": {
     "displayName": "Work Chrome",
     "extensionVersion": "0.1.0",
+    "pairingCode": "1234-5678",
     "capabilities": ["browser.ping", "tabs.list"]
   }
 }
 ```
 
-Browser commands use `request`/`response` envelopes with a unique `requestId`.
-`cancel`, `ping`, `pong`, and `capabilities_changed` are also supported.
+The first handshake contains `pairingCode`; later handshakes contain the issued
+`credential`. Authentication failures use `auth_error`, and `revoke` is an
+acknowledged credential revocation exchange. Browser commands use
+`request`/`response` envelopes with a unique `requestId`. `cancel`, `ping`,
+`pong`, and `capabilities_changed` are also supported.
 
 ## Security Baseline
 
 - HTTP and WebSocket listeners bind to loopback by default.
 - MCP HTTP validates `Host` and `Origin` to reduce DNS rebinding risk.
 - Extension WebSocket endpoints must be loopback addresses.
+- Browser registration requires a valid credential or an unexpired one-time
+  pairing code.
+- Pairing codes are rate-limited, expire after ten minutes by default, and are
+  rotated after use to prevent replay.
+- Only credential hashes are persisted by the server; the extension stores the
+  raw credential locally.
 - Website access is optional and user-granted.
 - Restricted browser pages are rejected.
 - Password values are redacted from page interaction results.
 - WebSocket messages and command deadlines are bounded.
 
-Pairing and persistent extension credentials are the next security milestone.
-Until then, loopback binding is mandatory for safe use.
+Loopback binding remains mandatory as a defense-in-depth boundary.
 
 ## Development
 
@@ -233,6 +266,7 @@ internal/
 ├── protocol/             versioned extension protocol and errors
 ├── registry/             connected browser registry
 ├── router/               targeted request/response correlation
+├── security/pairing/     one-time codes and browser credentials
 ├── selection/            per-MCP-session browser selection
 ├── tools/                MCP tool definitions and handlers
 ├── transport/websocket/  browser WebSocket transport

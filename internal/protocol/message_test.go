@@ -70,6 +70,24 @@ func TestMessageValidate(t *testing.T) {
 			wantErr: CodeInvalidMessage,
 		},
 		{
+			name:    "auth error without details",
+			message: Message{ProtocolVersion: Version, Type: TypeAuthError, BrowserID: "browser-1"},
+			wantErr: CodeInvalidMessage,
+		},
+		{
+			name: "valid auth error",
+			message: Message{
+				ProtocolVersion: Version,
+				Type:            TypeAuthError,
+				BrowserID:       "browser-1",
+				Error:           NewError(CodePairingRequired, "pairing required", false),
+			},
+		},
+		{
+			name:    "valid revoke",
+			message: Message{ProtocolVersion: Version, Type: TypeRevoke, BrowserID: "browser-1"},
+		},
+		{
 			name:    "failed response without error",
 			message: Message{ProtocolVersion: Version, Type: TypeResponse, BrowserID: "browser-1", RequestID: "request-1", Success: boolPointer(false)},
 			wantErr: CodeInvalidMessage,

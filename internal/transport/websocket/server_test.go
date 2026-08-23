@@ -16,6 +16,7 @@ import (
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/security/pairing"
 )
 
 func TestServerRegistersAndRoutesBrowser(t *testing.T) {
@@ -32,7 +33,16 @@ func TestServerRegistersAndRoutesBrowser(t *testing.T) {
 		browserRegistry,
 		requestRouter,
 		WithLogger(log.New(io.Discard, "", 0)),
+		WithAuthenticator(mustPairingManager(t)),
 	)
+	pairingManager, ok := transport.authenticator.(*pairing.Manager)
+	if !ok {
+		t.Fatalf("authenticator type = %T", transport.authenticator)
+	}
+	pairingCode, _, err := pairingManager.CurrentCode()
+	if err != nil {
+		t.Fatalf("CurrentCode() error = %v", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle(DefaultPath, transport)
@@ -58,6 +68,7 @@ func TestServerRegistersAndRoutesBrowser(t *testing.T) {
 	hello.Params, err = json.Marshal(protocol.HelloParams{
 		DisplayName:      "Work Chrome",
 		ExtensionVersion: "0.1.0",
+		PairingCode:      pairingCode,
 		Browser: protocol.BrowserMetadata{
 			Name:    "Chrome",
 			Version: "116",
@@ -80,6 +91,13 @@ func TestServerRegistersAndRoutesBrowser(t *testing.T) {
 	}
 	if welcome.BrowserID != browserID || welcome.ConnectionID == "" {
 		t.Fatalf("welcome = %#v", welcome)
+	}
+	var welcomeResult protocol.WelcomeResult
+	if err := json.Unmarshal(welcome.Result, &welcomeResult); err != nil {
+		t.Fatalf("unmarshal welcome result: %v", err)
+	}
+	if !welcomeResult.Paired || welcomeResult.Credential == "" {
+		t.Fatalf("welcome result = %#v", welcomeResult)
 	}
 	if got := browserRegistry.Count(); got != 1 {
 		t.Fatalf("registry count = %d, want 1", got)
@@ -132,6 +150,117 @@ func TestServerRegistersAndRoutesBrowser(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for routed result")
+	}
+
+	if err := socket.Close(); err != nil {
+		t.Fatalf("close paired socket: %v", err)
+	}
+	waitForRegistryCount(t, browserRegistry, 0)
+
+	reconnected, response, err := gorilla.DefaultDialer.Dial(
+		"ws"+strings.TrimPrefix(httpServer.URL, "http")+DefaultPath,
+		headers,
+	)
+	if err != nil {
+		if response != nil {
+			t.Fatalf("reconnect Dial() error = %v, status = %s", err, response.Status)
+		}
+		t.Fatalf("reconnect Dial() error = %v", err)
+	}
+	defer reconnected.Close()
+	hello.Params, err = json.Marshal(protocol.HelloParams{
+		ExtensionVersion: "0.1.0",
+		Credential:       welcomeResult.Credential,
+	})
+	if err != nil {
+		t.Fatalf("marshal reconnect hello: %v", err)
+	}
+	if err := reconnected.WriteJSON(hello); err != nil {
+		t.Fatalf("write reconnect hello: %v", err)
+	}
+	var reconnectWelcome protocol.Message
+	if err := reconnected.ReadJSON(&reconnectWelcome); err != nil {
+		t.Fatalf("read reconnect welcome: %v", err)
+	}
+	if reconnectWelcome.Type != protocol.TypeWelcome {
+		t.Fatalf("reconnect welcome = %#v", reconnectWelcome)
+	}
+	waitForRegistryCount(t, browserRegistry, 1)
+
+	revoke := protocol.NewMessage(protocol.TypeRevoke)
+	revoke.BrowserID = browserID
+	if err := reconnected.WriteJSON(revoke); err != nil {
+		t.Fatalf("write revoke: %v", err)
+	}
+	var revokeAcknowledgement protocol.Message
+	if err := reconnected.ReadJSON(&revokeAcknowledgement); err != nil {
+		t.Fatalf("read revoke acknowledgement: %v", err)
+	}
+	if revokeAcknowledgement.Type != protocol.TypeRevoke ||
+		revokeAcknowledgement.Success == nil ||
+		!*revokeAcknowledgement.Success {
+		t.Fatalf("revoke acknowledgement = %#v", revokeAcknowledgement)
+	}
+	waitForRegistryCount(t, browserRegistry, 0)
+	if err := pairingManager.Authenticate(browserID, welcomeResult.Credential); err == nil {
+		t.Fatal("revoked credential was accepted")
+	}
+}
+
+func waitForRegistryCount(t *testing.T, browserRegistry *registry.Registry, want int) {
+	t.Helper()
+	deadline := time.Now().Add(time.Second)
+	for browserRegistry.Count() != want && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if got := browserRegistry.Count(); got != want {
+		t.Fatalf("registry count = %d, want %d", got, want)
+	}
+}
+
+func TestServerReturnsStructuredPairingError(t *testing.T) {
+	t.Parallel()
+
+	browserRegistry := registry.New()
+	transport := NewServer(
+		browserRegistry,
+		router.New(browserRegistry, router.WithLogger(log.New(io.Discard, "", 0))),
+		WithLogger(log.New(io.Discard, "", 0)),
+	)
+	mux := http.NewServeMux()
+	mux.Handle(DefaultPath, transport)
+	httpServer := httptest.NewServer(mux)
+	defer httpServer.Close()
+
+	socket, _, err := gorilla.DefaultDialer.Dial(
+		"ws"+strings.TrimPrefix(httpServer.URL, "http")+DefaultPath,
+		http.Header{"Origin": []string{"chrome-extension://test-extension"}},
+	)
+	if err != nil {
+		t.Fatalf("Dial() error = %v", err)
+	}
+	defer socket.Close()
+
+	hello := protocol.NewMessage(protocol.TypeHello)
+	hello.BrowserID = uuid.NewString()
+	hello.Params, err = json.Marshal(protocol.HelloParams{ExtensionVersion: "0.1.0"})
+	if err != nil {
+		t.Fatalf("marshal hello: %v", err)
+	}
+	if err := socket.WriteJSON(hello); err != nil {
+		t.Fatalf("write hello: %v", err)
+	}
+	var response protocol.Message
+	if err := socket.ReadJSON(&response); err != nil {
+		t.Fatalf("read auth error: %v", err)
+	}
+	if response.Type != protocol.TypeAuthError ||
+		response.Error == nil ||
+		response.Error.Code != protocol.CodePairingRequired {
+		t.Fatalf("auth response = %#v", response)
+	}
+	if browserRegistry.Count() != 0 {
+		t.Fatal("unauthenticated browser was registered")
 	}
 }
 
@@ -199,4 +328,13 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 			t.Errorf("allowedOrigin(%q) = %v, want %v", test.origin, got, test.want)
 		}
 	}
+}
+
+func mustPairingManager(t *testing.T) *pairing.Manager {
+	t.Helper()
+	manager, err := pairing.NewManager()
+	if err != nil {
+		t.Fatalf("pairing.NewManager() error = %v", err)
+	}
+	return manager
 }

@@ -17,7 +17,7 @@
 
 - `[x]` Go-сервер разделён на protocol, registry, router, selection, tools и transport packages.
 - `[x]` Работают STDIO, Streamable HTTP и отдельный legacy SSE режим.
-- `[~]` WebSocket ограничен loopback Host/extension Origin, но pairing/authentication ещё не реализован.
+- `[x]` WebSocket требует pairing/authentication и дополнительно ограничен loopback Host/extension Origin.
 - `[x]` Реализованы protocol-v1 handshake, стабильный `browserId` и атомарная замена `connectionId` при reconnect.
 - `[x]` Broadcast удалён: команды адресуются ровно одному браузеру.
 - `[x]` Корреляция учитывает `browserId + connectionId + requestId`.
@@ -243,7 +243,7 @@ Registry хранит:
 
 - Приоритет: P0
 - Зависимости: T-015, T-021
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Минимальный поток:
 
@@ -254,6 +254,8 @@ Registry хранит:
 5. Credential можно отозвать на сервере и удалить из расширения.
 
 Добавить rate limit, expiration и защиту от replay.
+
+Реализованы одноразовый восьмизначный код, TTL, глобальный лимит неуспешных попыток, атомарное потребление кода, SHA-256 hash store с правами владельца, authenticated reconnect и подтверждаемое revoke с обеих сторон.
 
 ### T-023 — Реализовать targeted Router
 
@@ -464,7 +466,7 @@ Badge должен различать connected, disconnected и error.
 
 - Приоритет: P0
 - Зависимости: T-021, T-022, T-040, T-041
-- Статус: `[~]`
+- Статус: `[x]`
 
 Добавить:
 
@@ -891,7 +893,7 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 
 Покрыть registry, duplicate connection, router, selection, pending requests, timeout, cancellation, disconnect cleanup, error mapping, redaction и config.
 
-Реализовано в первом инкременте; суммарное statement coverage `internal/...` в atomic-режиме — 84,1%. Redaction дополнительно проверяется extension protocol tests.
+Реализовано; суммарное statement coverage `internal/...` в atomic-режиме — 82,9%. Redaction дополнительно проверяется extension protocol tests.
 
 ### T-091 — Race и stress tests
 

@@ -25,6 +25,24 @@ h1 {
   font-size: 17px;
 }
 
+h2 {
+	margin: 0;
+	font-size: 14px;
+}
+
+.pairing {
+	display: grid;
+	gap: 8px;
+	border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+	border-radius: 8px;
+	padding: 10px;
+}
+
+.pairing p {
+	margin: 0;
+	opacity: 0.8;
+}
+
 label {
   display: grid;
   gap: 5px;
@@ -36,6 +54,12 @@ input[type="url"] {
   box-sizing: border-box;
   width: 100%;
   padding: 7px 8px;
+}
+
+.pairing-actions {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 8px;
 }
 
 .checkbox {
@@ -57,7 +81,8 @@ input[type="url"] {
 }
 
 .status.connecting,
-.status.handshaking {
+.status.handshaking,
+.status.pairing_required {
   background: #ca8a04;
 }
 

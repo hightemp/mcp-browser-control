@@ -30,6 +30,13 @@ const (
 // Option configures a Server.
 type Option func(*Server)
 
+// Authenticator validates browser handshakes and revokes browser
+// credentials.
+type Authenticator interface {
+	Authorize(browserID, credential, pairingCode string) (issuedCredential string, err error)
+	Revoke(browserID string) (bool, error)
+}
+
 // WithLogger sets the transport logger.
 func WithLogger(logger *log.Logger) Option {
 	return func(server *Server) {
@@ -57,11 +64,21 @@ func WithWriteTimeout(timeout time.Duration) Option {
 	}
 }
 
+// WithAuthenticator configures the browser pairing authenticator.
+func WithAuthenticator(authenticator Authenticator) Option {
+	return func(server *Server) {
+		if authenticator != nil {
+			server.authenticator = authenticator
+		}
+	}
+}
+
 // Server accepts browser extension connections and connects them to the
 // browser registry and request router.
 type Server struct {
 	registry         *registry.Registry
 	router           *router.Router
+	authenticator    Authenticator
 	logger           *log.Logger
 	handshakeTimeout time.Duration
 	writeTimeout     time.Duration
@@ -78,6 +95,7 @@ func NewServer(
 	server := &Server{
 		registry:         browserRegistry,
 		router:           requestRouter,
+		authenticator:    rejectingAuthenticator{},
 		logger:           log.New(log.Writer(), "[WebSocket] ", log.LstdFlags),
 		handshakeTimeout: 5 * time.Second,
 		writeTimeout:     5 * time.Second,
@@ -94,9 +112,7 @@ func NewServer(
 	return server
 }
 
-// ServeHTTP upgrades an authenticated browser connection. Pairing credentials
-// will be enforced by the pairing layer; this transport already restricts
-// hosts and origins to local or extension contexts.
+// ServeHTTP upgrades, authenticates, and registers a browser connection.
 func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if request.URL.Path != DefaultPath {
 		http.NotFound(writer, request)
@@ -150,6 +166,26 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		s.logger.Printf("invalid browser hello: extensionVersion is required")
 		return
 	}
+	issuedCredential, err := s.authenticator.Authorize(
+		helloMessage.BrowserID,
+		hello.Credential,
+		hello.PairingCode,
+	)
+	if err != nil {
+		authenticationError := protocol.ErrorFrom(err)
+		s.logger.Printf(
+			"browser authentication failed: browserId=%s code=%s",
+			helloMessage.BrowserID,
+			authenticationError.Code,
+		)
+		message := protocol.NewMessage(protocol.TypeAuthError)
+		message.BrowserID = helloMessage.BrowserID
+		message.Error = authenticationError
+		if sendErr := connection.Send(request.Context(), message); sendErr != nil {
+			s.logger.Printf("failed to send browser authentication error: %v", sendErr)
+		}
+		return
+	}
 
 	if err := socket.SetReadDeadline(time.Time{}); err != nil {
 		s.logger.Printf("failed to clear handshake deadline: %v", err)
@@ -192,6 +228,8 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		BrowserID:    browserID,
 		ConnectionID: connection.ID(),
 		ServerTime:   time.Now().UTC().Format(time.RFC3339Nano),
+		Credential:   issuedCredential,
+		Paired:       true,
 	}
 	welcome.Result, err = json.Marshal(welcomeResult)
 	if err != nil {
@@ -261,12 +299,50 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 				changed.Capabilities,
 				changed.Permissions,
 			)
+		case protocol.TypeRevoke:
+			revoked, revokeErr := s.authenticator.Revoke(browserID)
+			acknowledgement := protocol.NewMessage(protocol.TypeRevoke)
+			acknowledgement.BrowserID = browserID
+			acknowledgement.ConnectionID = connection.ID()
+			succeeded := revokeErr == nil
+			acknowledgement.Success = &succeeded
+			if revokeErr != nil {
+				acknowledgement.Error = protocol.ErrorFrom(revokeErr)
+				s.logger.Printf(
+					"failed to revoke browser credential: browserId=%s code=%s",
+					browserID,
+					acknowledgement.Error.Code,
+				)
+			} else {
+				acknowledgement.Result, err = json.Marshal(map[string]bool{"revoked": revoked})
+				if err != nil {
+					s.logger.Printf("failed to marshal browser revoke acknowledgement: %v", err)
+					return
+				}
+			}
+			if err := connection.Send(request.Context(), acknowledgement); err != nil {
+				s.logger.Printf("failed to send browser revoke acknowledgement: %v", err)
+				return
+			}
+			if revokeErr == nil {
+				return
+			}
 		case protocol.TypePong, protocol.TypeEvent:
 			// Touch above is sufficient for the first protocol increment.
 		default:
 			s.logger.Printf("ignored unsupported browser message type %q", message.Type)
 		}
 	}
+}
+
+type rejectingAuthenticator struct{}
+
+func (rejectingAuthenticator) Authorize(_, _, _ string) (string, error) {
+	return "", protocol.NewError(protocol.CodePairingRequired, "browser pairing is required", false)
+}
+
+func (rejectingAuthenticator) Revoke(string) (bool, error) {
+	return false, nil
 }
 
 type outboundMessage struct {

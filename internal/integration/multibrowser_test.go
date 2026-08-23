@@ -20,6 +20,7 @@ import (
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/security/pairing"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/selection"
 	browsertools "github.com/hightemp/go_mcp_browser_ext_tool/internal/tools"
 	websockettransport "github.com/hightemp/go_mcp_browser_ext_tool/internal/transport/websocket"
@@ -49,18 +50,20 @@ func TestTwoMCPSessionsRouteToDifferentBrowsers(t *testing.T) {
 	)
 	browsertools.NewService(browserRegistry, requestRouter, selections).Register(mcpServer)
 
+	pairingManager := mustPairingManager(t)
 	websocketHandler := websockettransport.NewServer(
 		browserRegistry,
 		requestRouter,
 		websockettransport.WithLogger(log.New(io.Discard, "", 0)),
+		websockettransport.WithAuthenticator(pairingManager),
 	)
 	websocketMux := http.NewServeMux()
 	websocketMux.Handle(websockettransport.DefaultPath, websocketHandler)
 	websocketServer := httptest.NewServer(websocketMux)
 	t.Cleanup(websocketServer.Close)
 
-	browserA := connectFakeBrowser(t, websocketServer.URL, "Browser A")
-	browserB := connectFakeBrowser(t, websocketServer.URL, "Browser B")
+	browserA := connectFakeBrowser(t, websocketServer.URL, "Browser A", currentPairingCode(t, pairingManager))
+	browserB := connectFakeBrowser(t, websocketServer.URL, "Browser B", currentPairingCode(t, pairingManager))
 	t.Cleanup(func() {
 		if err := browserA.socket.Close(); err != nil {
 			t.Logf("close browser A: %v", err)
@@ -184,7 +187,7 @@ type fakeBrowser struct {
 	socket      *gorilla.Conn
 }
 
-func connectFakeBrowser(t *testing.T, serverURL, displayName string) *fakeBrowser {
+func connectFakeBrowser(t *testing.T, serverURL, displayName, pairingCode string) *fakeBrowser {
 	t.Helper()
 
 	headers := http.Header{"Origin": []string{"chrome-extension://integration-test"}}
@@ -209,6 +212,7 @@ func connectFakeBrowser(t *testing.T, serverURL, displayName string) *fakeBrowse
 	hello.Params, err = json.Marshal(protocol.HelloParams{
 		DisplayName:      displayName,
 		ExtensionVersion: "0.1.0-test",
+		PairingCode:      pairingCode,
 		Browser:          protocol.BrowserMetadata{Name: "Fake Chromium", Version: "116"},
 		Capabilities:     []string{protocol.CommandBrowserPing, protocol.CommandTabsList},
 	})
@@ -227,6 +231,24 @@ func connectFakeBrowser(t *testing.T, serverURL, displayName string) *fakeBrowse
 		t.Fatalf("invalid fake browser welcome: %#v", welcome)
 	}
 	return browser
+}
+
+func currentPairingCode(t *testing.T, manager *pairing.Manager) string {
+	t.Helper()
+	code, _, err := manager.CurrentCode()
+	if err != nil {
+		t.Fatalf("CurrentCode() error = %v", err)
+	}
+	return code
+}
+
+func mustPairingManager(t *testing.T) *pairing.Manager {
+	t.Helper()
+	manager, err := pairing.NewManager()
+	if err != nil {
+		t.Fatalf("pairing.NewManager() error = %v", err)
+	}
+	return manager
 }
 
 func (b *fakeBrowser) respondToOneTabsRequest() error {

@@ -17,6 +17,8 @@ type MessageType string
 const (
 	TypeHello               MessageType = "hello"
 	TypeWelcome             MessageType = "welcome"
+	TypeAuthError           MessageType = "auth_error"
+	TypeRevoke              MessageType = "revoke"
 	TypeRequest             MessageType = "request"
 	TypeResponse            MessageType = "response"
 	TypeCancel              MessageType = "cancel"
@@ -64,6 +66,8 @@ type BrowserMetadata struct {
 type HelloParams struct {
 	DisplayName      string          `json:"displayName,omitempty"`
 	ExtensionVersion string          `json:"extensionVersion"`
+	Credential       string          `json:"credential,omitempty"`
+	PairingCode      string          `json:"pairingCode,omitempty"`
 	Browser          BrowserMetadata `json:"browser"`
 	Capabilities     []string        `json:"capabilities,omitempty"`
 	Permissions      []string        `json:"permissions,omitempty"`
@@ -75,6 +79,8 @@ type WelcomeResult struct {
 	BrowserID    string `json:"browserId"`
 	ConnectionID string `json:"connectionId"`
 	ServerTime   string `json:"serverTime"`
+	Credential   string `json:"credential,omitempty"`
+	Paired       bool   `json:"paired"`
 }
 
 // CapabilitiesChangedParams reports runtime permission and capability changes.
@@ -179,6 +185,10 @@ func (m Message) Validate() error {
 		if m.BrowserID == "" || m.ConnectionID == "" {
 			return NewError(CodeInvalidMessage, "welcome browserId and connectionId are required", false)
 		}
+	case TypeAuthError:
+		if m.BrowserID == "" || m.Error == nil {
+			return NewError(CodeInvalidMessage, "auth_error browserId and error are required", false)
+		}
 	case TypeRequest:
 		if m.RequestID == "" || m.BrowserID == "" || m.Command == "" {
 			return NewError(CodeInvalidMessage, "requestId, browserId, and command are required", false)
@@ -197,6 +207,13 @@ func (m Message) Validate() error {
 	case TypeEvent, TypePing, TypePong, TypeCapabilitiesChanged:
 		if m.BrowserID == "" {
 			return NewError(CodeInvalidMessage, "browserId is required", false)
+		}
+	case TypeRevoke:
+		if m.BrowserID == "" {
+			return NewError(CodeInvalidMessage, "browserId is required", false)
+		}
+		if m.Success != nil && !*m.Success && m.Error == nil {
+			return NewError(CodeInvalidMessage, "failed revoke acknowledgement must include an error", false)
 		}
 	default:
 		return NewError(CodeInvalidMessage, fmt.Sprintf("unknown message type %q", m.Type), false)

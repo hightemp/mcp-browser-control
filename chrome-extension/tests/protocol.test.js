@@ -6,6 +6,7 @@ import {
   MessageType,
   createMessage,
   normalizeError,
+  normalizePairingCode,
   validateIncomingMessage,
   validateServerEndpoint,
 } from "../src/protocol.js";
@@ -36,6 +37,15 @@ test("validateIncomingMessage isolates browser instances", () => {
   assert.equal(validateIncomingMessage(message, "browser-a"), message);
   assert.throws(
     () => validateIncomingMessage(message, "browser-b"),
+    (error) => error.code === ErrorCode.INVALID_MESSAGE,
+  );
+});
+
+test("normalizePairingCode accepts readable and compact codes", () => {
+  assert.equal(normalizePairingCode("1234-5678"), "1234-5678");
+  assert.equal(normalizePairingCode(" 12345678 "), "1234-5678");
+  assert.throws(
+    () => normalizePairingCode("1234"),
     (error) => error.code === ErrorCode.INVALID_MESSAGE,
   );
 });

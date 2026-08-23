@@ -18,28 +18,45 @@
 ## Connect
 
 1. Start the server. Its browser endpoint defaults to `ws://127.0.0.1:8090/ws`.
-2. Open the extension popup.
-3. Give this browser profile a recognizable name.
-4. Keep the default endpoint unless the local server uses another port.
-5. Click **Save**, then **Connect**.
-6. Click **Grant access to websites** before using page inspection or interaction tools.
+2. Copy the current one-time pairing code printed by the server.
+3. Open the extension popup.
+4. Give this browser profile a recognizable name.
+5. Keep the default endpoint unless the local server uses another port.
+6. Click **Save**.
+7. Enter the code and click **Pair**.
+8. Click **Grant access to websites** before using page inspection or interaction tools.
 
 Each installed browser profile generates its own stable browser ID. Install the
 extension in another profile or Chromium browser to connect a second browser.
 Use `browser_list` and `browser_select` from the MCP client to choose between
 them.
 
+Each pairing code expires after ten minutes by default and is consumed after
+one successful use. Pair browsers sequentially with the newest code printed by
+the server. Later connections authenticate automatically with the credential
+stored in `chrome.storage.local`.
+
+To revoke a credential, connect the browser and click **Revoke pairing**. The
+extension deletes its local credential only after the server confirms the
+revocation.
+
 ## Security
 
 - The first release accepts loopback WebSocket endpoints only.
 - Website access is optional and must be granted from the popup.
 - Restricted pages such as `chrome://` pages cannot be controlled.
-- Pairing authentication is planned but is not implemented in this first
-  vertical increment. Do not expose the server ports outside the local machine.
+- Browser credentials are required, and one-time pairing codes are
+  rate-limited and protected against replay.
+- Remote mode is not supported. Do not expose the server ports outside the
+  local machine.
 
 ## Troubleshooting
 
 - **Disconnected:** verify that the server is running and port 8090 is free.
+- **Pairing required:** enter the latest code printed by the server; older codes
+  may be expired or already consumed.
+- **Revocation unavailable:** reconnect the paired browser before revoking its
+  credential.
 - **Permission required:** click **Grant access to websites** in the popup.
 - **Restricted URL:** switch to an HTTP or HTTPS page.
 - **Extension updated:** reload it from the extensions page, then reconnect.

@@ -10,12 +10,15 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/netguard"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/security/pairing"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/selection"
 	browsertools "github.com/hightemp/go_mcp_browser_ext_tool/internal/tools"
 	websockettransport "github.com/hightemp/go_mcp_browser_ext_tool/internal/transport/websocket"
@@ -24,7 +27,7 @@ import (
 
 const (
 	serverName    = "go_mcp_browser_ext_tool"
-	serverVersion = "0.2.0"
+	serverVersion = "0.3.0"
 )
 
 // Config contains process-level server configuration.
@@ -35,6 +38,8 @@ type Config struct {
 	WebSocketHost  string
 	WebSocketPort  string
 	CommandTimeout time.Duration
+	CredentialFile string
+	PairingTTL     time.Duration
 }
 
 // Run parses args, assembles the application, and blocks until shutdown.
@@ -54,7 +59,7 @@ func Run(
 }
 
 func parseConfig(args []string, stderr io.Writer) (Config, error) {
-	config := Config{}
+	config := Config{CredentialFile: defaultCredentialFile()}
 	flags := flag.NewFlagSet(serverName, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(
@@ -73,11 +78,26 @@ func parseConfig(args []string, stderr io.Writer) (Config, error) {
 		15*time.Second,
 		"Default browser command timeout",
 	)
+	flags.StringVar(
+		&config.CredentialFile,
+		"credential_file",
+		config.CredentialFile,
+		"Persistent browser credential store; empty uses memory only",
+	)
+	flags.DurationVar(
+		&config.PairingTTL,
+		"pairing_ttl",
+		10*time.Minute,
+		"Lifetime of each one-time browser pairing code",
+	)
 	if err := flags.Parse(args); err != nil {
 		return Config{}, fmt.Errorf("parse flags: %w", err)
 	}
 	if config.CommandTimeout <= 0 {
 		return Config{}, fmt.Errorf("command_timeout must be positive")
+	}
+	if config.PairingTTL <= 0 {
+		return Config{}, fmt.Errorf("pairing_ttl must be positive")
 	}
 	switch config.Transport {
 	case "streamable-http", "http", "stdio", "sse":
@@ -96,6 +116,20 @@ func run(
 ) error {
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	authenticator, err := pairing.NewManager(
+		pairing.WithStorePath(config.CredentialFile),
+		pairing.WithCodeTTL(config.PairingTTL),
+		pairing.WithCodeObserver(func(code string, expiresAt time.Time) {
+			logger.Printf(
+				"Browser pairing code: %s (expires at %s)",
+				code,
+				expiresAt.Format(time.RFC3339),
+			)
+		}),
+	)
+	if err != nil {
+		return fmt.Errorf("initialize browser pairing: %w", err)
+	}
 
 	browserRegistry := registry.New()
 	requestRouter := router.New(
@@ -122,6 +156,7 @@ func run(
 		browserRegistry,
 		requestRouter,
 		websockettransport.WithLogger(log.New(logger.Writer(), "[WebSocket] ", log.LstdFlags)),
+		websockettransport.WithAuthenticator(authenticator),
 	)
 	websocketMux := http.NewServeMux()
 	websocketMux.Handle(websockettransport.DefaultPath, websocketHandler)
@@ -216,6 +251,14 @@ func run(
 		runErr = fmt.Errorf("shut down WebSocket server: %w", err)
 	}
 	return runErr
+}
+
+func defaultCredentialFile() string {
+	configurationDirectory, err := os.UserConfigDir()
+	if err != nil || configurationDirectory == "" {
+		return filepath.Join(".mcp-browser-control", "credentials.json")
+	}
+	return filepath.Join(configurationDirectory, "mcp-browser-control", "credentials.json")
 }
 
 func newHTTPServer(config Config, handler http.Handler) *http.Server {

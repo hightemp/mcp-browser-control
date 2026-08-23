@@ -1,0 +1,638 @@
+// Package tools exposes browser registry and routed browser commands as MCP
+// tools.
+package tools
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/selection"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
+)
+
+const (
+	directSessionID = "direct"
+	maxToolTimeout  = 2 * time.Minute
+)
+
+// Service owns MCP browser tool handlers.
+type Service struct {
+	registry   *registry.Registry
+	router     *router.Router
+	selections *selection.Store
+}
+
+// NewService creates a browser MCP tool service.
+func NewService(
+	browserRegistry *registry.Registry,
+	requestRouter *router.Router,
+	selections *selection.Store,
+) *Service {
+	return &Service{
+		registry:   browserRegistry,
+		router:     requestRouter,
+		selections: selections,
+	}
+}
+
+// Register adds discovery and browser command tools to an MCP server.
+func (s *Service) Register(mcpServer *server.MCPServer) {
+	s.registerDiscoveryTools(mcpServer)
+	s.registerBrowserCommandTools(mcpServer)
+}
+
+type emptyArgs struct{}
+
+type browserIDArgs struct {
+	BrowserID string `json:"browserId,omitempty"`
+}
+
+type browserSelectArgs struct {
+	BrowserID string `json:"browserId"`
+}
+
+type browserRenameArgs struct {
+	BrowserID   string `json:"browserId"`
+	DisplayName string `json:"displayName"`
+}
+
+type targetedArgs struct {
+	BrowserID string `json:"browserId,omitempty"`
+	TabID     *int   `json:"tabId,omitempty"`
+	TimeoutMS *int   `json:"timeoutMs,omitempty"`
+}
+
+type getHTMLBySelectorArgs struct {
+	BrowserID string `json:"browserId,omitempty"`
+	TabID     *int   `json:"tabId,omitempty"`
+	Selector  string `json:"selector"`
+	TimeoutMS *int   `json:"timeoutMs,omitempty"`
+}
+
+type coordinates struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+}
+
+type clickArgs struct {
+	BrowserID   string       `json:"browserId,omitempty"`
+	TabID       *int         `json:"tabId,omitempty"`
+	Selector    *string      `json:"selector,omitempty"`
+	Index       *int         `json:"index,omitempty"`
+	Coordinates *coordinates `json:"coordinates,omitempty"`
+	TimeoutMS   *int         `json:"timeoutMs,omitempty"`
+}
+
+type inputArgs struct {
+	BrowserID string `json:"browserId,omitempty"`
+	TabID     *int   `json:"tabId,omitempty"`
+	Selector  string `json:"selector"`
+	Value     string `json:"value"`
+	Index     *int   `json:"index,omitempty"`
+	Clear     *bool  `json:"clear,omitempty"`
+	TimeoutMS *int   `json:"timeoutMs,omitempty"`
+}
+
+type sendCommandArgs struct {
+	BrowserID string         `json:"browserId,omitempty"`
+	TabID     *int           `json:"tabId,omitempty"`
+	Command   string         `json:"command"`
+	Data      map[string]any `json:"data,omitempty"`
+	TimeoutMS *int           `json:"timeoutMs,omitempty"`
+}
+
+type toolResponse struct {
+	Success   bool            `json:"success"`
+	BrowserID string          `json:"browserId,omitempty"`
+	Data      any             `json:"data,omitempty"`
+	Error     *protocol.Error `json:"error,omitempty"`
+	Timestamp string          `json:"timestamp"`
+}
+
+func (s *Service) registerDiscoveryTools(mcpServer *server.MCPServer) {
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_list",
+			mcp.WithDescription("List connected browser extension instances"),
+		),
+		mcp.NewTypedToolHandler(s.browserListHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get",
+			mcp.WithDescription("Get details for a connected browser instance"),
+			optionalBrowserID(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_select",
+			mcp.WithDescription("Select the default browser for the current MCP session"),
+			mcp.WithString(
+				"browserId",
+				mcp.Required(),
+				mcp.Description("Stable browser extension instance ID"),
+			),
+		),
+		mcp.NewTypedToolHandler(s.browserSelectHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_selected",
+			mcp.WithDescription("Get the browser selected for the current MCP session"),
+		),
+		mcp.NewTypedToolHandler(s.browserGetSelectedHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_rename",
+			mcp.WithDescription("Rename a connected browser instance"),
+			mcp.WithString("browserId", mcp.Required(), mcp.Description("Stable browser instance ID")),
+			mcp.WithString("displayName", mcp.Required(), mcp.Description("New browser display name")),
+		),
+		mcp.NewTypedToolHandler(s.browserRenameHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_capabilities",
+			mcp.WithDescription("Get capabilities and granted permissions for a browser"),
+			optionalBrowserID(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetCapabilitiesHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_ping",
+			mcp.WithDescription("Check whether a browser extension responds"),
+			optionalBrowserID(),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserPingHandler),
+	)
+}
+
+func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_tabs",
+			mcp.WithDescription("List tabs in one browser instance"),
+			optionalBrowserID(),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetTabsHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_html",
+			mcp.WithDescription("Get the HTML content of a browser page"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetHTMLHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_html_by_selector",
+			mcp.WithDescription("Get HTML for elements matching a CSS selector"),
+			optionalBrowserID(),
+			optionalTabID(),
+			mcp.WithString("selector", mcp.Required(), mcp.Description("CSS selector")),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetHTMLBySelectorHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_click_element",
+			mcp.WithDescription("Click an element by selector or viewport coordinates"),
+			optionalBrowserID(),
+			optionalTabID(),
+			mcp.WithString("selector", mcp.Description("CSS selector")),
+			mcp.WithNumber("index", mcp.Description("Zero-based matching element index"), mcp.DefaultNumber(0)),
+			mcp.WithObject(
+				"coordinates",
+				mcp.Description("Viewport coordinates"),
+				mcp.Properties(map[string]any{
+					"x": map[string]any{"type": "number"},
+					"y": map[string]any{"type": "number"},
+				}),
+			),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserClickHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_input_data",
+			mcp.WithDescription("Fill an input field on a browser page"),
+			optionalBrowserID(),
+			optionalTabID(),
+			mcp.WithString("selector", mcp.Required(), mcp.Description("CSS selector")),
+			mcp.WithString("value", mcp.Required(), mcp.Description("Value to enter")),
+			mcp.WithNumber("index", mcp.Description("Zero-based matching element index"), mcp.DefaultNumber(0)),
+			mcp.WithBoolean(
+				"clear",
+				mcp.Description("Clear the field before entering the value"),
+				mcp.DefaultBool(true),
+			),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserInputHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_console_log",
+			mcp.WithDescription("Read captured browser console entries"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetConsoleHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_network_log",
+			mcp.WithDescription("Read captured browser network entries"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetNetworkHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_send_command",
+			mcp.WithDescription("Send an advanced command supported by the browser extension"),
+			optionalBrowserID(),
+			optionalTabID(),
+			mcp.WithString("command", mcp.Required(), mcp.Description("Versioned extension command name")),
+			mcp.WithObject("data", mcp.Description("Command parameters")),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserSendCommandHandler),
+	)
+}
+
+func (s *Service) browserListHandler(
+	_ context.Context,
+	_ mcp.CallToolRequest,
+	_ emptyArgs,
+) (*mcp.CallToolResult, error) {
+	browsers := s.registry.List()
+	return successResult("", map[string]any{
+		"browsers":       browsers,
+		"connectedCount": len(browsers),
+	})
+}
+
+func (s *Service) browserGetHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args browserIDArgs,
+) (*mcp.CallToolResult, error) {
+	browserID, err := s.resolveBrowser(ctx, args.BrowserID)
+	if err != nil {
+		return errorResult(err)
+	}
+	browser, ok := s.registry.Get(browserID)
+	if !ok {
+		return errorResult(protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false))
+	}
+	return successResult(browserID, browser)
+}
+
+func (s *Service) browserSelectHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args browserSelectArgs,
+) (*mcp.CallToolResult, error) {
+	browser, ok := s.registry.Get(args.BrowserID)
+	if !ok {
+		return errorResult(protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false))
+	}
+	if err := s.selections.Set(sessionID(ctx), args.BrowserID); err != nil {
+		return errorResult(err)
+	}
+	return successResult(args.BrowserID, map[string]any{
+		"selected": true,
+		"browser":  browser,
+	})
+}
+
+func (s *Service) browserGetSelectedHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	_ emptyArgs,
+) (*mcp.CallToolResult, error) {
+	selected, ok := s.selections.Get(sessionID(ctx))
+	if !ok {
+		return successResult("", map[string]any{"selected": false})
+	}
+	browser, connected := s.registry.Get(selected.BrowserID)
+	return successResult(selected.BrowserID, map[string]any{
+		"selected":  true,
+		"connected": connected,
+		"selection": selected,
+		"browser":   browser,
+	})
+}
+
+func (s *Service) browserRenameHandler(
+	_ context.Context,
+	_ mcp.CallToolRequest,
+	args browserRenameArgs,
+) (*mcp.CallToolResult, error) {
+	browser, err := s.registry.Rename(args.BrowserID, args.DisplayName)
+	if err != nil {
+		return errorResult(err)
+	}
+	return successResult(args.BrowserID, browser)
+}
+
+func (s *Service) browserGetCapabilitiesHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args browserIDArgs,
+) (*mcp.CallToolResult, error) {
+	browserID, err := s.resolveBrowser(ctx, args.BrowserID)
+	if err != nil {
+		return errorResult(err)
+	}
+	browser, ok := s.registry.Get(browserID)
+	if !ok {
+		return errorResult(protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false))
+	}
+	return successResult(browserID, map[string]any{
+		"capabilities": browser.Capabilities,
+		"permissions":  browser.Permissions,
+		"browser":      browser.Browser,
+	})
+}
+
+func (s *Service) browserPingHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args targetedArgs,
+) (*mcp.CallToolResult, error) {
+	return s.send(ctx, args.BrowserID, protocol.CommandBrowserPing, nil, map[string]any{}, args.TimeoutMS)
+}
+
+func (s *Service) browserGetTabsHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args targetedArgs,
+) (*mcp.CallToolResult, error) {
+	return s.send(ctx, args.BrowserID, protocol.CommandTabsList, nil, map[string]any{}, args.TimeoutMS)
+}
+
+func (s *Service) browserGetHTMLHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args targetedArgs,
+) (*mcp.CallToolResult, error) {
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageGetHTML,
+		targetWithTab(args.TabID),
+		map[string]any{},
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserGetHTMLBySelectorHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args getHTMLBySelectorArgs,
+) (*mcp.CallToolResult, error) {
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageGetHTMLBySelector,
+		targetWithTab(args.TabID),
+		map[string]any{"selector": args.Selector},
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserClickHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args clickArgs,
+) (*mcp.CallToolResult, error) {
+	if args.Selector == nil && args.Coordinates == nil {
+		return errorResult(protocol.NewError(
+			protocol.CodeInvalidMessage,
+			"either selector or coordinates must be provided",
+			false,
+		))
+	}
+
+	params := make(map[string]any)
+	if args.Selector != nil {
+		params["selector"] = *args.Selector
+	}
+	if args.Index != nil {
+		params["index"] = *args.Index
+	}
+	if args.Coordinates != nil {
+		params["coordinates"] = args.Coordinates
+	}
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageClick,
+		targetWithTab(args.TabID),
+		params,
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserInputHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args inputArgs,
+) (*mcp.CallToolResult, error) {
+	params := map[string]any{
+		"selector": args.Selector,
+		"value":    args.Value,
+		"clear":    true,
+	}
+	if args.Index != nil {
+		params["index"] = *args.Index
+	}
+	if args.Clear != nil {
+		params["clear"] = *args.Clear
+	}
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageFill,
+		targetWithTab(args.TabID),
+		params,
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserGetConsoleHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args targetedArgs,
+) (*mcp.CallToolResult, error) {
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandConsoleRead,
+		targetWithTab(args.TabID),
+		map[string]any{},
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserGetNetworkHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args targetedArgs,
+) (*mcp.CallToolResult, error) {
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandNetworkRead,
+		targetWithTab(args.TabID),
+		map[string]any{},
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserSendCommandHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args sendCommandArgs,
+) (*mcp.CallToolResult, error) {
+	return s.send(
+		ctx,
+		args.BrowserID,
+		args.Command,
+		targetWithTab(args.TabID),
+		args.Data,
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) send(
+	ctx context.Context,
+	explicitBrowserID string,
+	command string,
+	target *protocol.Target,
+	params any,
+	timeoutMS *int,
+) (*mcp.CallToolResult, error) {
+	browserID, err := s.resolveBrowser(ctx, explicitBrowserID)
+	if err != nil {
+		return errorResult(err)
+	}
+	requestCtx, cancel, err := toolContext(ctx, timeoutMS)
+	if err != nil {
+		return errorResult(err)
+	}
+	defer cancel()
+
+	result, err := s.router.Send(requestCtx, browserID, command, target, params)
+	if err != nil {
+		return errorResult(err)
+	}
+	if len(result) == 0 {
+		result = json.RawMessage("null")
+	}
+	return successResult(browserID, result)
+}
+
+func (s *Service) resolveBrowser(ctx context.Context, explicitBrowserID string) (string, error) {
+	return s.selections.Resolve(sessionID(ctx), explicitBrowserID, s.registry.List())
+}
+
+func sessionID(ctx context.Context) string {
+	session := server.ClientSessionFromContext(ctx)
+	if session == nil || session.SessionID() == "" {
+		return directSessionID
+	}
+	return session.SessionID()
+}
+
+func toolContext(ctx context.Context, timeoutMS *int) (context.Context, context.CancelFunc, error) {
+	if timeoutMS == nil {
+		requestCtx, cancel := context.WithCancel(ctx)
+		return requestCtx, cancel, nil
+	}
+	timeout := time.Duration(*timeoutMS) * time.Millisecond
+	if timeout <= 0 || timeout > maxToolTimeout {
+		return nil, nil, protocol.NewError(
+			protocol.CodeInvalidMessage,
+			fmt.Sprintf("timeoutMs must be between 1 and %d", maxToolTimeout.Milliseconds()),
+			false,
+		)
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, timeout)
+	return requestCtx, cancel, nil
+}
+
+func targetWithTab(tabID *int) *protocol.Target {
+	if tabID == nil {
+		return nil
+	}
+	return &protocol.Target{TabID: tabID}
+}
+
+func successResult(browserID string, data any) (*mcp.CallToolResult, error) {
+	payload, err := json.Marshal(toolResponse{
+		Success:   true,
+		BrowserID: browserID,
+		Data:      data,
+		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("marshal MCP tool result: %w", err)
+	}
+	return mcp.NewToolResultText(string(payload)), nil
+}
+
+func errorResult(err error) (*mcp.CallToolResult, error) {
+	payload, marshalErr := json.Marshal(toolResponse{
+		Success:   false,
+		Error:     protocol.ErrorFrom(err),
+		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+	})
+	if marshalErr != nil {
+		return nil, fmt.Errorf("marshal MCP tool error: %w", marshalErr)
+	}
+	return mcp.NewToolResultError(string(payload)), nil
+}
+
+func optionalBrowserID() mcp.ToolOption {
+	return mcp.WithString(
+		"browserId",
+		mcp.Description("Browser instance ID; omit to use the current MCP session selection"),
+	)
+}
+
+func optionalTabID() mcp.ToolOption {
+	return mcp.WithNumber(
+		"tabId",
+		mcp.Description("Browser tab ID; omit to use the active tab"),
+	)
+}
+
+func optionalTimeout() mcp.ToolOption {
+	return mcp.WithNumber(
+		"timeoutMs",
+		mcp.Description("Command timeout in milliseconds"),
+	)
+}

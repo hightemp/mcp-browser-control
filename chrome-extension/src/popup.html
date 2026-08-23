@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MCP Browser Control</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>MCP Browser Control</h1>
+        <span id="status" class="status">Loading</span>
+      </header>
+
+      <label>
+        Browser name
+        <input id="display-name" type="text" maxlength="80" autocomplete="off">
+      </label>
+
+      <label>
+        Server endpoint
+        <input id="endpoint" type="url" spellcheck="false">
+      </label>
+
+      <label class="checkbox">
+        <input id="auto-connect" type="checkbox">
+        Connect automatically
+      </label>
+
+      <dl>
+        <dt>Browser ID</dt>
+        <dd id="browser-id">—</dd>
+      </dl>
+
+      <p id="error" class="error" hidden></p>
+
+      <div class="actions">
+        <button id="save" type="button">Save</button>
+        <button id="connect" type="button">Connect</button>
+        <button id="disconnect" type="button" class="secondary">Disconnect</button>
+      </div>
+
+      <button id="grant-access" type="button" class="wide secondary">
+        Grant access to websites
+      </button>
+    </main>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

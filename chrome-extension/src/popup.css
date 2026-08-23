@@ -1,0 +1,113 @@
+:root {
+  color-scheme: light dark;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+body {
+  width: 360px;
+  margin: 0;
+}
+
+main {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+h1 {
+  margin: 0;
+  font-size: 17px;
+}
+
+label {
+  display: grid;
+  gap: 5px;
+  font-weight: 600;
+}
+
+input[type="text"],
+input[type="url"] {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 7px 8px;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  font-weight: 400;
+}
+
+.status {
+  border-radius: 999px;
+  padding: 3px 8px;
+  background: #64748b;
+  color: white;
+  text-transform: capitalize;
+}
+
+.status.connected {
+  background: #15803d;
+}
+
+.status.connecting,
+.status.handshaking {
+  background: #ca8a04;
+}
+
+.status.error {
+  background: #b91c1c;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+dt {
+  font-weight: 600;
+}
+
+dd {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+button {
+  cursor: pointer;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+button.secondary {
+  background: #475569;
+}
+
+button.wide {
+  width: 100%;
+}
+
+.error {
+  margin: 0;
+  color: #dc2626;
+}

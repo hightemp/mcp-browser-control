@@ -1042,9 +1042,16 @@ name, отрицательный tab, frame без tab и несовпадени
 
 - Приоритет: P0
 - Зависимости: T-024, T-030, T-031
-- Статус: `[~]`
+- Статус: `[x]`
 
 Поднять сервер и минимум два fake WebSocket browser clients. Проверить selection, routing, responses, timeouts, reconnect и несколько MCP sessions.
+
+Integration harness поднимает настоящий WebSocket transport, Streamable HTTP
+MCP server, две независимые MCP sessions и два fake Chromium clients с pairing.
+Тест проверяет ambiguous selection, отдельные browser/tab selections,
+параллельные адресные responses без cross-routing, tool timeout и protocol
+cancel, disconnect, credential-authenticated reconnect с тем же browserId и
+сохранение session selection после смены connectionId.
 
 ### T-094 — Extension unit tests
 

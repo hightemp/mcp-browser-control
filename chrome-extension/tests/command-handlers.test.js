@@ -219,7 +219,7 @@ test("page handlers preserve addressing and structured content errors", async ()
       sendMessage: async (...args) => {
         sent.push(args);
         if (args[1].type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.3" };
+          return { ready: true, bridgeVersion: "1.4" };
         }
         if (args[1].command === "page.info") {
           return { success: true, result: { url: "https://example.com/page" } };
@@ -291,3 +291,67 @@ test("page handler applies a command timeout across browser API calls", async ()
     (error) => error.code === ErrorCode.TIMEOUT && error.retryable === true,
   );
 });
+
+test("page interaction optionally waits for the addressed frame navigation", async () => {
+  const completed = fakeChromeEvent();
+  const history = fakeChromeEvent();
+  const fragment = fakeChromeEvent();
+  const failed = fakeChromeEvent();
+  const chromeAPI = {
+    tabs: {
+      get: async () => ({ id: 7, url: "https://example.com/start" }),
+      sendMessage: async (_tabId, message) => {
+        if (message.type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: "1.4" };
+        }
+        queueMicrotask(() => completed.emit({
+          tabId: 7,
+          frameId: 2,
+          documentId: "document-2",
+          url: "https://example.com/next",
+        }));
+        return { success: true, result: { backend: "content" } };
+      },
+    },
+    permissions: { contains: async () => true },
+    scripting: { executeScript: async () => undefined },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "document-1" }),
+      onCompleted: completed,
+      onHistoryStateUpdated: history,
+      onReferenceFragmentUpdated: fragment,
+      onErrorOccurred: failed,
+    },
+  };
+  const page = createPageHandlers(chromeAPI);
+
+  const result = await page.click({
+    command: "page.click",
+    target: { tabId: 7, frameId: 2, documentId: "document-1" },
+    params: { locator: { css: "a" }, waitForNavigation: true },
+  }, new AbortController().signal);
+
+  assert.deepEqual(result.navigation, {
+    tabId: 7,
+    frameId: 2,
+    documentId: "document-2",
+    url: "https://example.com/next",
+    sameDocument: false,
+  });
+  assert.equal(completed.listenerCount(), 0);
+  assert.equal(history.listenerCount(), 0);
+  assert.equal(fragment.listenerCount(), 0);
+  assert.equal(failed.listenerCount(), 0);
+});
+
+function fakeChromeEvent() {
+  const listeners = new Set();
+  return {
+    addListener(listener) { listeners.add(listener); },
+    removeListener(listener) { listeners.delete(listener); },
+    emit(details) {
+      for (const listener of [...listeners]) listener(details);
+    },
+    listenerCount() { return listeners.size; },
+  };
+}

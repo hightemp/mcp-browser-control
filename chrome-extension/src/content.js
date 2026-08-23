@@ -1,9 +1,12 @@
 (() => {
-  const BRIDGE_VERSION = "1.3";
+  const BRIDGE_VERSION = "1.4";
   const DEFAULT_MAX_CHARS = 100_000;
   const DEFAULT_MAX_DEPTH = 50;
   const DEFAULT_QUERY_LIMIT = 25;
   const MAX_TEXT_SCAN_CHARS = 2_000_001;
+  const NON_TEXT_INPUT_TYPES = new Set([
+    "button", "checkbox", "file", "hidden", "image", "radio", "reset", "submit",
+  ]);
   if (globalThis.__mcpBrowserControlVersion === BRIDGE_VERSION) {
     return;
   }
@@ -79,6 +82,30 @@
         return click(params, context);
       case "page.fill":
         return fill(params, context);
+      case "page.hover":
+        return hover(params, context);
+      case "page.focus":
+        return focusElement(params, context);
+      case "page.blur":
+        return blurElement(params, context);
+      case "page.type":
+        return typeText(params, context);
+      case "page.clear":
+        return clearElement(params, context);
+      case "page.press":
+        return pressKey(params, context);
+      case "page.select":
+        return selectOptions(params, context);
+      case "page.setChecked":
+        return setChecked(params, context);
+      case "page.scroll":
+        return scrollTarget(params, context);
+      case "page.drag":
+        return dragAndDrop(params, context);
+      case "page.dispatch":
+        return dispatchEvent(params, context);
+      case "page.submit":
+        return submitForm(params, context);
       default:
         throw commandError("INVALID_COMMAND", `Unknown page command "${command}"`);
     }
@@ -372,26 +399,30 @@
   }
 
   async function click(params, context) {
+    assertContentBackend(params.backend);
     const resolved = resolveElement(params, context, true);
     const { element } = resolved;
     await locatorEngine.ensureActionable(element, { pointer: true });
-    element.click();
-    return {
-      matchCount: resolved.count,
-      element: locatorEngine.describeElement(
-        element,
-        resolved.index,
-        context.documentId,
-      ),
-      timestamp: new Date().toISOString(),
-    };
+    const button = params.button ?? "left";
+    const count = params.clickCount ?? 1;
+    for (let iteration = 0; iteration < count; iteration += 1) {
+      dispatchMouseSequence(element, button);
+    }
+    if (count === 2 && button === "left") {
+      element.dispatchEvent(mouseEvent("dblclick", element, 0, 2));
+    }
+    return interactionResult(element, resolved, context, { button, clickCount: count });
   }
 
   async function fill(params, context) {
+    assertContentBackend(params.backend);
     const resolved = resolveElement(params, context, true);
     const { element } = resolved;
-    if (!["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName) && !element.isContentEditable) {
+    if (element.tagName !== "SELECT" && !acceptsTextInput(element)) {
       throw commandError("INVALID_MESSAGE", `${element.tagName} does not accept input`);
+    }
+    if (element.readOnly) {
+      throw commandError("INVALID_MESSAGE", "Element is read-only");
     }
     if (params.value === undefined || params.value === null) {
       throw commandError("INVALID_MESSAGE", "value is required");
@@ -409,10 +440,7 @@
       }
       element.value = option.value;
     } else if (!element.isContentEditable) {
-      if (params.clear !== false) {
-        setNativeValue(element, "");
-      }
-      setNativeValue(element, value);
+      setNativeValue(element, params.clear === false ? `${element.value}${value}` : value);
     } else {
       if (params.clear !== false) {
         element.textContent = "";
@@ -425,15 +453,238 @@
     return {
       element: {
         ...locatorEngine.describeElement(element, resolved.index, context.documentId),
-        value: element.type === "password"
-          ? "[REDACTED]"
-          : element.isContentEditable
-            ? element.textContent
-            : element.value,
+        value: sensitiveValue(element),
       },
       matchCount: resolved.count,
+      backend: "content",
       timestamp: new Date().toISOString(),
     };
+  }
+
+  async function hover(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    await locatorEngine.ensureActionable(resolved.element, { pointer: true });
+    for (const type of ["mouseover", "mouseenter", "mousemove"]) {
+      resolved.element.dispatchEvent(mouseEvent(type, resolved.element, 0, 0));
+    }
+    return interactionResult(resolved.element, resolved, context);
+  }
+
+  async function focusElement(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    await locatorEngine.ensureActionable(resolved.element);
+    resolved.element.focus({ preventScroll: false });
+    return interactionResult(resolved.element, resolved, context);
+  }
+
+  async function blurElement(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    resolved.element.blur();
+    return interactionResult(resolved.element, resolved, context);
+  }
+
+  async function typeText(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    const element = resolved.element;
+    assertEditable(element);
+    await locatorEngine.ensureActionable(element);
+    element.focus();
+    for (const character of params.text) {
+      const accepted = element.dispatchEvent(keyboardEvent("keydown", character));
+      if (accepted) {
+        if (element.isContentEditable) {
+          element.textContent += character;
+        } else {
+          setNativeValue(element, `${element.value}${character}`);
+        }
+        element.dispatchEvent(new InputEvent("input", {
+          bubbles: true,
+          inputType: "insertText",
+          data: character,
+        }));
+      }
+      element.dispatchEvent(keyboardEvent("keyup", character));
+      if (params.delayMs) await new Promise((resolve) => setTimeout(resolve, params.delayMs));
+    }
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    return interactionResult(element, resolved, context, { value: sensitiveValue(element) });
+  }
+
+  async function clearElement(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    const element = resolved.element;
+    assertEditable(element);
+    await locatorEngine.ensureActionable(element);
+    if (element.isContentEditable) element.textContent = "";
+    else setNativeValue(element, "");
+    element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContent" }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    return interactionResult(element, resolved, context, { value: sensitiveValue(element) });
+  }
+
+  async function pressKey(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    const element = resolved.element;
+    await locatorEngine.ensureActionable(element);
+    element.focus();
+    const down = keyboardEvent("keydown", params.key, params.modifiers);
+    const accepted = element.dispatchEvent(down);
+    if (accepted && params.key === "Enter") {
+      const form = element.form || (element.tagName === "FORM" ? element : null);
+      form?.requestSubmit?.();
+    }
+    element.dispatchEvent(keyboardEvent("keyup", params.key, params.modifiers));
+    return interactionResult(element, resolved, context, {
+      key: params.key,
+      modifiers: params.modifiers || [],
+    });
+  }
+
+  async function selectOptions(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    const element = resolved.element;
+    if (element.tagName !== "SELECT") {
+      throw commandError("INVALID_MESSAGE", "The matched element is not a select control");
+    }
+    await locatorEngine.ensureActionable(element);
+    const requested = new Set(params.values);
+    const selected = [];
+    for (const option of element.options) {
+      const matches = requested.has(option.value) || requested.has(option.text);
+      option.selected = matches;
+      if (matches) selected.push(option.value);
+      if (matches && !element.multiple) break;
+    }
+    if (selected.length === 0 || (!element.multiple && selected.length !== 1)) {
+      throw commandError("ELEMENT_NOT_FOUND", "No requested select option was found");
+    }
+    element.dispatchEvent(new InputEvent("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    return interactionResult(element, resolved, context, { selectedValues: selected });
+  }
+
+  async function setChecked(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    const element = resolved.element;
+    if (element.tagName !== "INPUT" || !["checkbox", "radio"].includes(element.type)) {
+      throw commandError("INVALID_MESSAGE", "The matched element is not checkable");
+    }
+    await locatorEngine.ensureActionable(element, { pointer: true });
+    const desired = params.checked ?? !element.checked;
+    if (element.type === "radio" && !desired) {
+      throw commandError("INVALID_MESSAGE", "A radio input cannot be unchecked directly");
+    }
+    if (element.checked !== desired) {
+      element.click();
+      if (element.checked !== desired) {
+        element.checked = desired;
+        element.dispatchEvent(new InputEvent("input", { bubbles: true }));
+        element.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    }
+    return interactionResult(element, resolved, context, { checked: element.checked });
+  }
+
+  async function scrollTarget(params, context) {
+    assertContentBackend(params.backend);
+    const hasAddress = params.selector || params.coordinates || params.locator;
+    if (!hasAddress) {
+      window.scrollBy({
+        left: params.deltaX || 0,
+        top: params.deltaY || 0,
+        behavior: params.behavior || "auto",
+      });
+      return {
+        target: "page",
+        backend: "content",
+        scroll: { x: window.scrollX, y: window.scrollY },
+        timestamp: new Date().toISOString(),
+      };
+    }
+    const resolved = resolveElement(params, context, true);
+    resolved.element.scrollBy({
+      left: params.deltaX || 0,
+      top: params.deltaY || 0,
+      behavior: params.behavior || "auto",
+    });
+    return interactionResult(resolved.element, resolved, context, {
+      scroll: { left: resolved.element.scrollLeft, top: resolved.element.scrollTop },
+    });
+  }
+
+  async function dragAndDrop(params, context) {
+    assertContentBackend(params.backend);
+    const source = locatorEngine.resolve(params.source, {
+      documentId: context.documentId,
+      strictDefault: true,
+    });
+    const target = params.targetLocator
+      ? locatorEngine.resolve(params.targetLocator, {
+        documentId: context.documentId,
+        strictDefault: true,
+      })
+      : locatorEngine.resolve({ coordinates: params.targetCoordinates }, {
+        documentId: context.documentId,
+        strictDefault: true,
+      });
+    await locatorEngine.ensureActionable(source.element, { pointer: true });
+    await locatorEngine.ensureActionable(target.element, { pointer: true });
+    const transfer = typeof DataTransfer === "function" ? new DataTransfer() : undefined;
+    for (const [element, type] of [
+      [source.element, "dragstart"], [target.element, "dragenter"],
+      [target.element, "dragover"], [target.element, "drop"], [source.element, "dragend"],
+    ]) {
+      element.dispatchEvent(createDragEvent(type, transfer));
+    }
+    return {
+      source: locatorEngine.describeElement(
+        source.element,
+        params.source.nth ?? 0,
+        context.documentId,
+      ),
+      target: locatorEngine.describeElement(
+        target.element,
+        params.targetLocator?.nth ?? 0,
+        context.documentId,
+      ),
+      backend: "content",
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  async function dispatchEvent(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    const accepted = resolved.element.dispatchEvent(new CustomEvent(params.eventType, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      detail: params.detail || {},
+    }));
+    return interactionResult(resolved.element, resolved, context, {
+      eventType: params.eventType,
+      defaultPrevented: !accepted,
+    });
+  }
+
+  async function submitForm(params, context) {
+    assertContentBackend(params.backend);
+    const resolved = resolveElement(params, context, true);
+    const element = resolved.element;
+    const form = element.tagName === "FORM" ? element : element.form;
+    if (!form) throw commandError("INVALID_MESSAGE", "The matched element has no form");
+    await locatorEngine.ensureActionable(element);
+    if (typeof form.requestSubmit === "function") form.requestSubmit();
+    else form.submit();
+    return interactionResult(element, resolved, context, { submitted: true });
   }
 
   function resolveElement(params, context, strictDefault) {
@@ -455,6 +706,86 @@
       ...resolved,
       index: locator.nth ?? 0,
     };
+  }
+
+  function interactionResult(element, resolved, context, extra = {}) {
+    return {
+      matchCount: resolved.count,
+      element: locatorEngine.describeElement(element, resolved.index ?? 0, context.documentId),
+      backend: "content",
+      ...extra,
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  function assertContentBackend(backend) {
+    if (backend === "cdp") {
+      throw commandError(
+        "CAPABILITY_UNAVAILABLE",
+        "Trusted CDP input requires the debugger backend",
+      );
+    }
+  }
+
+  function assertEditable(element) {
+    if (!acceptsTextInput(element)) {
+      throw commandError("INVALID_MESSAGE", `${element.tagName} is not text editable`);
+    }
+    if (element.readOnly) {
+      throw commandError("INVALID_MESSAGE", "Element is read-only");
+    }
+  }
+
+  function dispatchMouseSequence(element, buttonName) {
+    const button = { left: 0, middle: 1, right: 2 }[buttonName];
+    element.dispatchEvent(mouseEvent("mousedown", element, button, 1));
+    element.dispatchEvent(mouseEvent("mouseup", element, button, 1));
+    if (buttonName === "left") element.click();
+    else if (buttonName === "middle") {
+      element.dispatchEvent(mouseEvent("auxclick", element, button, 1));
+    } else {
+      element.dispatchEvent(mouseEvent("contextmenu", element, button, 1));
+    }
+  }
+
+  function mouseEvent(type, element, button, detail) {
+    const rect = element.getBoundingClientRect();
+    return new MouseEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      button,
+      buttons: type === "mousedown" ? { 0: 1, 1: 4, 2: 2 }[button] : 0,
+      clientX: rect.left + rect.width / 2,
+      clientY: rect.top + rect.height / 2,
+      detail,
+    });
+  }
+
+  function keyboardEvent(type, key, modifiers = []) {
+    const active = new Set(modifiers || []);
+    return new KeyboardEvent(type, {
+      key,
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      altKey: active.has("Alt"),
+      ctrlKey: active.has("Control"),
+      metaKey: active.has("Meta"),
+      shiftKey: active.has("Shift"),
+    });
+  }
+
+  function createDragEvent(type, dataTransfer) {
+    if (typeof DragEvent === "function") {
+      return new DragEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        dataTransfer,
+      });
+    }
+    return new CustomEvent(type, { bubbles: true, cancelable: true, composed: true });
   }
 
   function selectRoots(selectors) {
@@ -576,8 +907,13 @@
   }
 
   function isEditable(element) {
-    return element.isContentEditable
-      || ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName);
+    return acceptsTextInput(element) || element.tagName === "SELECT";
+  }
+
+  function acceptsTextInput(element) {
+    if (element.isContentEditable || element.tagName === "TEXTAREA") return true;
+    if (element.tagName !== "INPUT") return false;
+    return !NON_TEXT_INPUT_TYPES.has(String(element.type || "text").toLowerCase());
   }
 
   function parseCursor(cursor) {

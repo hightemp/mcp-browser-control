@@ -128,6 +128,26 @@ const COMMANDS = Object.freeze({
   }),
   "page.click": Object.freeze({ domain: "page", handler: "click", validate: validateAction }),
   "page.fill": Object.freeze({ domain: "page", handler: "fill", validate: validateFill }),
+  "page.hover": Object.freeze({ domain: "page", handler: "hover", validate: validateSimpleAction }),
+  "page.focus": Object.freeze({ domain: "page", handler: "focus", validate: validateSimpleAction }),
+  "page.blur": Object.freeze({ domain: "page", handler: "blur", validate: validateSimpleAction }),
+  "page.type": Object.freeze({ domain: "page", handler: "type", validate: validateType }),
+  "page.clear": Object.freeze({ domain: "page", handler: "clear", validate: validateSimpleAction }),
+  "page.press": Object.freeze({ domain: "page", handler: "press", validate: validatePress }),
+  "page.select": Object.freeze({ domain: "page", handler: "select", validate: validateSelect }),
+  "page.setChecked": Object.freeze({
+    domain: "page",
+    handler: "setChecked",
+    validate: validateSetChecked,
+  }),
+  "page.scroll": Object.freeze({ domain: "page", handler: "scroll", validate: validateScroll }),
+  "page.drag": Object.freeze({ domain: "page", handler: "drag", validate: validateDrag }),
+  "page.dispatch": Object.freeze({
+    domain: "page",
+    handler: "dispatch",
+    validate: validateDispatch,
+  }),
+  "page.submit": Object.freeze({ domain: "page", handler: "submit", validate: validateSimpleAction }),
 });
 
 export const COMMAND_NAMES = Object.freeze(Object.keys(COMMANDS));
@@ -512,9 +532,15 @@ function validateTabIDs(tabIds) {
 
 function validateAction(params, target) {
   validateParamsObject(params);
-  assertAllowedProperties(params, ["selector", "coordinates", "locator", "index"]);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "button", "clickCount",
+    "backend", "waitForNavigation",
+  ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
+  validateEnum(params.button, "params.button", ["left", "middle", "right"]);
+  validateIntegerRange(params.clickCount, "params.clickCount", 1, 2);
+  validateInteractionOptions(params);
 }
 
 function validateFill(params, target) {
@@ -526,6 +552,8 @@ function validateFill(params, target) {
     "index",
     "value",
     "clear",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
@@ -535,6 +563,160 @@ function validateFill(params, target) {
   if (params.clear !== undefined && typeof params.clear !== "boolean") {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.clear must be a boolean");
   }
+  validateInteractionOptions(params);
+}
+
+function validateSimpleAction(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "backend", "waitForNavigation",
+  ]);
+  validateElementAddress(params, target);
+  validateIndex(params.index);
+  validateInteractionOptions(params);
+}
+
+function validateType(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "text", "delayMs",
+    "backend", "waitForNavigation",
+  ]);
+  validateElementAddress(params, target);
+  validateIndex(params.index);
+  assertNonEmptyString(params.text, "params.text");
+  validateIntegerRange(params.delayMs, "params.delayMs", 0, 1_000);
+  validateInteractionOptions(params);
+}
+
+function validatePress(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "key", "modifiers",
+    "backend", "waitForNavigation",
+  ]);
+  validateElementAddress(params, target);
+  validateIndex(params.index);
+  assertNonEmptyString(params.key, "params.key");
+  if (
+    params.modifiers !== undefined
+    && (
+      !Array.isArray(params.modifiers)
+      || params.modifiers.length > 4
+      || new Set(params.modifiers).size !== params.modifiers.length
+      || params.modifiers.some((modifier) =>
+        !["Alt", "Control", "Meta", "Shift"].includes(modifier))
+    )
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.modifiers contains invalid keys");
+  }
+  validateInteractionOptions(params);
+}
+
+function validateSelect(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "values",
+    "backend", "waitForNavigation",
+  ]);
+  validateElementAddress(params, target);
+  validateIndex(params.index);
+  if (
+    !Array.isArray(params.values)
+    || params.values.length === 0
+    || params.values.length > 100
+    || params.values.some((value) => typeof value !== "string")
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.values must contain 1 to 100 strings");
+  }
+  validateInteractionOptions(params);
+}
+
+function validateSetChecked(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "checked",
+    "backend", "waitForNavigation",
+  ]);
+  validateElementAddress(params, target);
+  validateIndex(params.index);
+  validateOptionalBoolean(params.checked, "params.checked");
+  validateInteractionOptions(params);
+}
+
+function validateScroll(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "deltaX", "deltaY", "behavior",
+    "backend", "waitForNavigation",
+  ]);
+  validateOptionalElementAddress(params, target);
+  validateIndex(params.index);
+  for (const property of ["deltaX", "deltaY"]) {
+    if (
+      params[property] !== undefined
+      && (!Number.isFinite(params[property]) || Math.abs(params[property]) > 1_000_000)
+    ) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${property} is out of range`);
+    }
+  }
+  if (!params.deltaX && !params.deltaY) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "A non-zero scroll delta is required");
+  }
+  validateEnum(params.behavior, "params.behavior", ["auto", "smooth"]);
+  validateInteractionOptions(params);
+}
+
+function validateDrag(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "source", "targetLocator", "targetCoordinates", "backend", "waitForNavigation",
+  ]);
+  validateLocator(params.source, target);
+  const targets = [params.targetLocator, params.targetCoordinates]
+    .filter((value) => value !== undefined);
+  if (targets.length !== 1) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Exactly one drag target locator or coordinates is required",
+    );
+  }
+  if (params.targetLocator !== undefined) validateLocator(params.targetLocator, target);
+  if (params.targetCoordinates !== undefined) {
+    validateLocator({ coordinates: params.targetCoordinates }, target);
+  }
+  validateInteractionOptions(params);
+}
+
+function validateDispatch(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "selector", "coordinates", "locator", "index", "eventType", "detail",
+    "backend", "waitForNavigation",
+  ]);
+  validateElementAddress(params, target);
+  validateIndex(params.index);
+  if (typeof params.eventType !== "string" || !/^[A-Za-z][A-Za-z0-9:_-]{0,99}$/.test(params.eventType)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.eventType is invalid");
+  }
+  if (
+    params.detail !== undefined
+    && (!params.detail || typeof params.detail !== "object" || Array.isArray(params.detail))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.detail must be an object");
+  }
+  validateInteractionOptions(params);
+}
+
+function validateInteractionOptions(params) {
+  validateEnum(params.backend, "params.backend", ["auto", "content", "cdp"]);
+  validateOptionalBoolean(params.waitForNavigation, "params.waitForNavigation");
+}
+
+function validateOptionalElementAddress(params, target) {
+  const hasAddress = [params.selector, params.coordinates, params.locator]
+    .some((value) => value !== undefined);
+  if (hasAddress) validateElementAddress(params, target);
 }
 
 function validateElementAddress(params, target) {

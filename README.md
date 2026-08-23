@@ -18,14 +18,14 @@ The first multi-browser vertical slice is implemented:
   handshake is authenticated;
 - STDIO and authenticated Streamable HTTP transports are available; deprecated
   legacy SSE requires an explicit opt-in;
-- tab listing, HTML inspection, CSS queries, clicking, and input work through
-  the extension;
+- window, tab, tab-group, session, bounded page inspection, semantic snapshot,
+  locator, and DOM interaction tools work through the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-Full tab/window control, semantic snapshots, waits, screenshots, console
-capture, and network capture are planned but not complete. Remote mode is not
-implemented; do not expose either server port outside the local machine.
+General wait conditions, screenshots, trusted CDP input, console capture, and
+network capture are planned but not complete. Remote mode is not implemented;
+do not expose either server port outside the local machine.
 
 ## Architecture
 
@@ -239,6 +239,20 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_snapshot`
 - `browser_click_element`
 - `browser_input_data`
+- `browser_double_click`
+- `browser_context_click`
+- `browser_hover`
+- `browser_focus`
+- `browser_blur`
+- `browser_type`
+- `browser_clear`
+- `browser_press`
+- `browser_select_option`
+- `browser_set_checked`
+- `browser_scroll`
+- `browser_drag_and_drop`
+- `browser_dispatch_event`
+- `browser_submit`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
 accept optional `tabId`, `frameId`, and `documentId`; when `tabId` is omitted,
@@ -267,6 +281,14 @@ References have a sliding 60-second lifetime and fail with `STALE_TARGET` after
 navigation, detachment, or expiry. Locator failures include the match count and
 bounded candidate diagnostics; actionability checks cover attachment,
 visibility, disabled state, viewport placement, and pointer obstruction.
+
+Interaction tools use the synthetic content-script backend when `backend` is
+`auto` or `content`. Requesting `cdp` currently returns
+`CAPABILITY_UNAVAILABLE`; trusted input will be enabled by the CDP session
+manager. Actions that can navigate accept `waitForNavigation: true` and then
+wait for the addressed frame to complete either a document or same-document
+navigation within the command deadline. Password values remain redacted in
+every interaction result.
 
 Page inspection never returns unrestricted raw DOM by default. HTML defaults to
 100,000 characters and depth 50, supports include/exclude CSS filters, and has

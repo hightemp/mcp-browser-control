@@ -27,14 +27,27 @@ export function createPageHandlers(chromeAPI) {
     const frameId = request.target?.frameId ?? 0;
     const documentId = await currentDocument(request, tab.id, frameId);
     throwIfCancelled(signal);
-    const result = await bridge.execute({
-      tabId: tab.id,
-      frameId,
-      documentId,
-      command: request.command,
-      params: request.params,
-      signal,
-    });
+    const navigation = request.params.waitForNavigation
+      ? createNavigationWaiter(chromeAPI, tab.id, frameId, signal)
+      : null;
+    let result;
+    try {
+      result = await bridge.execute({
+        tabId: tab.id,
+        frameId,
+        documentId,
+        command: request.command,
+        params: request.params,
+        signal,
+      });
+    } catch (error) {
+      navigation?.cancel();
+      throw error;
+    }
+    if (navigation) {
+      const completed = await navigation.promise;
+      result = { ...result, navigation: completed };
+    }
     if (request.command !== "page.info") {
       return result;
     }
@@ -141,6 +154,18 @@ export function createPageHandlers(chromeAPI) {
     snapshot: execute,
     click: execute,
     fill: execute,
+    hover: execute,
+    focus: execute,
+    blur: execute,
+    type: execute,
+    clear: execute,
+    press: execute,
+    select: execute,
+    setChecked: execute,
+    scroll: execute,
+    drag: execute,
+    dispatch: execute,
+    submit: execute,
   };
 }
 
@@ -176,4 +201,80 @@ function withTimeout(operation, parentSignal, timeoutMs) {
     clearTimeout(timeout);
     parentSignal.removeEventListener("abort", onParentAbort);
   });
+}
+
+function createNavigationWaiter(chromeAPI, tabId, frameId, signal) {
+  const completedEvent = chromeAPI.webNavigation?.onCompleted;
+  const historyEvent = chromeAPI.webNavigation?.onHistoryStateUpdated;
+  const fragmentEvent = chromeAPI.webNavigation?.onReferenceFragmentUpdated;
+  const errorEvent = chromeAPI.webNavigation?.onErrorOccurred;
+  if (!completedEvent?.addListener || !errorEvent?.addListener) {
+    throw protocolError(
+      ErrorCode.CAPABILITY_UNAVAILABLE,
+      "Navigation waiting is unavailable in this browser",
+    );
+  }
+
+  let settled = false;
+  let resolvePromise;
+  let rejectPromise;
+  const matches = (details) => details.tabId === tabId && details.frameId === frameId;
+  const cleanup = () => {
+    completedEvent.removeListener(onCompleted);
+    historyEvent?.removeListener?.(onHistory);
+    fragmentEvent?.removeListener?.(onHistory);
+    errorEvent.removeListener(onError);
+    signal.removeEventListener("abort", onAbort);
+  };
+  const finish = (operation) => {
+    if (settled) return;
+    settled = true;
+    cleanup();
+    operation();
+  };
+  const navigationResult = (details, sameDocument) => ({
+    tabId,
+    frameId,
+    documentId: details.documentId || "",
+    url: String(details.url || "").slice(0, 4_096),
+    sameDocument,
+  });
+  const onCompleted = (details) => {
+    if (matches(details)) finish(() => resolvePromise(navigationResult(details, false)));
+  };
+  const onHistory = (details) => {
+    if (matches(details)) finish(() => resolvePromise(navigationResult(details, true)));
+  };
+  const onError = (details) => {
+    if (matches(details)) {
+      finish(() => rejectPromise(protocolError(
+        ErrorCode.INTERNAL_ERROR,
+        "Navigation failed before completion",
+        true,
+      )));
+    }
+  };
+  const onAbort = () => finish(() => rejectPromise(
+    typeof signal.reason?.code === "string"
+      ? signal.reason
+      : protocolError(ErrorCode.CANCELLED, "Command was cancelled", true),
+  ));
+  const promise = new Promise((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+  completedEvent.addListener(onCompleted);
+  historyEvent?.addListener?.(onHistory);
+  fragmentEvent?.addListener?.(onHistory);
+  errorEvent.addListener(onError);
+  signal.addEventListener("abort", onAbort, { once: true });
+  return {
+    promise,
+    cancel: () => {
+      if (!settled) {
+        settled = true;
+        cleanup();
+      }
+    },
+  };
 }

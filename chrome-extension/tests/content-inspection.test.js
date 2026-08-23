@@ -10,8 +10,29 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   });
   password.type = "password";
   password.value = "top-secret";
+  const country = element("select", { id: "country" });
+  country.options = [
+    { value: "US", text: "United States", selected: false },
+    { value: "CA", text: "Canada", selected: false },
+  ];
+  country.multiple = false;
+  const checkbox = element("input", {
+    id: "terms",
+    attributes: { type: "checkbox" },
+  });
+  checkbox.type = "checkbox";
+  checkbox.checked = false;
+  const scrollBox = element("div", { id: "scroll-box" });
+  const dragSource = element("div", { id: "drag-source" });
+  const dragTarget = element("div", { id: "drag-target" });
+  const form = element("form", { id: "settings-form" });
+  form.requestSubmit = () => { form.submitted = true; };
   const script = element("script", { children: [textNode("window.secret = true")] });
-  const main = element("main", { children: [button, password, script] });
+  const main = element("main", {
+    children: [
+      button, password, country, checkbox, scrollBox, dragSource, dragTarget, form, script,
+    ],
+  });
   const body = element("body", { children: [main] });
   const html = element("html", { children: [body] });
   const document = new FakeDocument(html);
@@ -19,6 +40,20 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   let listener;
 
   globalThis.Node = { ELEMENT_NODE: 1, TEXT_NODE: 3 };
+  globalThis.Event = FakeEvent;
+  globalThis.CustomEvent = FakeEvent;
+  globalThis.MouseEvent = FakeEvent;
+  globalThis.KeyboardEvent = FakeEvent;
+  globalThis.InputEvent = FakeEvent;
+  globalThis.DragEvent = FakeEvent;
+  globalThis.HTMLInputElement = class {};
+  globalThis.HTMLTextAreaElement = class {};
+  Object.defineProperty(globalThis.HTMLInputElement.prototype, "value", {
+    set(value) { this.value = value; },
+  });
+  Object.defineProperty(globalThis.HTMLTextAreaElement.prototype, "value", {
+    set(value) { this.value = value; },
+  });
   globalThis.document = document;
   globalThis.window = window;
   globalThis.chrome = {
@@ -77,8 +112,11 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
     maxNodes: 10,
     includeShadowDOM: true,
   });
-  assert.equal(snapshot.result.nodeCount, 2);
-  assert.deepEqual(snapshot.result.nodes.map((node) => node.tagName), ["BUTTON", "INPUT"]);
+  assert.equal(snapshot.result.nodeCount, 4);
+  assert.deepEqual(
+    snapshot.result.nodes.map((node) => node.tagName),
+    ["BUTTON", "INPUT", "SELECT", "INPUT"],
+  );
   assert.equal(snapshot.result.nodes[0].reference.documentId, "document-1");
   assert.equal(snapshot.result.truncated, false);
 
@@ -90,13 +128,114 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   assert.equal(truncatedSnapshot.result.nodeCount, 1);
   assert.equal(truncatedSnapshot.result.truncated, true);
   assert.equal(truncatedSnapshot.result.warnings.length, 1);
+
+  const typed = await command(listener, "page.type", {
+    locator: { css: "#password" },
+    text: "abc",
+    backend: "content",
+  });
+  assert.equal(typed.success, true);
+  assert.equal(typed.result.value, "[REDACTED]");
+  assert.equal(password.value, "top-secretabc");
+  const appended = await command(listener, "page.fill", {
+    locator: { css: "#password" },
+    value: "xyz",
+    clear: false,
+  });
+  assert.equal(appended.result.element.value, "[REDACTED]");
+  assert.equal(password.value, "top-secretabcxyz");
+
+  const hovered = await command(listener, "page.hover", {
+    locator: { css: "#save" },
+  });
+  assert.equal(hovered.result.element.id, "save");
+  assert.equal(button.events.includes("mousemove"), true);
+
+  await command(listener, "page.focus", { locator: { css: "#save" } });
+  assert.equal(button.focused, true);
+  await command(listener, "page.blur", { locator: { css: "#save" } });
+  assert.equal(button.focused, false);
+
+  await command(listener, "page.click", {
+    locator: { css: "#save" },
+    button: "right",
+  });
+  assert.equal(button.events.includes("contextmenu"), true);
+  await command(listener, "page.click", {
+    locator: { css: "#save" },
+    clickCount: 2,
+  });
+  assert.equal(button.events.includes("dblclick"), true);
+
+  await command(listener, "page.press", {
+    locator: { css: "#password" },
+    key: "A",
+    modifiers: ["Control"],
+  });
+  assert.equal(password.events.includes("keydown"), true);
+  const cleared = await command(listener, "page.clear", { locator: { css: "#password" } });
+  assert.equal(cleared.result.value, "[REDACTED]");
+  assert.equal(password.value, "");
+
+  const selected = await command(listener, "page.select", {
+    locator: { css: "#country" },
+    values: ["Canada"],
+  });
+  assert.deepEqual(selected.result.selectedValues, ["CA"]);
+  assert.equal(country.options[1].selected, true);
+
+  document.pointTargets = [checkbox];
+  const checkedResult = await command(listener, "page.setChecked", {
+    locator: { css: "#terms" },
+    checked: true,
+  });
+  assert.equal(checkedResult.result.checked, true);
+
+  const pageScroll = await command(listener, "page.scroll", { deltaY: 200 });
+  assert.equal(pageScroll.result.target, "page");
+  assert.equal(window.scrollY, 320);
+  const elementScroll = await command(listener, "page.scroll", {
+    locator: { css: "#scroll-box" },
+    deltaX: 25,
+    deltaY: 50,
+  });
+  assert.deepEqual(elementScroll.result.scroll, { left: 25, top: 50 });
+
+  document.pointTargets = [dragSource, dragTarget];
+  const dragged = await command(listener, "page.drag", {
+    source: { css: "#drag-source" },
+    targetLocator: { css: "#drag-target" },
+  });
+  assert.equal(dragged.result.source.id, "drag-source");
+  assert.equal(dragTarget.events.includes("drop"), true);
+
+  const dispatched = await command(listener, "page.dispatch", {
+    locator: { css: "#save" },
+    eventType: "app:save",
+    detail: { source: "test" },
+  });
+  assert.equal(dispatched.result.eventType, "app:save");
+  assert.equal(button.events.includes("app:save"), true);
+
+  const submitted = await command(listener, "page.submit", {
+    locator: { css: "#settings-form" },
+  });
+  assert.equal(submitted.result.submitted, true);
+  assert.equal(form.submitted, true);
+
+  const unavailable = await command(listener, "page.focus", {
+    locator: { css: "#save" },
+    backend: "cdp",
+  });
+  assert.equal(unavailable.success, false);
+  assert.equal(unavailable.error.code, "CAPABILITY_UNAVAILABLE");
 });
 
 function command(listener, name, params) {
   return new Promise((resolve, reject) => {
     const handled = listener({
       type: "MCP_BROWSER_COMMAND",
-      bridgeVersion: "1.3",
+      bridgeVersion: "1.4",
       command: name,
       params,
       frameId: 0,
@@ -130,6 +269,7 @@ class FakeDocument {
   }
 
   elementFromPoint() {
+    if (this.pointTargets?.length) return this.pointTargets.shift();
     return this.querySelector("button");
   }
 
@@ -156,6 +296,7 @@ function element(tagName, { id = "", attributes = {}, children = [] } = {}) {
     isContentEditable: false,
     value: "",
     type: attributes.type || "",
+    events: [],
     get textContent() {
       return this.childNodes.map((child) => child.textContent || child.nodeValue || "").join("");
     },
@@ -185,6 +326,20 @@ function element(tagName, { id = "", attributes = {}, children = [] } = {}) {
       return this.root;
     },
     scrollIntoView() {},
+    scrollBy({ left = 0, top = 0 }) {
+      this.scrollLeft = (this.scrollLeft || 0) + left;
+      this.scrollTop = (this.scrollTop || 0) + top;
+    },
+    dispatchEvent(event) {
+      this.events.push(event.type);
+      return !event.defaultPrevented;
+    },
+    click() {
+      if (["checkbox", "radio"].includes(this.type)) this.checked = true;
+      this.events.push("click");
+    },
+    focus() { this.focused = true; },
+    blur() { this.focused = false; },
   };
   for (const child of children) child.parentNode = candidate;
   return candidate;
@@ -220,7 +375,19 @@ function fakeWindow() {
     scrollY: 120,
     getComputedStyle: (candidate) => candidate.style,
     requestAnimationFrame: (callback) => callback(),
+    scrollBy({ left = 0, top = 0 }) {
+      this.scrollX += left;
+      this.scrollY += top;
+    },
   };
   window.top = window;
   return window;
+}
+
+class FakeEvent {
+  constructor(type, init = {}) {
+    this.type = type;
+    this.defaultPrevented = false;
+    Object.assign(this, init);
+  }
 }

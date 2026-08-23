@@ -112,6 +112,31 @@ const (
 	// CommandPageFill fills a page input.
 	CommandPageFill = "page.fill"
 
+	// CommandPageHover moves the synthetic pointer over an element.
+	CommandPageHover = "page.hover"
+	// CommandPageFocus focuses an element.
+	CommandPageFocus = "page.focus"
+	// CommandPageBlur removes focus from an element.
+	CommandPageBlur = "page.blur"
+	// CommandPageType appends text through input events.
+	CommandPageType = "page.type"
+	// CommandPageClear clears an editable element.
+	CommandPageClear = "page.clear"
+	// CommandPagePress dispatches a keyboard chord.
+	CommandPagePress = "page.press"
+	// CommandPageSelect selects option values.
+	CommandPageSelect = "page.select"
+	// CommandPageSetChecked sets or toggles a checkable element.
+	CommandPageSetChecked = "page.setChecked"
+	// CommandPageScroll scrolls the page or an element.
+	CommandPageScroll = "page.scroll"
+	// CommandPageDrag drags one element to another target.
+	CommandPageDrag = "page.drag"
+	// CommandPageDispatch dispatches a validated DOM event shape.
+	CommandPageDispatch = "page.dispatch"
+	// CommandPageSubmit submits a form or an element's owning form.
+	CommandPageSubmit = "page.submit"
+
 	// CommandConsoleRead reads captured console entries.
 	CommandConsoleRead = "console.read"
 

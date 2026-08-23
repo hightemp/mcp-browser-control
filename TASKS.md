@@ -688,6 +688,17 @@ Click, double/context click, hover, focus/blur, fill/type/clear, press/chord, se
 - password value не возвращается;
 - действие возвращает фактический element/target.
 
+Реализована content-script часть: click/double/context click, hover,
+focus/blur, fill/type/clear, press с modifiers, select, set/toggle checked,
+page/element scroll, drag/drop, CustomEvent dispatch и submit доступны как
+типизированные MCP tools. Все действия используют общий locator/actionability
+pipeline, возвращают фактический element/target, редактируют password values и
+могут ожидать document или same-document navigation в пределах общего
+deadline. `backend: auto|content` работает сейчас; явный `backend: cdp`
+возвращает `CAPABILITY_UNAVAILABLE` до завершения CDP Session Manager в T-060,
+поэтому задача остаётся частично выполненной. Добавлены проверки параметров и
+тесты маршрутизации, DOM-событий, redaction и navigation listener cleanup.
+
 ### T-057 — Реализовать wait engine
 
 - Приоритет: P0

@@ -84,6 +84,18 @@ export function detectCapabilities({
       "page.snapshot",
       "page.click",
       "page.fill",
+      "page.hover",
+      "page.focus",
+      "page.blur",
+      "page.type",
+      "page.clear",
+      "page.press",
+      "page.select",
+      "page.setChecked",
+      "page.scroll",
+      "page.drag",
+      "page.dispatch",
+      "page.submit",
     );
   }
   return capabilities;

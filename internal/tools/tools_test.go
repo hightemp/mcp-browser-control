@@ -386,7 +386,13 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 	interactiveOnly := true
 	includeShadowDOM := true
 	maxNodes := 500
+	delayMS := 15
+	checked := true
+	waitForNavigation := true
 	roleLocator := &protocol.Locator{Role: "button", Name: "Save", IncludeShadowDOM: true}
+	inputLocator := protocol.Locator{CSS: "#name"}
+	targetLocator := &protocol.Locator{CSS: "#target"}
+	targetCoordinates := &protocol.Coordinates{X: 80, Y: 120}
 
 	tests := []struct {
 		name        string
@@ -548,6 +554,135 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			},
 		},
 		{
+			name:        "type",
+			wantCommand: protocol.CommandPageType,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{"css": "#name"}, "text": " Lovelace",
+				"delayMs": float64(delayMS), "backend": "content", "waitForNavigation": true,
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserTypeHandler(ctx, mcp.CallToolRequest{}, interactionTypeArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", TabID: &tabID, Locator: inputLocator,
+						Backend: "content", WaitForNavigation: &waitForNavigation,
+					},
+					Text: " Lovelace", DelayMS: &delayMS,
+				})
+			},
+		},
+		{
+			name:        "press",
+			wantCommand: protocol.CommandPagePress,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{"css": "#name"}, "key": "Enter",
+				"modifiers": []any{"Control", "Shift"},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserPressHandler(ctx, mcp.CallToolRequest{}, interactionPressArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", TabID: &tabID, Locator: inputLocator,
+					},
+					Key: "Enter", Modifiers: []string{"Control", "Shift"},
+				})
+			},
+		},
+		{
+			name:        "select option",
+			wantCommand: protocol.CommandPageSelect,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{"css": "#name"}, "values": []any{"US", "Canada"},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserSelectOptionHandler(ctx, mcp.CallToolRequest{}, interactionSelectArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", TabID: &tabID, Locator: inputLocator,
+					},
+					Values: []string{"US", "Canada"},
+				})
+			},
+		},
+		{
+			name:        "set checked",
+			wantCommand: protocol.CommandPageSetChecked,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{"css": "#name"}, "checked": true,
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserSetCheckedHandler(ctx, mcp.CallToolRequest{}, interactionCheckedArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", TabID: &tabID, Locator: inputLocator,
+					},
+					Checked: &checked,
+				})
+			},
+		},
+		{
+			name:        "scroll",
+			wantCommand: protocol.CommandPageScroll,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{"css": "#name"}, "deltaX": float64(0),
+				"deltaY": float64(500), "behavior": "smooth",
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserScrollHandler(ctx, mcp.CallToolRequest{}, interactionScrollArgs{
+					BrowserID: "browser-a", TabID: &tabID, Locator: &inputLocator,
+					DeltaY: 500, Behavior: "smooth",
+				})
+			},
+		},
+		{
+			name:        "drag to locator",
+			wantCommand: protocol.CommandPageDrag,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"source":        map[string]any{"css": "#name"},
+				"targetLocator": map[string]any{"css": "#target"},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserDragHandler(ctx, mcp.CallToolRequest{}, interactionDragArgs{
+					BrowserID: "browser-a", TabID: &tabID, Source: inputLocator,
+					TargetLocator: targetLocator,
+				})
+			},
+		},
+		{
+			name:        "drag to coordinates",
+			wantCommand: protocol.CommandPageDrag,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"source":            map[string]any{"css": "#name"},
+				"targetCoordinates": map[string]any{"x": float64(80), "y": float64(120)},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserDragHandler(ctx, mcp.CallToolRequest{}, interactionDragArgs{
+					BrowserID: "browser-a", TabID: &tabID, Source: inputLocator,
+					TargetCoordinates: targetCoordinates,
+				})
+			},
+		},
+		{
+			name:        "dispatch event",
+			wantCommand: protocol.CommandPageDispatch,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{"css": "#name"}, "eventType": "app:save",
+				"detail": map[string]any{"source": "test"},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserDispatchHandler(ctx, mcp.CallToolRequest{}, interactionDispatchArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", TabID: &tabID, Locator: inputLocator,
+					},
+					EventType: "app:save", Detail: map[string]any{"source": "test"},
+				})
+			},
+		},
+		{
 			name:        "console",
 			wantCommand: protocol.CommandConsoleRead,
 			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
@@ -664,6 +799,74 @@ func TestCommandHandlerValidation(t *testing.T) {
 		t.Fatalf("click with multiple addresses = (%v, %v), want tool error", invalidAddress, err)
 	}
 
+	locator := protocol.Locator{CSS: "button"}
+	invalidInteractions := []struct {
+		name string
+		call func() (*mcp.CallToolResult, error)
+	}{
+		{
+			name: "backend",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserTypeHandler(context.Background(), mcp.CallToolRequest{}, interactionTypeArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", Locator: locator, Backend: "native",
+					},
+					Text: "hello",
+				})
+			},
+		},
+		{
+			name: "empty text",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserTypeHandler(context.Background(), mcp.CallToolRequest{}, interactionTypeArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", Locator: locator,
+					},
+					Text: " ",
+				})
+			},
+		},
+		{
+			name: "zero scroll",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserScrollHandler(context.Background(), mcp.CallToolRequest{}, interactionScrollArgs{
+					BrowserID: "browser-a",
+				})
+			},
+		},
+		{
+			name: "missing drag target",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserDragHandler(context.Background(), mcp.CallToolRequest{}, interactionDragArgs{
+					BrowserID: "browser-a", Source: locator,
+				})
+			},
+		},
+		{
+			name: "event type",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserDispatchHandler(context.Background(), mcp.CallToolRequest{}, interactionDispatchArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", Locator: locator,
+					},
+					EventType: "bad event",
+				})
+			},
+		},
+	}
+	for _, test := range invalidInteractions {
+		t.Run(test.name, func(t *testing.T) {
+			result, callErr := test.call()
+			if callErr != nil || result == nil || !result.IsError {
+				t.Fatalf("invalid interaction = (%v, %v), want tool error", result, callErr)
+			}
+			response := decodeToolResponse(t, result)
+			if response.Error == nil || response.Error.Code != protocol.CodeInvalidMessage {
+				t.Fatalf("error = %#v, want %s", response.Error, protocol.CodeInvalidMessage)
+			}
+		})
+	}
+
 	invalidTimeout := 0
 	badTimeout, err := service.browserPingHandler(
 		context.Background(),
@@ -706,6 +909,18 @@ func newTestService(
 					protocol.CommandNetworkRead,
 					protocol.CommandPageClick,
 					protocol.CommandPageFill,
+					protocol.CommandPageHover,
+					protocol.CommandPageFocus,
+					protocol.CommandPageBlur,
+					protocol.CommandPageType,
+					protocol.CommandPageClear,
+					protocol.CommandPagePress,
+					protocol.CommandPageSelect,
+					protocol.CommandPageSetChecked,
+					protocol.CommandPageScroll,
+					protocol.CommandPageDrag,
+					protocol.CommandPageDispatch,
+					protocol.CommandPageSubmit,
 					protocol.CommandPageInfo,
 					protocol.CommandPageGetText,
 					protocol.CommandPageQuery,

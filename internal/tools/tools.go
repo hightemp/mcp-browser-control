@@ -145,29 +145,35 @@ type pageSnapshotArgs struct {
 }
 
 type clickArgs struct {
-	BrowserID   string                `json:"browserId,omitempty"`
-	TabID       *int                  `json:"tabId,omitempty"`
-	FrameID     *int                  `json:"frameId,omitempty"`
-	DocumentID  string                `json:"documentId,omitempty"`
-	Selector    *string               `json:"selector,omitempty"`
-	Index       *int                  `json:"index,omitempty"`
-	Coordinates *protocol.Coordinates `json:"coordinates,omitempty"`
-	Locator     *protocol.Locator     `json:"locator,omitempty"`
-	TimeoutMS   *int                  `json:"timeoutMs,omitempty"`
+	BrowserID         string                `json:"browserId,omitempty"`
+	TabID             *int                  `json:"tabId,omitempty"`
+	FrameID           *int                  `json:"frameId,omitempty"`
+	DocumentID        string                `json:"documentId,omitempty"`
+	Selector          *string               `json:"selector,omitempty"`
+	Index             *int                  `json:"index,omitempty"`
+	Coordinates       *protocol.Coordinates `json:"coordinates,omitempty"`
+	Locator           *protocol.Locator     `json:"locator,omitempty"`
+	Button            string                `json:"button,omitempty"`
+	ClickCount        *int                  `json:"clickCount,omitempty"`
+	Backend           string                `json:"backend,omitempty"`
+	WaitForNavigation *bool                 `json:"waitForNavigation,omitempty"`
+	TimeoutMS         *int                  `json:"timeoutMs,omitempty"`
 }
 
 type inputArgs struct {
-	BrowserID   string                `json:"browserId,omitempty"`
-	TabID       *int                  `json:"tabId,omitempty"`
-	FrameID     *int                  `json:"frameId,omitempty"`
-	DocumentID  string                `json:"documentId,omitempty"`
-	Selector    *string               `json:"selector,omitempty"`
-	Index       *int                  `json:"index,omitempty"`
-	Coordinates *protocol.Coordinates `json:"coordinates,omitempty"`
-	Locator     *protocol.Locator     `json:"locator,omitempty"`
-	Value       string                `json:"value"`
-	Clear       *bool                 `json:"clear,omitempty"`
-	TimeoutMS   *int                  `json:"timeoutMs,omitempty"`
+	BrowserID         string                `json:"browserId,omitempty"`
+	TabID             *int                  `json:"tabId,omitempty"`
+	FrameID           *int                  `json:"frameId,omitempty"`
+	DocumentID        string                `json:"documentId,omitempty"`
+	Selector          *string               `json:"selector,omitempty"`
+	Index             *int                  `json:"index,omitempty"`
+	Coordinates       *protocol.Coordinates `json:"coordinates,omitempty"`
+	Locator           *protocol.Locator     `json:"locator,omitempty"`
+	Value             string                `json:"value"`
+	Clear             *bool                 `json:"clear,omitempty"`
+	Backend           string                `json:"backend,omitempty"`
+	WaitForNavigation *bool                 `json:"waitForNavigation,omitempty"`
+	TimeoutMS         *int                  `json:"timeoutMs,omitempty"`
 }
 
 type sendCommandArgs struct {
@@ -267,6 +273,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerWindowTools(mcpServer)
 	s.registerTabTools(mcpServer)
 	s.registerTabGroupAndSessionTools(mcpServer)
+	s.registerInteractionTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -390,6 +397,10 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			mcp.WithNumber("index", mcp.Description("Legacy zero-based CSS match index")),
 			optionalCoordinates(),
 			optionalLocator(),
+			mcp.WithString("button", mcp.Description("Mouse button"), mcp.Enum("left", "middle", "right")),
+			mcp.WithNumber("clickCount", mcp.Description("One or two clicks"), mcp.Min(1), mcp.Max(2)),
+			mcp.WithString("backend", mcp.Description("Input backend"), mcp.Enum("auto", "content", "cdp")),
+			mcp.WithBoolean("waitForNavigation", mcp.Description("Wait for navigation completion")),
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserClickHandler),
@@ -412,6 +423,8 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 				mcp.Description("Clear the field before entering the value"),
 				mcp.DefaultBool(true),
 			),
+			mcp.WithString("backend", mcp.Description("Input backend"), mcp.Enum("auto", "content", "cdp")),
+			mcp.WithBoolean("waitForNavigation", mcp.Description("Wait for navigation completion")),
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserInputHandler),
@@ -755,6 +768,15 @@ func (s *Service) browserClickHandler(
 	if err := validateElementArgs(args.Selector, args.Coordinates, args.Locator, args.Index, target); err != nil {
 		return errorResult(err)
 	}
+	if err := validateInteractionBackend(args.Backend); err != nil {
+		return errorResult(err)
+	}
+	if args.Button != "" && args.Button != "left" && args.Button != "middle" && args.Button != "right" {
+		return errorResult(invalidInteraction("button must be left, middle, or right"))
+	}
+	if args.ClickCount != nil && (*args.ClickCount < 1 || *args.ClickCount > 2) {
+		return errorResult(invalidInteraction("clickCount must be one or two"))
+	}
 
 	params := make(map[string]any)
 	if args.Selector != nil {
@@ -769,6 +791,14 @@ func (s *Service) browserClickHandler(
 	if args.Locator != nil {
 		params["locator"] = args.Locator
 	}
+	if args.Button != "" {
+		params["button"] = args.Button
+	}
+	putOptional(params, "clickCount", args.ClickCount)
+	if args.Backend != "" {
+		params["backend"] = args.Backend
+	}
+	putOptional(params, "waitForNavigation", args.WaitForNavigation)
 	return s.send(
 		ctx,
 		args.BrowserID,
@@ -788,6 +818,9 @@ func (s *Service) browserInputHandler(
 	if err := validateElementArgs(args.Selector, args.Coordinates, args.Locator, args.Index, target); err != nil {
 		return errorResult(err)
 	}
+	if err := validateInteractionBackend(args.Backend); err != nil {
+		return errorResult(err)
+	}
 	params := map[string]any{
 		"value": args.Value,
 		"clear": true,
@@ -804,6 +837,10 @@ func (s *Service) browserInputHandler(
 	if args.Locator != nil {
 		params["locator"] = args.Locator
 	}
+	if args.Backend != "" {
+		params["backend"] = args.Backend
+	}
+	putOptional(params, "waitForNavigation", args.WaitForNavigation)
 	if args.Clear != nil {
 		params["clear"] = *args.Clear
 	}
@@ -1189,6 +1226,10 @@ func requiredLocator() mcp.ToolOption {
 }
 
 func locatorOption(required bool) mcp.ToolOption {
+	return locatorNamedOption("locator", required)
+}
+
+func locatorNamedOption(name string, required bool) mcp.ToolOption {
 	propertyOptions := []mcp.PropertyOption{
 		mcp.Description("Element locator; exactly one primary strategy is required"),
 		mcp.Properties(map[string]any{
@@ -1230,7 +1271,7 @@ func locatorOption(required bool) mcp.ToolOption {
 	if required {
 		propertyOptions = append(propertyOptions, mcp.Required())
 	}
-	return mcp.WithObject("locator", propertyOptions...)
+	return mcp.WithObject(name, propertyOptions...)
 }
 
 func optionalSelectorArray(name, description string) mcp.ToolOption {

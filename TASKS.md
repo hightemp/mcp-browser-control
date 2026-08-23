@@ -121,9 +121,9 @@ internal/artifacts/
 
 - Приоритет: P0
 - Зависимости: T-010
-- Статус: `[~]`
+- Статус: `[x]`
 
-Реализовать envelope и типы `hello/welcome/pair/request/response/cancel/event/ping/pong` из FR-4.
+Реализовать envelope и типы `hello/welcome/auth_error/revoke/request/response/cancel/event/ping/pong/capabilities_changed` из FR-4. Pairing выполняется атомарно первым `hello` с `pairingCode`, без отдельного неаутентифицированного `pair` состояния.
 
 Критерии:
 
@@ -134,6 +134,8 @@ internal/artifacts/
 - неизвестные обязательные версии отклоняются;
 - неизвестные необязательные поля игнорируются;
 - есть golden JSON fixtures.
+
+Protocol v1 реализован единообразно в Go и JavaScript, зафиксирован общей JSON Schema и golden fixtures. Fixtures также подтверждают игнорирование неизвестных optional полей; несовместимая версия отклоняется до регистрации browser connection.
 
 ### T-012 — Добавить JSON Schema контракта
 

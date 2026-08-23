@@ -17,3 +17,7 @@ Adding a required field, changing field semantics, or removing an accepted
 shape requires a new major schema and a new `protocolVersion`. Every schema
 change must update shared fixtures and pass both Go and JavaScript contract
 tests.
+
+Pairing is part of the authenticated `hello` exchange in v1: the first hello
+contains `pairingCode`, and subsequent hellos contain `credential`. A separate
+`pair` message is intentionally not part of the v1 state machine.

@@ -104,7 +104,7 @@
 Расширение при подключении отправляет handshake со следующими данными:
 
 - версия протокола;
-- `browserId`, `connectionId` и пользовательское имя;
+- стабильный `browserId` и пользовательское имя; новый `connectionId` назначается сервером в `welcome`;
 - название и версия браузера, ОС, версия расширения;
 - incognito context, если он разрешён;
 - список capabilities;
@@ -174,11 +174,13 @@
 
 Типы сообщений:
 
-- `hello`, `welcome`, `pair`;
+- `hello`, `welcome`, `auth_error`, `revoke`;
 - `request`, `response`, `cancel`;
 - `event`;
 - `ping`, `pong`;
 - `capabilities_changed`.
+
+Отдельный `pair` envelope не используется: первый `hello` содержит одноразовый `pairingCode`, последующие — выданный `credential`. Такой handshake не создаёт промежуточное неаутентифицированное состояние соединения; успех подтверждается `welcome`, ошибка — `auth_error`, отзыв credential — подтверждаемым `revoke` exchange.
 
 Ответ содержит `success`, `result` либо структурированную `error`, фактический target, timestamps и при необходимости предупреждения.
 

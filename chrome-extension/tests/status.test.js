@@ -16,10 +16,14 @@ test("badge presentation distinguishes connection states", () => {
   assert.deepEqual(badgeForStatus("unknown"), disconnected);
 });
 
-test("permission profile summary reflects optional website access", () => {
-  assert.deepEqual(permissionProfilesFor({ permissions: ["tabs"] }), ["Core"]);
+test("permission profile summary reflects enabled optional profiles", () => {
+  const core = ["alarms", "scripting", "storage", "tabs", "webNavigation"];
+  assert.deepEqual(permissionProfilesFor({ permissions: core }), ["Core"]);
   assert.deepEqual(
-    permissionProfilesFor({ permissions: ["tabs"], origins: ["https://example.com/*"] }),
-    ["Core", "Website access"],
+    permissionProfilesFor({
+      permissions: [...core, "debugger"],
+      origins: ["http://*/*", "https://*/*"],
+    }),
+    ["Core", "Observe", "Debug"],
   );
 });

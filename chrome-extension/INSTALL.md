@@ -33,6 +33,13 @@ capability and permission lists or to edit the endpoint and browser name.
 Page inspection and interaction can be disabled independently in settings;
 the extension immediately omits those commands from its advertised capabilities.
 
+The settings page manages four permission profiles: install-time **Core** and
+optional **Observe**, **Debug**, and **Personal data**. Each profile shows its
+Chrome permissions, host allowlist, related tool domains, warning, and current
+state. Permission changes take effect immediately without reloading tabs or
+reconnecting the server. Personal data also requests Observe website access
+for origin-scoped cookie and storage operations.
+
 Each installed browser profile generates its own stable browser ID. Install the
 extension in another profile or Chromium browser to connect a second browser.
 Use `browser_list` and `browser_select` from the MCP client to choose between

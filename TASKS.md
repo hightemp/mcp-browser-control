@@ -568,7 +568,7 @@ Service worker обращается к frame/document через отдельн�
 
 - Приоритет: P1
 - Зависимости: T-003, T-042, T-044
-- Статус: `[~]`
+- Статус: `[x]`
 
 Пользователь может включать/выключать optional profiles и видеть:
 
@@ -577,6 +577,8 @@ Service worker обращается к frame/document через отдельн�
 - host allowlist;
 - текущий статус;
 - необходимость reload/reconnect.
+
+English options UI показывает Core, Observe, Debug и Personal data отдельными карточками с disabled/partial/enabled status, точными permissions или host allowlist, предупреждением и связанными tool domains. Optional profiles запрашиваются и удаляются только по клику пользователя; Personal data автоматически включает зависимость Observe, но при удалении сохраняет её. Permission listeners немедленно обновляют capabilities и server registry без reload/reconnect.
 
 ## 10. Этап 5 — Core browser automation
 

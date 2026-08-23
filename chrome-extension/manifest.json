@@ -15,6 +15,17 @@
     "http://*/*",
     "https://*/*"
   ],
+  "optional_permissions": [
+    "bookmarks",
+    "browsingData",
+    "clipboardRead",
+    "clipboardWrite",
+    "cookies",
+    "debugger",
+    "downloads",
+    "history",
+    "sessions"
+  ],
   "background": {
     "service_worker": "src/service-worker.js",
     "type": "module"

@@ -25,8 +25,47 @@ header,
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
+}
+
+.profile-list {
+  display: grid;
+  gap: 12px;
+}
+
+.profile-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.profile-heading,
+.profile-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-status {
+  border-radius: 999px;
+  padding: 2px 8px;
+  background: #64748b;
+  color: white;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.profile-status.enabled {
+  background: #15803d;
+}
+
+.profile-status.partial {
+  background: #ca8a04;
 }
 
 section {

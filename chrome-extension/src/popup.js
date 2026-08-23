@@ -75,15 +75,7 @@ elements.resetIdentity.addEventListener("click", () => {
 });
 
 elements.grantAccess.addEventListener("click", () => {
-  void run(async () => {
-    const granted = await chrome.permissions.request({
-      origins: ["http://*/*", "https://*/*"],
-    });
-    if (!granted) {
-      throw new Error("Website access was not granted");
-    }
-    await refresh();
-  });
+  void chrome.runtime.openOptionsPage();
 });
 
 chrome.runtime.onMessage.addListener((message) => {

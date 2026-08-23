@@ -1,3 +1,5 @@
+import { enabledPermissionProfileNames } from "./permission-profiles.js";
+
 const STATUS_PRESENTATION = Object.freeze({
   connected: Object.freeze({ color: "#15803d", text: "ON" }),
   connecting: Object.freeze({ color: "#ca8a04", text: "…" }),
@@ -12,9 +14,5 @@ export function badgeForStatus(status) {
 }
 
 export function permissionProfilesFor(permissions = {}) {
-  const profiles = ["Core"];
-  if ((permissions.origins || []).length > 0) {
-    profiles.push("Website access");
-  }
-  return profiles;
+  return enabledPermissionProfileNames(permissions);
 }

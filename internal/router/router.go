@@ -76,9 +76,11 @@ func New(browserRegistry *registry.Registry, options ...Option) *Router {
 	router := &Router{
 		registry:       browserRegistry,
 		defaultTimeout: 15 * time.Second,
-		newRequestID:   uuid.NewString,
-		logger:         log.New(log.Writer(), "[Router] ", log.LstdFlags),
-		pending:        make(map[pendingKey]*pendingRequest),
+		newRequestID: func() string {
+			return uuid.Must(uuid.NewV7()).String()
+		},
+		logger:  log.New(log.Writer(), "[Router] ", log.LstdFlags),
+		pending: make(map[pendingKey]*pendingRequest),
 	}
 	for _, option := range options {
 		option(router)
@@ -93,23 +95,38 @@ func (r *Router) Send(
 	command string,
 	target *protocol.Target,
 	params any,
-) (json.RawMessage, error) {
+) (response json.RawMessage, responseErr error) {
 	if ctx == nil {
 		return nil, protocol.NewError(protocol.CodeInvalidMessage, "context is required", false)
 	}
+	started := time.Now()
+	requestID := r.newRequestID()
+	defer func() {
+		code := "OK"
+		if responseErr != nil {
+			code = string(protocol.ErrorFrom(responseErr).Code)
+		}
+		r.logger.Printf(
+			"request completed: requestId=%q browserId=%q tool=%q duration=%s code=%s",
+			requestID,
+			browserID,
+			command,
+			time.Since(started).Round(time.Microsecond),
+			code,
+		)
+	}()
 	if browserID == "" {
 		return nil, protocol.NewError(protocol.CodeBrowserNotFound, "browserId is required", false)
 	}
 
-	connection, ok := r.registry.Connection(browserID)
-	if !ok {
-		return nil, protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false)
+	connection, _, err := r.registry.Route(browserID, command)
+	if err != nil {
+		return nil, err
 	}
 
 	requestCtx, cancel := withDefaultTimeout(ctx, r.defaultTimeout)
 	defer cancel()
 
-	requestID := r.newRequestID()
 	timeout := remainingTimeout(requestCtx)
 	message, err := protocol.NewRequest(requestID, browserID, command, target, params, timeout)
 	if err != nil {

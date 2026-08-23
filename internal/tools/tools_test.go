@@ -450,7 +450,21 @@ func newTestService(
 		"browser-b": connectionB,
 	} {
 		if _, err := browserRegistry.Register(
-			registry.Registration{BrowserID: browserID, DisplayName: browserID},
+			registry.Registration{
+				BrowserID:   browserID,
+				DisplayName: browserID,
+				Capabilities: []string{
+					protocol.CommandBrowserPing,
+					protocol.CommandConsoleRead,
+					protocol.CommandNetworkRead,
+					protocol.CommandPageClick,
+					protocol.CommandPageFill,
+					protocol.CommandPageGetHTML,
+					protocol.CommandPageGetHTMLBySelector,
+					protocol.CommandTabsList,
+					"page.custom",
+				},
+			},
 			connection,
 		); err != nil {
 			t.Fatalf("Register(%s) error = %v", browserID, err)

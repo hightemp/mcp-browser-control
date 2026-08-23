@@ -293,6 +293,36 @@ func (r *Registry) Connection(browserID string) (Connection, bool) {
 	return current.connection, true
 }
 
+// Route returns an active connection only when the browser advertises the
+// requested capability. No registry lock is retained by the caller.
+func (r *Registry) Route(browserID, capability string) (Connection, Browser, error) {
+	r.mu.RLock()
+	current, ok := r.browsers[browserID]
+	if !ok {
+		r.mu.RUnlock()
+		return nil, Browser{}, protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false)
+	}
+	if !current.browser.Connected || current.connection == nil {
+		r.mu.RUnlock()
+		return nil, Browser{}, protocol.NewError(protocol.CodeBrowserDisconnected, "browser is disconnected", true)
+	}
+	if !containsString(current.browser.Capabilities, capability) {
+		browser := cloneBrowser(current.browser)
+		r.mu.RUnlock()
+		err := protocol.NewError(
+			protocol.CodeCapabilityUnavailable,
+			"browser does not advertise the required capability",
+			false,
+		)
+		err.Details = map[string]any{"capability": capability}
+		return nil, browser, err
+	}
+	connection := current.connection
+	browser := cloneBrowser(current.browser)
+	r.mu.RUnlock()
+	return connection, browser, nil
+}
+
 // Count returns the number of connected browser instances.
 func (r *Registry) Count() int {
 	r.mu.RLock()
@@ -334,4 +364,9 @@ func normalizedStrings(values []string) []string {
 	}
 	sort.Strings(result)
 	return result
+}
+
+func containsString(values []string, expected string) bool {
+	index := sort.SearchStrings(values, expected)
+	return index < len(values) && values[index] == expected
 }

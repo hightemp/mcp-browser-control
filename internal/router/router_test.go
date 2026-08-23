@@ -1,17 +1,20 @@
 package router
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 )
@@ -243,6 +246,88 @@ func TestRouterRejectsInvalidAndDisconnectedTargets(t *testing.T) {
 	registerTestBrowser(t, browserRegistry, "browser-broken", broken)
 	_, err := requestRouter.Send(context.Background(), "browser-broken", "tabs.list", nil, nil)
 	assertProtocolErrorCode(t, err, protocol.CodeBrowserDisconnected)
+
+	disconnected := newFakeConnection("connection-disconnected")
+	registerTestBrowser(t, browserRegistry, "browser-disconnected", disconnected)
+	browserRegistry.Disconnect("browser-disconnected", disconnected.ID(), "test disconnect")
+	_, err = requestRouter.Send(context.Background(), "browser-disconnected", "tabs.list", nil, nil)
+	assertProtocolErrorCode(t, err, protocol.CodeBrowserDisconnected)
+}
+
+func TestRouterChecksCapabilityBeforeSending(t *testing.T) {
+	t.Parallel()
+
+	browserRegistry := registry.New()
+	connection := newFakeConnection("connection-a")
+	if _, err := browserRegistry.Register(
+		registry.Registration{BrowserID: "browser-a", Capabilities: []string{"tabs.list"}},
+		connection,
+	); err != nil {
+		t.Fatalf("Register() error = %v", err)
+	}
+	requestRouter := New(browserRegistry, WithLogger(log.New(io.Discard, "", 0)))
+	_, err := requestRouter.Send(context.Background(), "browser-a", "page.click", nil, nil)
+	assertProtocolErrorCode(t, err, protocol.CodeCapabilityUnavailable)
+	select {
+	case message := <-connection.messages:
+		t.Fatalf("unsupported command was sent: %#v", message)
+	default:
+	}
+}
+
+func TestRouterUsesUUIDv7AndLogsSafeRequestMetadata(t *testing.T) {
+	t.Parallel()
+
+	browserRegistry := registry.New()
+	connection := newFakeConnection("connection-a")
+	registerTestBrowser(t, browserRegistry, "browser-a", connection)
+	var logs bytes.Buffer
+	requestRouter := New(
+		browserRegistry,
+		WithDefaultTimeout(time.Second),
+		WithLogger(log.New(&logs, "", 0)),
+	)
+	result := make(chan error, 1)
+	go func() {
+		_, err := requestRouter.Send(
+			context.Background(),
+			"browser-a",
+			"tabs.list",
+			nil,
+			map[string]string{"token": "secret-payload"},
+		)
+		result <- err
+	}()
+	request := receiveMessage(t, connection.messages)
+	requestID, err := uuid.Parse(request.RequestID)
+	if err != nil || requestID.Version() != 7 {
+		t.Fatalf("requestId = %q, want UUIDv7", request.RequestID)
+	}
+	response, err := protocol.NewResponse(request.RequestID, "browser-a", map[string]bool{"ok": true}, nil)
+	if err != nil {
+		t.Fatalf("NewResponse() error = %v", err)
+	}
+	if !requestRouter.HandleResponse("browser-a", connection.ID(), response) {
+		t.Fatal("HandleResponse() = false")
+	}
+	if err := <-result; err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	output := logs.String()
+	for _, expected := range []string{
+		"requestId=\"" + request.RequestID + "\"",
+		"browserId=\"browser-a\"",
+		"tool=\"tabs.list\"",
+		"duration=",
+		"code=OK",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Errorf("log %q does not contain %q", output, expected)
+		}
+	}
+	if strings.Contains(output, "secret-payload") {
+		t.Fatalf("log exposed payload: %q", output)
+	}
 }
 
 func TestRouterCloseFailsPendingRequest(t *testing.T) {
@@ -336,7 +421,15 @@ func registerTestBrowser(
 ) {
 	t.Helper()
 	if _, err := browserRegistry.Register(
-		registry.Registration{BrowserID: browserID, DisplayName: browserID},
+		registry.Registration{
+			BrowserID:   browserID,
+			DisplayName: browserID,
+			Capabilities: []string{
+				"browser.ping",
+				"page.click",
+				"tabs.list",
+			},
+		},
 		connection,
 	); err != nil {
 		t.Fatalf("Register(%s) error = %v", browserID, err)

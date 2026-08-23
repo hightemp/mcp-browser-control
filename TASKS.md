@@ -273,7 +273,7 @@ Connection использует единственный write pump с bounded q
 
 - Приоритет: P0
 - Зависимости: T-020, T-021
-- Статус: `[~]`
+- Статус: `[x]`
 
 Удалить broadcast как способ выполнения target-команд.
 
@@ -284,6 +284,8 @@ Connection использует единственный write pump с bounded q
 - отключённый browser возвращает `BROWSER_DISCONNECTED`;
 - router проверяет capability до отправки;
 - в логах есть requestId/browserId/tool/duration без payload secrets.
+
+Router получает ровно один route из Registry, различает missing/disconnected browser, проверяет advertised capability до I/O, использует UUIDv7 и пишет только безопасные request metadata с duration/outcome без params или result payload.
 
 ### T-024 — Реализовать Pending Request Manager
 

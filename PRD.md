@@ -214,6 +214,8 @@
 - `browser_print_pdf` — PDF страницы при наличии capability;
 - `browser_get_accessibility_tree` — accessibility tree или его фрагмент.
 
+Semantic snapshot возвращается как компактный flat tree с parent linkage, roles, accessible names, direct text, states и временными element references. По умолчанию пределы составляют depth 20 и 1000 nodes; жёсткие пределы — depth 50 и 5000 nodes. Поддерживаются interactive-only и open shadow roots, а frame/document boundary включается в корень ответа.
+
 HTML inspection по умолчанию ограничен 100 000 символов и глубиной 50, а жёсткие пределы составляют 1 000 000 символов и глубину 200. Visible text использует numeric cursor, query возвращает не более 100 элементов на страницу и `nextCursor`. Include/exclude CSS selectors применяются до сериализации. Значения полей password/secret/token/credential редактируются до передачи через extension protocol.
 
 Стратегии locator:

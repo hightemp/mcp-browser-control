@@ -121,6 +121,11 @@ const COMMANDS = Object.freeze({
     handler: "getElement",
     validate: validateGetElement,
   }),
+  "page.snapshot": Object.freeze({
+    domain: "page",
+    handler: "snapshot",
+    validate: validateSnapshot,
+  }),
   "page.click": Object.freeze({ domain: "page", handler: "click", validate: validateAction }),
   "page.fill": Object.freeze({ domain: "page", handler: "fill", validate: validateFill }),
 });
@@ -250,6 +255,15 @@ function validateGetElement(params, target) {
   assertAllowedProperties(params, ["locator", "maxHTMLChars"]);
   validateLocator(params.locator, target);
   validateIntegerRange(params.maxHTMLChars, "params.maxHTMLChars", 1, 100_000);
+}
+
+function validateSnapshot(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["interactiveOnly", "maxDepth", "maxNodes", "includeShadowDOM"]);
+  validateOptionalBoolean(params.interactiveOnly, "params.interactiveOnly");
+  validateIntegerRange(params.maxDepth, "params.maxDepth", 0, 50);
+  validateIntegerRange(params.maxNodes, "params.maxNodes", 1, 5_000);
+  validateOptionalBoolean(params.includeShadowDOM, "params.includeShadowDOM");
 }
 
 function validateSelectors(selectors, path) {

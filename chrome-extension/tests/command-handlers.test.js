@@ -219,7 +219,7 @@ test("page handlers preserve addressing and structured content errors", async ()
       sendMessage: async (...args) => {
         sent.push(args);
         if (args[1].type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.2" };
+          return { ready: true, bridgeVersion: "1.3" };
         }
         if (args[1].command === "page.info") {
           return { success: true, result: { url: "https://example.com/page" } };

@@ -383,6 +383,9 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 	maxDepth := 12
 	limit := 10
 	maxHTMLChars := 2_000
+	interactiveOnly := true
+	includeShadowDOM := true
+	maxNodes := 500
 	roleLocator := &protocol.Locator{Role: "button", Name: "Save", IncludeShadowDOM: true}
 
 	tests := []struct {
@@ -487,6 +490,24 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 				return service.browserGetElementHandler(ctx, mcp.CallToolRequest{}, pageElementArgs{
 					BrowserID: "browser-a", TabID: &tabID, Locator: *roleLocator,
 					MaxHTMLChars: &maxHTMLChars,
+				})
+			},
+		},
+		{
+			name:        "semantic snapshot",
+			wantCommand: protocol.CommandPageSnapshot,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"interactiveOnly":  true,
+				"includeShadowDOM": true,
+				"maxDepth":         float64(maxDepth),
+				"maxNodes":         float64(maxNodes),
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserSnapshotHandler(ctx, mcp.CallToolRequest{}, pageSnapshotArgs{
+					BrowserID: "browser-a", TabID: &tabID,
+					InteractiveOnly: &interactiveOnly, IncludeShadowDOM: &includeShadowDOM,
+					MaxDepth: &maxDepth, MaxNodes: &maxNodes,
 				})
 			},
 		},
@@ -689,6 +710,7 @@ func newTestService(
 					protocol.CommandPageGetText,
 					protocol.CommandPageQuery,
 					protocol.CommandPageGetElement,
+					protocol.CommandPageSnapshot,
 					protocol.CommandPageGetHTML,
 					protocol.CommandPageGetHTMLBySelector,
 					protocol.CommandTabsList,

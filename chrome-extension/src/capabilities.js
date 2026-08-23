@@ -81,6 +81,7 @@ export function detectCapabilities({
       "page.getText",
       "page.query",
       "page.getElement",
+      "page.snapshot",
       "page.click",
       "page.fill",
     );

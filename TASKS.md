@@ -658,7 +658,7 @@ Page info, HTML, visible text, query и element details.
 
 - Приоритет: P0
 - Зависимости: T-053, T-054
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Snapshot должен быть компактным и пригодным для LLM:
 
@@ -668,6 +668,8 @@ Snapshot должен быть компактным и пригодным для
 - max depth/max nodes;
 - frame boundaries;
 - предупреждение о truncation.
+
+Добавлен `browser_snapshot`/`page.snapshot`: компактный flat semantic tree с nodeId/parentId/depth, tag, role, accessible name, direct text, states и document-scoped element reference. Поддерживаются interactive-only, max depth до 50, max nodes до 5000 и обход open shadow roots; корень ответа содержит frameId/documentId/URL, shadow nodes помечаются, а достижение лимита возвращает truncation warning.
 
 ### T-056 — Реализовать interaction tools
 

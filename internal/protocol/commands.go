@@ -100,6 +100,9 @@ const (
 	// CommandPageGetElement returns normalized details for one element.
 	CommandPageGetElement = "page.getElement"
 
+	// CommandPageSnapshot returns a compact semantic page tree.
+	CommandPageSnapshot = "page.snapshot"
+
 	// CommandPageGetHTMLBySelector returns HTML for matching elements.
 	CommandPageGetHTMLBySelector = "page.getHTMLBySelector"
 

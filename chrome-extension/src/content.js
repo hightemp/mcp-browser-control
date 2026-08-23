@@ -1,5 +1,5 @@
 (() => {
-  const BRIDGE_VERSION = "1.2";
+  const BRIDGE_VERSION = "1.3";
   const DEFAULT_MAX_CHARS = 100_000;
   const DEFAULT_MAX_DEPTH = 50;
   const DEFAULT_QUERY_LIMIT = 25;
@@ -73,6 +73,8 @@
         return queryElements(params, context);
       case "page.getElement":
         return getElement(params, context);
+      case "page.snapshot":
+        return getSnapshot(params, context);
       case "page.click":
         return click(params, context);
       case "page.fill":
@@ -276,6 +278,97 @@
       warnings: inspectionWarnings(serialized),
       timestamp: new Date().toISOString(),
     };
+  }
+
+  function getSnapshot(params, context) {
+    const interactiveOnly = params.interactiveOnly ?? false;
+    const maxDepth = params.maxDepth ?? 20;
+    const maxNodes = params.maxNodes ?? 1_000;
+    const includeShadowDOM = params.includeShadowDOM ?? true;
+    const nodes = [];
+    let truncated = false;
+
+    const visit = (element, parentId, depth, inShadowRoot = false) => {
+      if (truncated) return;
+      if (depth > maxDepth) {
+        truncated = true;
+        return;
+      }
+      if (!locatorEngine.isVisible(element)) return;
+
+      const include = !interactiveOnly || isInteractiveElement(element);
+      let currentParent = parentId;
+      if (include) {
+        if (nodes.length >= maxNodes) {
+          truncated = true;
+          return;
+        }
+        const described = locatorEngine.describeElement(element, nodes.length, context.documentId);
+        const nodeId = nodes.length;
+        nodes.push({
+          nodeId,
+          parentId,
+          depth,
+          tagName: described.tagName,
+          role: described.role,
+          name: described.name,
+          text: directText(element).slice(0, 300),
+          states: {
+            visible: described.visible,
+            enabled: described.enabled,
+            checked: booleanState(element.checked, element.getAttribute?.("aria-checked")),
+            selected: booleanState(element.selected, element.getAttribute?.("aria-selected")),
+            expanded: booleanState(undefined, element.getAttribute?.("aria-expanded")),
+            pressed: booleanState(undefined, element.getAttribute?.("aria-pressed")),
+            editable: isEditable(element),
+          },
+          reference: described.reference,
+          shadowRoot: inShadowRoot,
+        });
+        currentParent = nodeId;
+      }
+
+      for (const child of element.children) {
+        visit(child, currentParent, depth + 1, inShadowRoot);
+      }
+      if (includeShadowDOM && element.shadowRoot) {
+        for (const child of element.shadowRoot.children) {
+          visit(child, currentParent, depth + 1, true);
+        }
+      }
+    };
+    visit(document.documentElement, null, 0);
+    return {
+      frame: {
+        frameId: context.frameId,
+        documentId: context.documentId,
+        url: String(window.location.href).slice(0, 4_096),
+      },
+      interactiveOnly,
+      nodeCount: nodes.length,
+      nodes,
+      truncated,
+      warnings: truncated ? ["Semantic snapshot was truncated by maxDepth or maxNodes"] : [],
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  function isInteractiveElement(element) {
+    const role = element.getAttribute?.("role") || "";
+    return [
+      "button", "checkbox", "combobox", "link", "listbox", "menuitem", "option",
+      "radio", "searchbox", "slider", "spinbutton", "switch", "tab", "textbox",
+    ].includes(role)
+      || ["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(element.tagName)
+      || element.isContentEditable
+      || element.tabIndex >= 0;
+  }
+
+  function directText(element) {
+    return normalizeText([...element.childNodes]
+      .filter((child) => child.nodeType === Node.TEXT_NODE)
+      .map((child) => child.nodeValue)
+      .join(" "));
   }
 
   async function click(params, context) {

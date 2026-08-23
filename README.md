@@ -236,6 +236,7 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_get_text`
 - `browser_query`
 - `browser_get_element`
+- `browser_snapshot`
 - `browser_click_element`
 - `browser_input_data`
 
@@ -273,6 +274,12 @@ hard limits of 1,000,000 characters and depth 200. Visible text and element
 queries use numeric cursors; query pages contain at most 100 elements. Results
 report truncation and redaction warnings, and password, secret, token, and
 credential field values are replaced before leaving the content script.
+
+`browser_snapshot` returns a compact flat semantic tree with parent links,
+roles, accessible names, direct text, states, and temporary references. It
+supports interactive-only mode and open shadow roots, defaults to depth 20 and
+1,000 nodes, and reports truncation at configurable hard limits of depth 50
+and 5,000 nodes.
 
 Grouping and ungrouping use the Core tabs API. Updating a group and reading or
 restoring recently closed sessions require the optional Personal data profile;

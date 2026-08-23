@@ -70,13 +70,33 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   });
   assert.equal(secret.result.element.value, "[REDACTED]");
   assert.equal(secret.result.element.attributes.value, "[REDACTED]");
+
+  const snapshot = await command(listener, "page.snapshot", {
+    interactiveOnly: true,
+    maxDepth: 10,
+    maxNodes: 10,
+    includeShadowDOM: true,
+  });
+  assert.equal(snapshot.result.nodeCount, 2);
+  assert.deepEqual(snapshot.result.nodes.map((node) => node.tagName), ["BUTTON", "INPUT"]);
+  assert.equal(snapshot.result.nodes[0].reference.documentId, "document-1");
+  assert.equal(snapshot.result.truncated, false);
+
+  const truncatedSnapshot = await command(listener, "page.snapshot", {
+    interactiveOnly: true,
+    maxDepth: 10,
+    maxNodes: 1,
+  });
+  assert.equal(truncatedSnapshot.result.nodeCount, 1);
+  assert.equal(truncatedSnapshot.result.truncated, true);
+  assert.equal(truncatedSnapshot.result.warnings.length, 1);
 });
 
 function command(listener, name, params) {
   return new Promise((resolve, reject) => {
     const handled = listener({
       type: "MCP_BROWSER_COMMAND",
-      bridgeVersion: "1.2",
+      bridgeVersion: "1.3",
       command: name,
       params,
       frameId: 0,

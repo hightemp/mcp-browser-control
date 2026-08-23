@@ -138,6 +138,7 @@ export function createPageHandlers(chromeAPI) {
     getText: execute,
     query: execute,
     getElement: execute,
+    snapshot: execute,
     click: execute,
     fill: execute,
   };

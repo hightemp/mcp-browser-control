@@ -132,6 +132,18 @@ type pageElementArgs struct {
 	TimeoutMS    *int             `json:"timeoutMs,omitempty"`
 }
 
+type pageSnapshotArgs struct {
+	BrowserID        string `json:"browserId,omitempty"`
+	TabID            *int   `json:"tabId,omitempty"`
+	FrameID          *int   `json:"frameId,omitempty"`
+	DocumentID       string `json:"documentId,omitempty"`
+	InteractiveOnly  *bool  `json:"interactiveOnly,omitempty"`
+	MaxDepth         *int   `json:"maxDepth,omitempty"`
+	MaxNodes         *int   `json:"maxNodes,omitempty"`
+	IncludeShadowDOM *bool  `json:"includeShadowDOM,omitempty"`
+	TimeoutMS        *int   `json:"timeoutMs,omitempty"`
+}
+
 type clickArgs struct {
 	BrowserID   string                `json:"browserId,omitempty"`
 	TabID       *int                  `json:"tabId,omitempty"`
@@ -349,6 +361,22 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserGetElementHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_snapshot",
+			mcp.WithDescription("Get a compact semantic tree with document-scoped element references"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
+			mcp.WithBoolean("interactiveOnly", mcp.Description("Include only actionable or focusable elements")),
+			mcp.WithNumber("maxDepth", mcp.Description("Maximum DOM traversal depth"), mcp.Min(0), mcp.Max(50)),
+			mcp.WithNumber("maxNodes", mcp.Description("Maximum semantic nodes"), mcp.Min(1), mcp.Max(5_000)),
+			mcp.WithBoolean("includeShadowDOM", mcp.Description("Traverse open shadow roots")),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserSnapshotHandler),
 	)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -693,6 +721,26 @@ func (s *Service) browserGetElementHandler(
 		args.BrowserID,
 		protocol.CommandPageGetElement,
 		target,
+		params,
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserSnapshotHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args pageSnapshotArgs,
+) (*mcp.CallToolResult, error) {
+	params := map[string]any{}
+	putOptional(params, "interactiveOnly", args.InteractiveOnly)
+	putOptional(params, "maxDepth", args.MaxDepth)
+	putOptional(params, "maxNodes", args.MaxNodes)
+	putOptional(params, "includeShadowDOM", args.IncludeShadowDOM)
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageSnapshot,
+		pageTarget(args.TabID, args.FrameID, args.DocumentID),
 		params,
 		args.TimeoutMS,
 	)

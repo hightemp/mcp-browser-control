@@ -395,7 +395,7 @@ Streamable HTTP работает на едином `/mcp`, защищён Host/O
 
 - Приоритет: P0
 - Зависимости: T-013, T-031
-- Статус: `[~]`
+- Статус: `[x]`
 
 Каждый result включает:
 
@@ -406,6 +406,8 @@ Streamable HTTP работает на едином `/mcp`, защищён Host/O
 - pagination cursor или artifact URI для больших данных.
 
 Не оборачивать структурированный результат в неоднозначный JSON string, если SDK поддерживает structured content.
+
+Все handlers возвращают единый envelope с `success`, фактическим `target`, безопасным `data`, массивом `warnings` и timestamp; browser round-trip дополнительно содержит `durationMs`. `nextCursor` и `artifactUri` поднимаются из результата расширения в стандартные поля. Используемый MCP SDK v0.32.0 ещё не имеет structured content, поэтому envelope передаётся как один JSON object в text content без повторного JSON-кодирования.
 
 ### T-034 — Добавить Artifact Store
 

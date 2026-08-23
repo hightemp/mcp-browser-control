@@ -108,7 +108,12 @@ func TestServiceRoutesThroughSelectedBrowser(t *testing.T) {
 	responseMessage, err := protocol.NewResponse(
 		request.RequestID,
 		"browser-a",
-		map[string]any{"tabs": []map[string]any{{"id": 7}}},
+		map[string]any{
+			"tabs":        []map[string]any{{"id": 7}},
+			"warnings":    []string{"one tab was omitted"},
+			"nextCursor":  "cursor-2",
+			"artifactUri": "browser://artifacts/tabs-1",
+		},
 		nil,
 	)
 	if err != nil {
@@ -128,6 +133,22 @@ func TestServiceRoutesThroughSelectedBrowser(t *testing.T) {
 		response := decodeToolResponse(t, result)
 		if response.BrowserID != "browser-a" {
 			t.Errorf("browserId = %q, want browser-a", response.BrowserID)
+		}
+		if response.Target == nil || response.Target.BrowserID != "browser-a" {
+			t.Errorf("target = %#v, want browser-a", response.Target)
+		}
+		if !reflect.DeepEqual(response.Warnings, []string{"one tab was omitted"}) {
+			t.Errorf("warnings = %#v", response.Warnings)
+		}
+		if response.NextCursor != "cursor-2" ||
+			response.ArtifactURI != "browser://artifacts/tabs-1" {
+			t.Errorf("result links = (%q, %q)", response.NextCursor, response.ArtifactURI)
+		}
+		if response.DurationMS == nil || *response.DurationMS < 0 {
+			t.Errorf("durationMs = %#v", response.DurationMS)
+		}
+		if _, err := time.Parse(time.RFC3339Nano, response.Timestamp); err != nil {
+			t.Errorf("timestamp = %q: %v", response.Timestamp, err)
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for tool result")
@@ -209,6 +230,13 @@ func TestDiscoveryHandlers(t *testing.T) {
 	}
 	if response := decodeToolResponse(t, list); !response.Success {
 		t.Fatalf("browserListHandler() response = %#v", response)
+	} else {
+		if response.Target != nil {
+			t.Errorf("browser_list target = %#v, want nil", response.Target)
+		}
+		if response.Warnings == nil || len(response.Warnings) != 0 {
+			t.Errorf("browser_list warnings = %#v, want empty array", response.Warnings)
+		}
 	}
 
 	selected, err := service.browserGetSelectedHandler(ctx, mcp.CallToolRequest{}, emptyArgs{})
@@ -252,6 +280,8 @@ func TestDiscoveryHandlers(t *testing.T) {
 	}
 	if response := decodeToolResponse(t, gotBrowser); response.BrowserID != "browser-b" {
 		t.Fatalf("browserId = %q, want browser-b", response.BrowserID)
+	} else if response.Target == nil || response.Target.BrowserID != "browser-b" {
+		t.Fatalf("target = %#v, want browser-b", response.Target)
 	}
 
 	renamed, err := service.browserRenameHandler(
@@ -458,6 +488,14 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			case result := <-resultChannel:
 				if result.IsError {
 					t.Fatalf("handler returned tool error: %s", toolText(t, result))
+				}
+				toolResponse := decodeToolResponse(t, result)
+				wantResultTarget := test.wantTarget
+				if wantResultTarget == nil {
+					wantResultTarget = &protocol.Target{BrowserID: "browser-a"}
+				}
+				if !reflect.DeepEqual(toolResponse.Target, wantResultTarget) {
+					t.Errorf("result target = %#v, want %#v", toolResponse.Target, wantResultTarget)
 				}
 			case <-time.After(time.Second):
 				t.Fatal("timed out waiting for handler result")

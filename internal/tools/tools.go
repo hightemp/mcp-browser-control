@@ -113,11 +113,16 @@ type sendCommandArgs struct {
 }
 
 type toolResponse struct {
-	Success   bool            `json:"success"`
-	BrowserID string          `json:"browserId,omitempty"`
-	Data      any             `json:"data,omitempty"`
-	Error     *protocol.Error `json:"error,omitempty"`
-	Timestamp string          `json:"timestamp"`
+	Success     bool             `json:"success"`
+	BrowserID   string           `json:"browserId,omitempty"`
+	Target      *protocol.Target `json:"target,omitempty"`
+	Data        any              `json:"data,omitempty"`
+	Warnings    []string         `json:"warnings"`
+	NextCursor  string           `json:"nextCursor,omitempty"`
+	ArtifactURI string           `json:"artifactUri,omitempty"`
+	DurationMS  *float64         `json:"durationMs,omitempty"`
+	Error       *protocol.Error  `json:"error,omitempty"`
+	Timestamp   string           `json:"timestamp"`
 }
 
 func (s *Service) registerDiscoveryTools(mcpServer *server.MCPServer) {
@@ -588,30 +593,31 @@ func (s *Service) send(
 	params any,
 	timeoutMS *int,
 ) (*mcp.CallToolResult, error) {
+	startedAt := time.Now()
 	browserID, err := s.resolveBrowser(ctx, explicitBrowserID)
 	if err != nil {
-		return errorResult(err)
+		return errorResultWithDuration(err, time.Since(startedAt))
 	}
 	if commandUsesTab(command) {
 		target, err = s.resolveTarget(ctx, browserID, target)
 		if err != nil {
-			return errorResult(err)
+			return errorResultWithDuration(err, time.Since(startedAt))
 		}
 	}
 	requestCtx, cancel, err := toolContext(ctx, timeoutMS)
 	if err != nil {
-		return errorResult(err)
+		return errorResultWithDuration(err, time.Since(startedAt))
 	}
 	defer cancel()
 
 	result, err := s.router.Send(requestCtx, browserID, command, target, params)
 	if err != nil {
-		return errorResult(err)
+		return errorResultWithDuration(err, time.Since(startedAt))
 	}
 	if len(result) == 0 {
 		result = json.RawMessage("null")
 	}
-	return successResult(browserID, result)
+	return successResultWithTarget(browserID, target, result, time.Since(startedAt))
 }
 
 func (s *Service) resolveTarget(
@@ -682,12 +688,31 @@ func targetWithTab(tabID *int) *protocol.Target {
 }
 
 func successResult(browserID string, data any) (*mcp.CallToolResult, error) {
-	payload, err := json.Marshal(toolResponse{
-		Success:   true,
-		BrowserID: browserID,
-		Data:      data,
-		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-	})
+	return successResultWithTarget(browserID, nil, data, 0)
+}
+
+func successResultWithTarget(
+	browserID string,
+	target *protocol.Target,
+	data any,
+	duration time.Duration,
+) (*mcp.CallToolResult, error) {
+	warnings, nextCursor, artifactURI := resultHints(data)
+	response := toolResponse{
+		Success:     true,
+		BrowserID:   browserID,
+		Target:      resolvedResultTarget(browserID, target),
+		Data:        data,
+		Warnings:    warnings,
+		NextCursor:  nextCursor,
+		ArtifactURI: artifactURI,
+		Timestamp:   time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if duration > 0 {
+		durationMS := float64(duration.Microseconds()) / 1000
+		response.DurationMS = &durationMS
+	}
+	payload, err := json.Marshal(response)
 	if err != nil {
 		return nil, fmt.Errorf("marshal MCP tool result: %w", err)
 	}
@@ -695,15 +720,67 @@ func successResult(browserID string, data any) (*mcp.CallToolResult, error) {
 }
 
 func errorResult(err error) (*mcp.CallToolResult, error) {
-	payload, marshalErr := json.Marshal(toolResponse{
+	return errorResultWithDuration(err, 0)
+}
+
+func errorResultWithDuration(err error, duration time.Duration) (*mcp.CallToolResult, error) {
+	resultError := protocol.ErrorFrom(err)
+	response := toolResponse{
 		Success:   false,
-		Error:     protocol.ErrorFrom(err),
+		Target:    resolvedResultTarget("", resultError.Target),
+		Warnings:  []string{},
+		Error:     resultError,
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-	})
+	}
+	if response.Target != nil {
+		response.BrowserID = response.Target.BrowserID
+	}
+	if duration > 0 {
+		durationMS := float64(duration.Microseconds()) / 1000
+		response.DurationMS = &durationMS
+	}
+	payload, marshalErr := json.Marshal(response)
 	if marshalErr != nil {
 		return nil, fmt.Errorf("marshal MCP tool error: %w", marshalErr)
 	}
 	return mcp.NewToolResultError(string(payload)), nil
+}
+
+func resolvedResultTarget(browserID string, target *protocol.Target) *protocol.Target {
+	if target == nil {
+		if browserID == "" {
+			return nil
+		}
+		return &protocol.Target{BrowserID: browserID}
+	}
+	if browserID == "" {
+		browserID = target.BrowserID
+	}
+	resolved, err := protocol.ResolveTarget(browserID, target)
+	if err != nil {
+		return nil
+	}
+	return resolved
+}
+
+func resultHints(data any) ([]string, string, string) {
+	warnings := []string{}
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return warnings, "", ""
+	}
+	var hints struct {
+		Warnings    []string `json:"warnings"`
+		NextCursor  string   `json:"nextCursor"`
+		ArtifactURI string   `json:"artifactUri"`
+	}
+	if err := json.Unmarshal(payload, &hints); err != nil {
+		return warnings, "", ""
+	}
+	if hints.Warnings != nil {
+		warnings = append(warnings, hints.Warnings...)
+	}
+	return warnings, hints.NextCursor, hints.ArtifactURI
 }
 
 func optionalBrowserID() mcp.ToolOption {

@@ -199,6 +199,18 @@ These return `CAPABILITY_UNAVAILABLE` until their event-driven implementations
 are added. `browser_send_command` is an expert entry point, but the extension
 still enforces its command allowlist.
 
+## Tool Result Envelope
+
+Every tool returns one JSON object with `success`, the resolved `target` when
+applicable, safe `data`, a `warnings` array, and an RFC 3339 `timestamp`.
+Routed browser commands also include `durationMs`. Paginated or artifact-backed
+responses promote `nextCursor` and `artifactUri` to the same top-level envelope.
+`browserId` remains as a compatibility alias for `target.browserId`.
+
+The pinned MCP SDK does not yet expose structured content, so this object is
+currently carried in the tool result's text content instead of being encoded a
+second time as an ambiguous nested string.
+
 ## Protocol v1
 
 The versioned Draft 2020-12 contract is maintained in

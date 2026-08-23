@@ -34,6 +34,72 @@ test("browser and tab handlers return stable domain results", async () => {
   assert.equal(result.tabs[0].muted, true);
 });
 
+test("tab handlers keep every operation scoped to the addressed tab", async () => {
+  const calls = [];
+  const tab = {
+    id: 42,
+    windowId: 3,
+    index: 1,
+    active: false,
+    pinned: false,
+    mutedInfo: { muted: false },
+    url: "https://example.com/",
+  };
+  const chromeAPI = {
+    tabs: {
+      query: async () => { calls.push(["query"]); return []; },
+      get: async (id) => { calls.push(["get", id]); return { ...tab, id }; },
+      create: async (params) => { calls.push(["create", params]); return { ...tab, id: 50 }; },
+      update: async (id, params) => { calls.push(["update", id, params]); return { ...tab, id, ...params }; },
+      reload: async (id, params) => { calls.push(["reload", id, params]); },
+      goBack: async (id) => { calls.push(["back", id]); },
+      goForward: async (id) => { calls.push(["forward", id]); },
+      move: async (id, params) => { calls.push(["move", id, params]); return { ...tab, id, ...params }; },
+      duplicate: async (id) => { calls.push(["duplicate", id]); return { ...tab, id: 51 }; },
+      remove: async (id) => { calls.push(["close", id]); },
+      getZoom: async (id) => { calls.push(["getZoom", id]); return 1.25; },
+      setZoom: async (id, factor) => { calls.push(["setZoom", id, factor]); },
+    },
+    permissions: { contains: async () => true },
+    scripting: {
+      executeScript: async (params) => { calls.push(["stop", params.target.tabId]); },
+    },
+  };
+  const handlers = createTabHandlers(chromeAPI);
+  const targeted = (params = {}) => ({ target: { tabId: 42 }, params });
+
+  assert.equal((await handlers.get(targeted())).tab.id, 42);
+  assert.equal((await handlers.create({ params: { url: "https://example.org" } })).tab.id, 50);
+  await handlers.activate(targeted());
+  await handlers.navigate(targeted({ url: "https://example.org" }));
+  await handlers.reload(targeted({ bypassCache: true }));
+  await handlers.stop(targeted());
+  await handlers.back(targeted());
+  await handlers.forward(targeted());
+  await handlers.move(targeted({ windowId: 4, index: -1 }));
+  assert.equal((await handlers.duplicate(targeted())).tab.id, 51);
+  assert.deepEqual(await handlers.close(targeted()), { tabId: 42, closed: true });
+  await handlers.pin(targeted({ pinned: true }));
+  await handlers.mute(targeted({ muted: true }));
+  assert.deepEqual(await handlers.getZoom(targeted()), { tabId: 42, factor: 1.25 });
+  assert.deepEqual(await handlers.setZoom(targeted({ factor: 1.5 })), {
+    tabId: 42,
+    factor: 1.5,
+  });
+
+  assert.equal(calls.some(([operation]) => operation === "query"), false);
+  for (const operation of [
+    "get", "update", "reload", "stop", "back", "forward", "move", "duplicate",
+    "close", "getZoom", "setZoom",
+  ]) {
+    assert.equal(
+      calls.some((call) => call[0] === operation && call[1] === 42),
+      true,
+      `${operation} did not use tab 42`,
+    );
+  }
+});
+
 test("window handlers support list, get, create, update, focus, and close", async () => {
   const calls = [];
   const window = {

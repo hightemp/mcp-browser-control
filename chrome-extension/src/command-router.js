@@ -35,6 +35,53 @@ const COMMANDS = Object.freeze({
     validate: validateWindowTarget,
   }),
   "tabs.list": Object.freeze({ domain: "tabs", handler: "list", validate: validateEmpty }),
+  "tabs.get": Object.freeze({ domain: "tabs", handler: "get", validate: validateTabEmpty }),
+  "tabs.create": Object.freeze({
+    domain: "tabs",
+    handler: "create",
+    validate: validateTabCreate,
+  }),
+  "tabs.activate": Object.freeze({
+    domain: "tabs",
+    handler: "activate",
+    validate: validateTabEmpty,
+  }),
+  "tabs.navigate": Object.freeze({
+    domain: "tabs",
+    handler: "navigate",
+    validate: validateTabNavigate,
+  }),
+  "tabs.reload": Object.freeze({
+    domain: "tabs",
+    handler: "reload",
+    validate: validateTabReload,
+  }),
+  "tabs.stop": Object.freeze({ domain: "tabs", handler: "stop", validate: validateTabEmpty }),
+  "tabs.back": Object.freeze({ domain: "tabs", handler: "back", validate: validateTabEmpty }),
+  "tabs.forward": Object.freeze({
+    domain: "tabs",
+    handler: "forward",
+    validate: validateTabEmpty,
+  }),
+  "tabs.move": Object.freeze({ domain: "tabs", handler: "move", validate: validateTabMove }),
+  "tabs.duplicate": Object.freeze({
+    domain: "tabs",
+    handler: "duplicate",
+    validate: validateTabEmpty,
+  }),
+  "tabs.close": Object.freeze({ domain: "tabs", handler: "close", validate: validateTabEmpty }),
+  "tabs.pin": Object.freeze({ domain: "tabs", handler: "pin", validate: validateTabPin }),
+  "tabs.mute": Object.freeze({ domain: "tabs", handler: "mute", validate: validateTabMute }),
+  "tabs.getZoom": Object.freeze({
+    domain: "tabs",
+    handler: "getZoom",
+    validate: validateTabEmpty,
+  }),
+  "tabs.setZoom": Object.freeze({
+    domain: "tabs",
+    handler: "setZoom",
+    validate: validateTabSetZoom,
+  }),
   "page.getHTML": Object.freeze({ domain: "page", handler: "getHTML", validate: validateEmpty }),
   "page.getHTMLBySelector": Object.freeze({
     domain: "page",
@@ -200,6 +247,73 @@ function validateWindowUpdate(params, target) {
   assertStateAndBoundsCompatible(params);
 }
 
+function validateTabEmpty(params, target) {
+  validateEmpty(params);
+  validateOptionalTabTarget(target);
+}
+
+function validateTabCreate(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["windowId", "url", "index", "active", "pinned"]);
+  validateOptionalIdentifier(params.windowId, "params.windowId");
+  if (params.url !== undefined) {
+    assertNonEmptyString(params.url, "params.url");
+  }
+  validateOptionalIdentifier(params.index, "params.index");
+  validateOptionalBoolean(params.active, "params.active");
+  validateOptionalBoolean(params.pinned, "params.pinned");
+}
+
+function validateTabNavigate(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["url"]);
+  assertNonEmptyString(params.url, "params.url");
+  validateOptionalTabTarget(target);
+}
+
+function validateTabReload(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["bypassCache"]);
+  validateOptionalBoolean(params.bypassCache, "params.bypassCache");
+  validateOptionalTabTarget(target);
+}
+
+function validateTabMove(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["windowId", "index"]);
+  validateOptionalIdentifier(params.windowId, "params.windowId");
+  if (!Number.isInteger(params.index) || params.index < -1) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.index must be an integer of at least -1");
+  }
+  validateOptionalTabTarget(target);
+}
+
+function validateTabPin(params, target) {
+  validateRequiredBoolean(params, target, "pinned");
+}
+
+function validateTabMute(params, target) {
+  validateRequiredBoolean(params, target, "muted");
+}
+
+function validateRequiredBoolean(params, target, property) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [property]);
+  if (typeof params[property] !== "boolean") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${property} must be a boolean`);
+  }
+  validateOptionalTabTarget(target);
+}
+
+function validateTabSetZoom(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["factor"]);
+  if (!Number.isFinite(params.factor) || params.factor < 0.25 || params.factor > 5) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.factor must be between 0.25 and 5");
+  }
+  validateOptionalTabTarget(target);
+}
+
 function validateAction(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, ["selector", "coordinates", "locator", "index"]);
@@ -301,6 +415,24 @@ function validateEnum(value, path, allowed) {
 function validateOptionalBoolean(value, path) {
   if (value !== undefined && typeof value !== "boolean") {
     throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be a boolean`);
+  }
+}
+
+function validateOptionalIdentifier(value, path) {
+  if (value !== undefined && (!Number.isInteger(value) || value < 0)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be a non-negative integer`);
+  }
+}
+
+function validateOptionalTabTarget(target) {
+  if (target === undefined || target === null) {
+    return;
+  }
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.frameId !== undefined || target.documentId !== undefined) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Tab commands require a tab-only target");
   }
 }
 

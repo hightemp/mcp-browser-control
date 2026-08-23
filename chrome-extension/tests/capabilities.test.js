@@ -40,7 +40,7 @@ test("capability detection removes unavailable or disabled commands", () => {
       apis: { tabs: true, scripting: true },
       permissions: { permissions: ["tabs"], origins: [] },
     }),
-    ["browser.ping", "tabs.list"],
+    tabCapabilitiesWithoutStop(),
   );
 
   assert.deepEqual(
@@ -50,6 +50,13 @@ test("capability detection removes unavailable or disabled commands", () => {
       permissions: { permissions: ["tabs"], origins: ["https://example.com/*"] },
       featureFlags: { pageAutomation: true },
     }),
-    ["browser.ping", "tabs.list"],
+    tabCapabilitiesWithoutStop(),
   );
 });
+
+function tabCapabilitiesWithoutStop() {
+  return COMMAND_NAMES.filter(
+    (capability) => capability === "browser.ping"
+      || (capability.startsWith("tabs.") && capability !== "tabs.stop"),
+  );
+}

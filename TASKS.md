@@ -592,11 +592,13 @@ List, get, create, update, focus и close. Покрыть normal, popup, minimiz
 
 - Приоритет: P0
 - Зависимости: T-031, T-045
-- Статус: `[~]`
+- Статус: `[x]`
 
 List, get, create, activate, navigate, reload, stop, back, forward, move, duplicate, close, pin, mute и zoom.
 
 Исправить текущую логику, которая всегда выбирает active tab и игнорирует адресный `tabId`.
+
+Реализованы MCP tools и extension commands для list/get/create/activate/navigate/reload/stop/back/forward/move/duplicate/close/pin/mute и get/set zoom. Явный `tabId` и browser-scoped session selection доходят до каждого Chrome API call; fallback к active tab применяется только при отсутствии обоих. `tabs.stop` рекламируется только при наличии scripting API и host access, а остальные tab capabilities зависят от `tabs` API/permission.
 
 ### T-052 — Реализовать tab groups и sessions
 

@@ -162,7 +162,7 @@
   "type": "request",
   "requestId": "019...",
   "browserId": "9c6...",
-  "command": "tab.navigate",
+  "command": "tabs.navigate",
   "target": {
     "tabId": 123,
     "frameId": 0

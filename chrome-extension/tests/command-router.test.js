@@ -23,7 +23,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
         focus: handler,
         close: handler,
       },
-      tabs: { list: handler },
+      tabs: tabHandlers(handler),
       page: {
         getHTML: handler,
         getHTMLBySelector: handler,
@@ -47,6 +47,21 @@ test("router dispatches every allowlisted command to its domain handler", async 
     "windows.focus": {},
     "windows.close": {},
     "tabs.list": {},
+    "tabs.get": {},
+    "tabs.create": { url: "https://example.com", active: false },
+    "tabs.activate": {},
+    "tabs.navigate": { url: "https://example.org" },
+    "tabs.reload": { bypassCache: true },
+    "tabs.stop": {},
+    "tabs.back": {},
+    "tabs.forward": {},
+    "tabs.move": { windowId: 3, index: -1 },
+    "tabs.duplicate": {},
+    "tabs.close": {},
+    "tabs.pin": { pinned: true },
+    "tabs.mute": { muted: false },
+    "tabs.getZoom": {},
+    "tabs.setZoom": { factor: 1.25 },
     "page.getHTML": {},
     "page.getHTMLBySelector": { selector: "main" },
     "page.click": { coordinates: { x: 20, y: 40 } },
@@ -95,7 +110,7 @@ test("router validates target and command params before invoking handlers", asyn
         focus: () => { calls += 1; },
         close: () => { calls += 1; },
       },
-      tabs: { list: () => { calls += 1; } },
+      tabs: tabHandlers(() => { calls += 1; }),
       page: {
         getHTML: () => { calls += 1; },
         getHTMLBySelector: () => { calls += 1; },
@@ -113,6 +128,12 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.fill", { selector: "input", value: "x", clear: "yes" }),
     createRequest("windows.get", {}),
     createRequest("windows.create", { urls: [] }),
+    createRequest("tabs.create", { index: -1 }),
+    createRequest("tabs.navigate", { url: "" }),
+    createRequest("tabs.reload", { bypassCache: "yes" }),
+    createRequest("tabs.move", { index: -2 }),
+    createRequest("tabs.pin", {}),
+    createRequest("tabs.setZoom", { factor: 6 }),
     {
       ...createRequest("windows.update", { state: "fullscreen", width: 800 }),
       target: { browserId, windowId: 3 },
@@ -204,13 +225,34 @@ function defaultHandlers() {
       focus: () => ({ window: {} }),
       close: () => ({ closed: true }),
     },
-    tabs: { list: () => ({ tabs: [] }) },
+    tabs: tabHandlers(() => ({ tab: {} })),
     page: {
       getHTML: () => ({ html: "" }),
       getHTMLBySelector: () => ({ html: "" }),
       click: () => ({ clicked: true }),
       fill: () => ({ filled: true }),
     },
+  };
+}
+
+function tabHandlers(handler) {
+  return {
+    list: handler,
+    get: handler,
+    create: handler,
+    activate: handler,
+    navigate: handler,
+    reload: handler,
+    stop: handler,
+    back: handler,
+    forward: handler,
+    move: handler,
+    duplicate: handler,
+    close: handler,
+    pin: handler,
+    mute: handler,
+    getZoom: handler,
+    setZoom: handler,
   };
 }
 

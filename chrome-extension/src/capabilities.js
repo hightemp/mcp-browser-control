@@ -25,7 +25,33 @@ export function detectCapabilities({
 
   const grantedPermissions = new Set(permissions.permissions || []);
   if (apis.tabs && grantedPermissions.has("tabs")) {
-    capabilities.push("tabs.list");
+    capabilities.push(
+      "tabs.list",
+      "tabs.get",
+      "tabs.create",
+      "tabs.activate",
+      "tabs.navigate",
+      "tabs.reload",
+    );
+    if (
+      featureFlags.pageAutomation !== false
+      && apis.scripting
+      && grantedPermissions.has("scripting")
+      && (permissions.origins || []).length > 0
+    ) {
+      capabilities.push("tabs.stop");
+    }
+    capabilities.push(
+      "tabs.back",
+      "tabs.forward",
+      "tabs.move",
+      "tabs.duplicate",
+      "tabs.close",
+      "tabs.pin",
+      "tabs.mute",
+      "tabs.getZoom",
+      "tabs.setZoom",
+    );
   }
 
   const hasWebsiteAccess = (permissions.origins || []).length > 0;

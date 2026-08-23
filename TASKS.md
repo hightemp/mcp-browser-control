@@ -325,7 +325,7 @@ Store изолирует browser и per-browser tab selection по MCP session, 
 
 - Приоритет: P0
 - Зависимости: T-021, T-024
-- Статус: `[~]`
+- Статус: `[x]`
 
 При остановке:
 
@@ -335,6 +335,8 @@ Store изолирует browser и per-browser tab selection по MCP session, 
 - закрыть WebSocket с корректным code;
 - завершить MCP transports;
 - дождаться goroutines в пределах deadline.
+
+Остановка закрывает MCP и WebSocket listeners, атомарно запрещает новые browser connections, отменяет pending router requests и ждёт server/connection goroutines в рамках общего deadline. Каждому подключённому расширению перед закрытием гарантированно записывается событие `server.shutdown`, после чего WebSocket завершается кодом `1001`; при исчерпании deadline соединения принудительно обрываются.
 
 ## 8. Этап 3 — MCP transport и системные tools
 

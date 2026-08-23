@@ -134,6 +134,16 @@ type Server struct {
 	maxMessageBytes  int64
 	originAllowlist  []string
 	upgrader         gorilla.Upgrader
+
+	connectionsMu sync.Mutex
+	connections   map[string]activeConnection
+	shuttingDown  bool
+	handlers      sync.WaitGroup
+}
+
+type activeConnection struct {
+	browserID string
+	writer    *connection
 }
 
 // NewServer creates a browser WebSocket transport.
@@ -153,6 +163,7 @@ func NewServer(
 		pingInterval:     defaultPingInterval,
 		sendQueueSize:    defaultSendQueueSize,
 		maxMessageBytes:  4 << 20,
+		connections:      make(map[string]activeConnection),
 		upgrader: gorilla.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
@@ -173,6 +184,10 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 	if !loopbackHost(request.Host) {
 		http.Error(writer, "forbidden host", http.StatusForbidden)
+		return
+	}
+	if s.isShuttingDown() {
+		http.Error(writer, "server is shutting down", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -264,9 +279,21 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	if replaced != nil {
-		if err := replaced.Close(); err != nil {
-			s.logger.Printf("failed to close replaced browser connection: %v", err)
+		var closeErr error
+		if replaceable, ok := replaced.(interface {
+			CloseWithCode(code int, reason string) error
+		}); ok {
+			closeErr = replaceable.CloseWithCode(gorilla.CloseServiceRestart, "connection replaced")
+		} else {
+			closeErr = replaced.Close()
 		}
+		if closeErr != nil {
+			s.logger.Printf("failed to close replaced browser connection: %v", closeErr)
+		}
+	}
+	if !s.trackConnection(browserID, connection) {
+		s.registry.Disconnect(browserID, connection.ID(), "server is shutting down")
+		return
 	}
 
 	disconnectReason := "connection closed"
@@ -275,6 +302,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return socket.SetReadDeadline(time.Now().Add(s.readTimeout))
 	})
 	defer func() {
+		s.untrackConnection(connection.ID())
 		s.registry.Disconnect(browserID, connection.ID(), disconnectReason)
 		s.router.FailConnection(browserID, connection.ID())
 	}()
@@ -403,6 +431,78 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 }
 
+// Shutdown notifies and gracefully closes every active browser connection.
+func (s *Server) Shutdown(ctx context.Context) error {
+	if ctx == nil {
+		return protocol.NewError(protocol.CodeInvalidMessage, "context is required", false)
+	}
+	s.connectionsMu.Lock()
+	s.shuttingDown = true
+	connections := make([]activeConnection, 0, len(s.connections))
+	for _, active := range s.connections {
+		connections = append(connections, active)
+	}
+	s.connectionsMu.Unlock()
+
+	var closeGroup sync.WaitGroup
+	for _, active := range connections {
+		active := active
+		closeGroup.Add(1)
+		go func() {
+			defer closeGroup.Done()
+			message := protocol.NewMessage(protocol.TypeEvent)
+			message.BrowserID = active.browserID
+			message.ConnectionID = active.writer.ID()
+			message.Params, _ = json.Marshal(map[string]string{
+				"name":   "server.shutdown",
+				"reason": "server is shutting down",
+			})
+			_ = active.writer.Send(ctx, message)
+			_ = active.writer.CloseWithCode(gorilla.CloseGoingAway, "server shutting down")
+		}()
+	}
+
+	done := make(chan struct{})
+	go func() {
+		closeGroup.Wait()
+		s.handlers.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		for _, active := range connections {
+			active.writer.abort()
+		}
+		return ctx.Err()
+	}
+}
+
+func (s *Server) isShuttingDown() bool {
+	s.connectionsMu.Lock()
+	defer s.connectionsMu.Unlock()
+	return s.shuttingDown
+}
+
+func (s *Server) trackConnection(browserID string, connection *connection) bool {
+	s.connectionsMu.Lock()
+	defer s.connectionsMu.Unlock()
+	if s.shuttingDown {
+		return false
+	}
+	s.handlers.Add(1)
+	s.connections[connection.ID()] = activeConnection{browserID: browserID, writer: connection}
+	return true
+}
+
+func (s *Server) untrackConnection(connectionID string) {
+	s.connectionsMu.Lock()
+	delete(s.connections, connectionID)
+	s.connectionsMu.Unlock()
+	s.handlers.Done()
+}
+
 type rejectingAuthenticator struct{}
 
 func (rejectingAuthenticator) Authorize(_, _, _ string) (string, error) {
@@ -429,6 +529,8 @@ type connection struct {
 	doneOnce     sync.Once
 	errMu        sync.Mutex
 	closeErr     error
+	closeCode    int
+	closeReason  string
 }
 
 func newConnection(
@@ -445,6 +547,8 @@ func newConnection(
 		outbound:     make(chan outboundMessage, sendQueueSize),
 		done:         make(chan struct{}),
 		pumpDone:     make(chan struct{}),
+		closeCode:    gorilla.CloseNormalClosure,
+		closeReason:  "connection closed",
 	}
 }
 
@@ -491,7 +595,12 @@ func (c *connection) Send(ctx context.Context, message protocol.Message) error {
 }
 
 func (c *connection) Close() error {
-	c.signalDone()
+	return c.CloseWithCode(gorilla.CloseNormalClosure, "connection closed")
+}
+
+// CloseWithCode gracefully closes the WebSocket with the first requested code.
+func (c *connection) CloseWithCode(code int, reason string) error {
+	c.signalDone(code, reason)
 	<-c.pumpDone
 	c.errMu.Lock()
 	defer c.errMu.Unlock()
@@ -505,7 +614,7 @@ func (c *connection) writePump() {
 		if err := c.socket.Close(); err != nil {
 			c.recordCloseError(fmt.Errorf("close WebSocket: %w", err))
 		}
-		c.signalDone()
+		c.signalDone(gorilla.CloseAbnormalClosure, "writer stopped")
 		close(c.pumpDone)
 	}()
 
@@ -555,15 +664,30 @@ func (c *connection) writePing() error {
 }
 
 func (c *connection) writeCloseFrame() {
+	c.errMu.Lock()
+	code := c.closeCode
+	reason := c.closeReason
+	c.errMu.Unlock()
 	deadline := time.Now().Add(c.writeTimeout)
-	payload := gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "server closing")
+	payload := gorilla.FormatCloseMessage(code, reason)
 	if err := c.socket.WriteControl(gorilla.CloseMessage, payload, deadline); err != nil {
 		c.recordCloseError(fmt.Errorf("write WebSocket close frame: %w", err))
 	}
 }
 
-func (c *connection) signalDone() {
-	c.doneOnce.Do(func() { close(c.done) })
+func (c *connection) signalDone(code int, reason string) {
+	c.doneOnce.Do(func() {
+		c.errMu.Lock()
+		c.closeCode = code
+		c.closeReason = reason
+		c.errMu.Unlock()
+		close(c.done)
+	})
+}
+
+func (c *connection) abort() {
+	c.signalDone(gorilla.CloseGoingAway, "shutdown deadline exceeded")
+	_ = c.socket.Close()
 }
 
 func (c *connection) recordCloseError(err error) {

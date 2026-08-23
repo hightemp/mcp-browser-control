@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
@@ -119,24 +120,32 @@ func run(
 	}
 
 	errChannel := make(chan error, 2)
-	go func() {
+	var serveGroup sync.WaitGroup
+	startServer := func(serve func() error) {
+		serveGroup.Add(1)
+		go func() {
+			defer serveGroup.Done()
+			errChannel <- serve()
+		}()
+	}
+	startServer(func() error {
 		logger.Printf(
 			"Browser WebSocket server listening on ws://%s%s",
 			websocketHTTP.Addr,
 			websockettransport.DefaultPath,
 		)
-		errChannel <- normalizeServerError(websocketHTTP.Serve(websocketListener))
-	}()
+		return normalizeServerError(websocketHTTP.Serve(websocketListener))
+	})
 
 	var mcpHTTP *http.Server
 	switch config.Transport {
 	case "stdio":
 		stdioServer := server.NewStdioServer(mcpServer)
 		stdioServer.SetErrorLogger(log.New(logger.Writer(), "[MCP STDIO] ", log.LstdFlags))
-		go func() {
+		startServer(func() error {
 			logger.Printf("MCP server using STDIO transport")
-			errChannel <- stdioServer.Listen(runCtx, stdin, stdout)
-		}()
+			return stdioServer.Listen(runCtx, stdin, stdout)
+		})
 	case "streamable-http", "http":
 		sessionManager, managerErr := mcpsession.NewManager()
 		if managerErr != nil {
@@ -155,10 +164,10 @@ func run(
 			closeServer(websocketHTTP, logger)
 			return fmt.Errorf("listen for MCP connections on %s: %w", mcpHTTP.Addr, listenErr)
 		}
-		go func() {
+		startServer(func() error {
 			logger.Printf("MCP Streamable HTTP server listening on http://%s/mcp", mcpHTTP.Addr)
-			errChannel <- normalizeServerError(mcpHTTP.Serve(listener))
-		}()
+			return normalizeServerError(mcpHTTP.Serve(listener))
+		})
 	case "sse":
 		baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(config.MCPHost, config.MCPPort))
 		sse := server.NewSSEServer(mcpServer, server.WithBaseURL(baseURL))
@@ -168,10 +177,10 @@ func run(
 			closeServer(websocketHTTP, logger)
 			return fmt.Errorf("listen for legacy MCP SSE connections on %s: %w", mcpHTTP.Addr, listenErr)
 		}
-		go func() {
+		startServer(func() error {
 			logger.Printf("Legacy MCP SSE server listening on http://%s/sse", mcpHTTP.Addr)
-			errChannel <- normalizeServerError(mcpHTTP.Serve(listener))
-		}()
+			return normalizeServerError(mcpHTTP.Serve(listener))
+		})
 	}
 
 	var runErr error
@@ -196,6 +205,21 @@ func run(
 	}
 	if err := websocketHTTP.Shutdown(shutdownCtx); err != nil && runErr == nil {
 		runErr = fmt.Errorf("shut down WebSocket server: %w", err)
+	}
+	if err := websocketHandler.Shutdown(shutdownCtx); err != nil && runErr == nil {
+		runErr = fmt.Errorf("close browser connections: %w", err)
+	}
+	serveDone := make(chan struct{})
+	go func() {
+		serveGroup.Wait()
+		close(serveDone)
+	}()
+	select {
+	case <-serveDone:
+	case <-shutdownCtx.Done():
+		if runErr == nil {
+			runErr = fmt.Errorf("wait for server goroutines: %w", shutdownCtx.Err())
+		}
 	}
 	return runErr
 }

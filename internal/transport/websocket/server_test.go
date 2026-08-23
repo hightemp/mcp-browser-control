@@ -208,6 +208,108 @@ func TestServerRegistersAndRoutesBrowser(t *testing.T) {
 	}
 }
 
+func TestServerShutdownNotifiesClosesAndRejects(t *testing.T) {
+	t.Parallel()
+
+	browserRegistry := registry.New()
+	requestRouter := router.New(
+		browserRegistry,
+		router.WithLogger(log.New(io.Discard, "", 0)),
+	)
+	manager := mustPairingManager(t)
+	transport := NewServer(
+		browserRegistry,
+		requestRouter,
+		WithLogger(log.New(io.Discard, "", 0)),
+		WithAuthenticator(manager),
+		WithWriteTimeout(250*time.Millisecond),
+	)
+	mux := http.NewServeMux()
+	mux.Handle(DefaultPath, transport)
+	httpServer := httptest.NewServer(mux)
+	t.Cleanup(httpServer.Close)
+
+	pairingCode, _, err := manager.CurrentCode()
+	if err != nil {
+		t.Fatalf("CurrentCode() error = %v", err)
+	}
+	socket, _, err := gorilla.DefaultDialer.Dial(
+		"ws"+strings.TrimPrefix(httpServer.URL, "http")+DefaultPath,
+		http.Header{"Origin": []string{"chrome-extension://test-extension"}},
+	)
+	if err != nil {
+		t.Fatalf("Dial() error = %v", err)
+	}
+	t.Cleanup(func() { _ = socket.Close() })
+
+	browserID := uuid.NewString()
+	hello := protocol.NewMessage(protocol.TypeHello)
+	hello.BrowserID = browserID
+	hello.Params, err = json.Marshal(protocol.HelloParams{
+		ExtensionVersion: "0.1.0",
+		PairingCode:      pairingCode,
+	})
+	if err != nil {
+		t.Fatalf("marshal hello: %v", err)
+	}
+	if err := socket.WriteJSON(hello); err != nil {
+		t.Fatalf("write hello: %v", err)
+	}
+	var welcome protocol.Message
+	if err := socket.ReadJSON(&welcome); err != nil {
+		t.Fatalf("read welcome: %v", err)
+	}
+	waitForRegistryCount(t, browserRegistry, 1)
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	shutdownResult := make(chan error, 1)
+	go func() { shutdownResult <- transport.Shutdown(shutdownCtx) }()
+
+	var event protocol.Message
+	if err := socket.ReadJSON(&event); err != nil {
+		t.Fatalf("read shutdown event: %v", err)
+	}
+	if event.Type != protocol.TypeEvent || event.BrowserID != browserID {
+		t.Fatalf("shutdown event = %#v", event)
+	}
+	var eventParams struct {
+		Name   string `json:"name"`
+		Reason string `json:"reason"`
+	}
+	if err := event.DecodeParams(&eventParams); err != nil {
+		t.Fatalf("decode shutdown event: %v", err)
+	}
+	if eventParams.Name != "server.shutdown" || eventParams.Reason == "" {
+		t.Fatalf("shutdown event params = %#v", eventParams)
+	}
+
+	if _, _, err := socket.ReadMessage(); err == nil {
+		t.Fatal("ReadMessage() error = nil, want close frame")
+	} else {
+		var closeError *gorilla.CloseError
+		if !errors.As(err, &closeError) || closeError.Code != gorilla.CloseGoingAway {
+			t.Fatalf("ReadMessage() error = %v, want close code %d", err, gorilla.CloseGoingAway)
+		}
+	}
+	select {
+	case err := <-shutdownResult:
+		if err != nil {
+			t.Fatalf("Shutdown() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Shutdown() did not wait for connection handler")
+	}
+	waitForRegistryCount(t, browserRegistry, 0)
+
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/ws", nil)
+	response := httptest.NewRecorder()
+	transport.ServeHTTP(response, request)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Errorf("status after shutdown = %d, want %d", response.Code, http.StatusServiceUnavailable)
+	}
+}
+
 func waitForRegistryCount(t *testing.T, browserRegistry *registry.Registry, want int) {
 	t.Helper()
 	deadline := time.Now().Add(time.Second)

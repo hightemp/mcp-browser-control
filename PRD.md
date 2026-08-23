@@ -436,7 +436,7 @@ Manifest V3 расширение включает:
 | **Core** | `alarms`, `scripting`, `storage`, `tabs`, `webNavigation`; `chrome.windows` не требует отдельного permission | install-time | pairing/status, browser, windows, tabs, connection lifecycle | Браузер может показать предупреждение о доступе к вкладкам/истории навигации. В логах редактируются URL query/fragment, заголовки вкладок и введённые значения. |
 | **Observe** | host access `http://*/*`, `https://*/*` | optional | page inspection/actions, `tabs.stop`, console/page errors и ограниченный network metadata capture | Системный prompt сообщает о чтении и изменении данных на посещаемых сайтах. DOM, form values, console arguments и URL secrets не журналируются без redaction. |
 | **Debug** | `debugger` | optional | CDP-backed console/network bodies, accessibility, emulation, performance и allowlisted evaluation | Системный prompt сообщает о доступе к debugger backend. Headers, cookies, authorization data, bodies и evaluation results считаются чувствительными и редактируются или выносятся в ограниченные artifacts. |
-| **Personal data** | `bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`; для origin-scoped cookies/storage также требуется Observe | optional | cookies/storage, downloads, sessions, bookmarks/history, clipboard и browsing-data operations | UI перечисляет категории персональных данных до prompt. Cookie values, history queries, bookmark titles/URLs, download paths и clipboard contents не попадают в обычные логи. Массовое удаление дополнительно требует `confirm: true`. |
+| **Personal data** | `bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`, `tabGroups`; для origin-scoped cookies/storage также требуется Observe | optional | cookies/storage, downloads, recently closed sessions, tab-group presentation, bookmarks/history, clipboard и browsing-data operations | UI перечисляет категории персональных данных и предупреждение Chrome «View and manage your tab groups» до prompt. Cookie values, history queries, bookmark titles/URLs, download paths и clipboard contents не попадают в обычные логи. Массовое удаление дополнительно требует `confirm: true`. |
 
 Core объявляется в `permissions`. Observe объявляется в `optional_host_permissions`, Debug и Personal data — в `optional_permissions`. Включение Personal data также запрашивает Observe; отключение Observe оставляет Personal data в partial state до восстановления host access. Optional profiles включаются и выключаются только явным действием пользователя в extension UI. Permission changes отправляют `capabilities_changed`, поэтому reload вкладок и reconnect не требуются.
 
@@ -515,6 +515,8 @@ Core объявляется в `permissions`. Observe объявляется в 
 - `BROWSER_DISCONNECTED`
 - `WINDOW_NOT_FOUND`
 - `TAB_NOT_FOUND`
+- `TAB_GROUP_NOT_FOUND`
+- `SESSION_NOT_FOUND`
 - `FRAME_NOT_FOUND`
 - `STALE_TARGET`
 - `ELEMENT_NOT_FOUND`

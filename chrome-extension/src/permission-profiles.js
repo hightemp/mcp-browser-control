@@ -45,11 +45,14 @@ const PROFILE_DEFINITIONS = Object.freeze([
       "downloads",
       "history",
       "sessions",
+      "tabGroups",
     ]),
     origins: Object.freeze([]),
     dependencies: Object.freeze(["observe"]),
-    tools: Object.freeze(["cookies", "downloads", "sessions", "bookmarks", "history", "clipboard"]),
-    warning: "Chrome will list each personal-data category. Bulk deletion still requires confirmation.",
+    tools: Object.freeze([
+      "cookies", "downloads", "sessions", "tab groups", "bookmarks", "history", "clipboard",
+    ]),
+    warning: "Chrome will list each personal-data category and tab-group access. Bulk deletion still requires confirmation.",
     optional: true,
   }),
 ]);

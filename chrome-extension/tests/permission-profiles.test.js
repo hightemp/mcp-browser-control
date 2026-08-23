@@ -51,6 +51,7 @@ test("profile state distinguishes disabled, partial, and enabled grants", () => 
         "downloads",
         "history",
         "sessions",
+        "tabGroups",
       ],
       origins: ["http://*/*", "https://*/*"],
     }),

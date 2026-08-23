@@ -24,6 +24,15 @@ test("router dispatches every allowlisted command to its domain handler", async 
         close: handler,
       },
       tabs: tabHandlers(handler),
+      tabGroups: {
+        group: handler,
+        ungroup: handler,
+        update: handler,
+      },
+      sessions: {
+        recentlyClosed: handler,
+        restore: handler,
+      },
       page: {
         getHTML: handler,
         getHTMLBySelector: handler,
@@ -62,6 +71,11 @@ test("router dispatches every allowlisted command to its domain handler", async 
     "tabs.mute": { muted: false },
     "tabs.getZoom": {},
     "tabs.setZoom": { factor: 1.25 },
+    "tabs.group": { tabIds: [1, 2] },
+    "tabs.ungroup": { tabIds: [1, 2] },
+    "tabGroups.update": { groupId: 3, title: "Work", color: "blue" },
+    "sessions.recentlyClosed": { maxResults: 10 },
+    "sessions.restore": { sessionId: "session-1" },
     "page.getHTML": {},
     "page.getHTMLBySelector": { selector: "main" },
     "page.click": { coordinates: { x: 20, y: 40 } },
@@ -111,6 +125,15 @@ test("router validates target and command params before invoking handlers", asyn
         close: () => { calls += 1; },
       },
       tabs: tabHandlers(() => { calls += 1; }),
+      tabGroups: {
+        group: () => { calls += 1; },
+        ungroup: () => { calls += 1; },
+        update: () => { calls += 1; },
+      },
+      sessions: {
+        recentlyClosed: () => { calls += 1; },
+        restore: () => { calls += 1; },
+      },
       page: {
         getHTML: () => { calls += 1; },
         getHTMLBySelector: () => { calls += 1; },
@@ -134,6 +157,13 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("tabs.move", { index: -2 }),
     createRequest("tabs.pin", {}),
     createRequest("tabs.setZoom", { factor: 6 }),
+    createRequest("tabs.group", { tabIds: [] }),
+    createRequest("tabs.group", { tabIds: [1], groupId: 2, windowId: 3 }),
+    createRequest("tabs.ungroup", { tabIds: [1, 1] }),
+    createRequest("tabGroups.update", { groupId: 2 }),
+    createRequest("tabGroups.update", { groupId: 2, color: "black" }),
+    createRequest("sessions.recentlyClosed", { maxResults: 26 }),
+    createRequest("sessions.restore", { sessionId: " " }),
     {
       ...createRequest("windows.update", { state: "fullscreen", width: 800 }),
       target: { browserId, windowId: 3 },
@@ -226,6 +256,15 @@ function defaultHandlers() {
       close: () => ({ closed: true }),
     },
     tabs: tabHandlers(() => ({ tab: {} })),
+    tabGroups: {
+      group: () => ({ groupId: 1 }),
+      ungroup: () => ({ ungrouped: true }),
+      update: () => ({ group: {} }),
+    },
+    sessions: {
+      recentlyClosed: () => ({ sessions: [] }),
+      restore: () => ({ session: {} }),
+    },
     page: {
       getHTML: () => ({ html: "" }),
       getHTMLBySelector: () => ({ html: "" }),

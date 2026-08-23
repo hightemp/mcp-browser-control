@@ -86,8 +86,11 @@ test("mapChromeError returns safe stable product errors", () => {
   const cases = [
     ["No window with id: 4", ErrorCode.WINDOW_NOT_FOUND, true],
     ["No tab with id: 42", ErrorCode.TAB_NOT_FOUND, true],
+    ["No group with id: 8", ErrorCode.TAB_GROUP_NOT_FOUND, true],
+    ["Session not found", ErrorCode.SESSION_NOT_FOUND, true],
     ["Cannot access a chrome:// URL", ErrorCode.RESTRICTED_URL, false],
     ["Missing host permission for the tab", ErrorCode.PERMISSION_REQUIRED, false],
+    ["The tabGroups permission is required", ErrorCode.PERMISSION_REQUIRED, false],
     ["secret implementation failure", ErrorCode.INTERNAL_ERROR, false],
   ];
   for (const [message, code, retryable] of cases) {

@@ -24,6 +24,8 @@ export const ErrorCode = Object.freeze({
   BROWSER_DISCONNECTED: "BROWSER_DISCONNECTED",
   WINDOW_NOT_FOUND: "WINDOW_NOT_FOUND",
   TAB_NOT_FOUND: "TAB_NOT_FOUND",
+  TAB_GROUP_NOT_FOUND: "TAB_GROUP_NOT_FOUND",
+  SESSION_NOT_FOUND: "SESSION_NOT_FOUND",
   FRAME_NOT_FOUND: "FRAME_NOT_FOUND",
   STALE_TARGET: "STALE_TARGET",
   ELEMENT_NOT_FOUND: "ELEMENT_NOT_FOUND",
@@ -123,6 +125,23 @@ export function mapChromeError(error) {
   ) {
     return protocolError(ErrorCode.TAB_NOT_FOUND, "The target tab is no longer available", true);
   }
+  if (message.includes("no group with id") || message.includes("tab group not found")) {
+    return protocolError(
+      ErrorCode.TAB_GROUP_NOT_FOUND,
+      "The target tab group is no longer available",
+      true,
+    );
+  }
+  if (
+    message.includes("session")
+    && (message.includes("not found") || message.includes("could not restore"))
+  ) {
+    return protocolError(
+      ErrorCode.SESSION_NOT_FOUND,
+      "The recently closed session is no longer available",
+      true,
+    );
+  }
   if (
     message.includes("chrome://") ||
     message.includes("edge://") ||
@@ -135,7 +154,9 @@ export function mapChromeError(error) {
   }
   if (
     message.includes("missing host permission") ||
-    message.includes("cannot access contents of url")
+    message.includes("cannot access contents of url") ||
+    message.includes("permission is required") ||
+    message.includes("requires permission")
   ) {
     return protocolError(
       ErrorCode.PERMISSION_REQUIRED,

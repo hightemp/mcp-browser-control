@@ -24,7 +24,8 @@
     "debugger",
     "downloads",
     "history",
-    "sessions"
+    "sessions",
+    "tabGroups"
   ],
   "background": {
     "service_worker": "src/service-worker.js",

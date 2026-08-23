@@ -8,8 +8,18 @@ test("capability detection uses browser version, APIs, and permissions", () => {
   assert.deepEqual(
     detectCapabilities({
       browserVersion: "116.0.0.0",
-      apis: { tabs: true, scripting: true, windows: true },
-      permissions: { permissions: ["tabs", "scripting"], origins: ["https://example.com/*"] },
+      apis: {
+        tabs: true,
+        tabGrouping: true,
+        tabGroups: true,
+        sessions: true,
+        scripting: true,
+        windows: true,
+      },
+      permissions: {
+        permissions: ["tabs", "scripting", "tabGroups", "sessions"],
+        origins: ["https://example.com/*"],
+      },
       featureFlags: { pageAutomation: true },
     }),
     COMMAND_NAMES,
@@ -52,11 +62,23 @@ test("capability detection removes unavailable or disabled commands", () => {
     }),
     tabCapabilitiesWithoutStop(),
   );
+
+  assert.deepEqual(
+    detectCapabilities({
+      browserVersion: "116",
+      apis: { tabs: true, tabGrouping: true, tabGroups: false, sessions: false },
+      permissions: { permissions: ["tabs"], origins: [] },
+    }),
+    [...tabCapabilitiesWithoutStop(), "tabs.group", "tabs.ungroup"],
+  );
 });
 
 function tabCapabilitiesWithoutStop() {
   return COMMAND_NAMES.filter(
     (capability) => capability === "browser.ping"
-      || (capability.startsWith("tabs.") && capability !== "tabs.stop"),
+      || (
+        capability.startsWith("tabs.")
+        && !["tabs.stop", "tabs.group", "tabs.ungroup"].includes(capability)
+      ),
   );
 }

@@ -52,6 +52,16 @@ export function detectCapabilities({
       "tabs.getZoom",
       "tabs.setZoom",
     );
+    if (apis.tabGrouping) {
+      capabilities.push("tabs.group", "tabs.ungroup");
+    }
+    if (apis.tabGroups && grantedPermissions.has("tabGroups")) {
+      capabilities.push("tabGroups.update");
+    }
+  }
+
+  if (apis.sessions && grantedPermissions.has("sessions")) {
+    capabilities.push("sessions.recentlyClosed", "sessions.restore");
   }
 
   const hasWebsiteAccess = (permissions.origins || []).length > 0;

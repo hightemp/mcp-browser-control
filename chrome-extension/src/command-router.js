@@ -82,6 +82,31 @@ const COMMANDS = Object.freeze({
     handler: "setZoom",
     validate: validateTabSetZoom,
   }),
+  "tabs.group": Object.freeze({
+    domain: "tabGroups",
+    handler: "group",
+    validate: validateTabGroup,
+  }),
+  "tabs.ungroup": Object.freeze({
+    domain: "tabGroups",
+    handler: "ungroup",
+    validate: validateTabUngroup,
+  }),
+  "tabGroups.update": Object.freeze({
+    domain: "tabGroups",
+    handler: "update",
+    validate: validateTabGroupUpdate,
+  }),
+  "sessions.recentlyClosed": Object.freeze({
+    domain: "sessions",
+    handler: "recentlyClosed",
+    validate: validateRecentlyClosed,
+  }),
+  "sessions.restore": Object.freeze({
+    domain: "sessions",
+    handler: "restore",
+    validate: validateSessionRestore,
+  }),
   "page.getHTML": Object.freeze({ domain: "page", handler: "getHTML", validate: validateEmpty }),
   "page.getHTMLBySelector": Object.freeze({
     domain: "page",
@@ -312,6 +337,81 @@ function validateTabSetZoom(params, target) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.factor must be between 0.25 and 5");
   }
   validateOptionalTabTarget(target);
+}
+
+function validateTabGroup(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["tabIds", "groupId", "windowId"]);
+  validateTabIDs(params.tabIds);
+  validateOptionalIdentifier(params.groupId, "params.groupId");
+  validateOptionalIdentifier(params.windowId, "params.windowId");
+  if (params.groupId !== undefined && params.windowId !== undefined) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.groupId and params.windowId cannot be used together",
+    );
+  }
+}
+
+function validateTabUngroup(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["tabIds"]);
+  validateTabIDs(params.tabIds);
+}
+
+function validateTabGroupUpdate(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["groupId", "title", "color", "collapsed"]);
+  validateOptionalIdentifier(params.groupId, "params.groupId");
+  if (params.groupId === undefined) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.groupId is required");
+  }
+  if (Object.keys(params).length === 1) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "At least one tab group update is required");
+  }
+  if (params.title !== undefined && typeof params.title !== "string") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.title must be a string");
+  }
+  validateEnum(
+    params.color,
+    "params.color",
+    ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"],
+  );
+  validateOptionalBoolean(params.collapsed, "params.collapsed");
+}
+
+function validateRecentlyClosed(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["maxResults"]);
+  if (
+    params.maxResults !== undefined
+    && (!Number.isInteger(params.maxResults) || params.maxResults < 1 || params.maxResults > 25)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.maxResults must be between 1 and 25");
+  }
+}
+
+function validateSessionRestore(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["sessionId"]);
+  if (params.sessionId !== undefined) {
+    assertNonEmptyString(params.sessionId, "params.sessionId");
+  }
+}
+
+function validateTabIDs(tabIds) {
+  if (
+    !Array.isArray(tabIds)
+    || tabIds.length === 0
+    || tabIds.length > 100
+    || tabIds.some((tabId) => !Number.isInteger(tabId) || tabId < 0)
+    || new Set(tabIds).size !== tabIds.length
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.tabIds must contain between 1 and 100 unique non-negative integers",
+    );
+  }
 }
 
 function validateAction(params, target) {

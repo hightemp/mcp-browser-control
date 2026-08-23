@@ -3,6 +3,8 @@ import test from "node:test";
 
 import { createBrowserHandlers } from "../src/handlers/browser.js";
 import { createPageHandlers } from "../src/handlers/page.js";
+import { createSessionHandlers } from "../src/handlers/sessions.js";
+import { createTabGroupHandlers } from "../src/handlers/tab-groups.js";
 import { createTabHandlers } from "../src/handlers/tabs.js";
 import { createWindowHandlers } from "../src/handlers/windows.js";
 import { ErrorCode } from "../src/protocol.js";
@@ -142,6 +144,70 @@ test("window handlers support list, get, create, update, focus, and close", asyn
     ["update", 4, { state: "minimized" }],
     ["update", 4, { focused: true }],
     ["close", 4],
+  ]);
+});
+
+test("tab group and session handlers normalize Chrome API results", async () => {
+  const calls = [];
+  const chromeAPI = {
+    tabs: {
+      group: async (options) => { calls.push(["group", options]); return 8; },
+      ungroup: async (tabIds) => { calls.push(["ungroup", tabIds]); },
+    },
+    tabGroups: {
+      update: async (groupId, update) => {
+        calls.push(["update", groupId, update]);
+        return { id: groupId, windowId: 4, title: update.title, color: "blue", collapsed: false };
+      },
+    },
+    sessions: {
+      getRecentlyClosed: async (filter) => {
+        calls.push(["recentlyClosed", filter]);
+        return [{
+          lastModified: 1_700_000_000,
+          tab: { sessionId: "tab-session", id: 7, windowId: 4, title: "Example" },
+        }];
+      },
+      restore: async (sessionId) => {
+        calls.push(["restore", sessionId]);
+        return {
+          lastModified: 1_700_000_001,
+          window: {
+            sessionId: "window-session",
+            id: 5,
+            state: "normal",
+            tabs: [{ sessionId: "restored-tab", id: 9, windowId: 5 }],
+          },
+        };
+      },
+    },
+  };
+  const groups = createTabGroupHandlers(chromeAPI);
+  const sessions = createSessionHandlers(chromeAPI);
+
+  assert.deepEqual(
+    await groups.group({ params: { tabIds: [2, 3], windowId: 4 } }),
+    { groupId: 8, tabIds: [2, 3] },
+  );
+  assert.deepEqual(
+    await groups.ungroup({ params: { tabIds: [2, 3] } }),
+    { tabIds: [2, 3], ungrouped: true },
+  );
+  assert.equal(
+    (await groups.update({ params: { groupId: 8, title: "Research" } })).group.id,
+    8,
+  );
+  const recent = await sessions.recentlyClosed({ params: { maxResults: 5 } });
+  assert.equal(recent.totalCount, 1);
+  assert.equal(recent.sessions[0].tab.sessionId, "tab-session");
+  const restored = await sessions.restore({ params: { sessionId: "window-session" } });
+  assert.equal(restored.session.window.tabs[0].sessionId, "restored-tab");
+  assert.deepEqual(calls, [
+    ["group", { tabIds: [2, 3], createProperties: { windowId: 4 } }],
+    ["ungroup", [2, 3]],
+    ["update", 8, { title: "Research" }],
+    ["recentlyClosed", { maxResults: 5 }],
+    ["restore", "window-session"],
   ]);
 });
 

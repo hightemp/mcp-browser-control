@@ -87,7 +87,7 @@
 - какие tools становятся доступны;
 - какие данные необходимо редактировать.
 
-Матрица профилей зафиксирована в разделе 10 PRD: install-time Core, optional Observe (`http://*/*`, `https://*/*`), Debug (`debugger`) и Personal data (`bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`). Для каждого профиля указаны системные предупреждения, связанные tool domains, redaction и зависимость Personal data от Observe для origin-scoped данных. Permission events применяются без reload/reconnect.
+Матрица профилей зафиксирована в разделе 10 PRD: install-time Core, optional Observe (`http://*/*`, `https://*/*`), Debug (`debugger`) и Personal data (`bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`, `tabGroups`). Для каждого профиля указаны системные предупреждения, связанные tool domains, redaction и зависимость Personal data от Observe для origin-scoped данных. Permission events применяются без reload/reconnect.
 
 ## 6. Этап 1 — структура проекта и контракт
 
@@ -612,9 +612,11 @@ List, get, create, activate, navigate, reload, stop, back, forward, move, duplic
 
 - Приоритет: P1
 - Зависимости: T-051
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Group, ungroup, update group, recently closed и restore. Добавить capability fallback для неподдерживаемых браузеров.
+
+Добавлены пять MCP tools и protocol commands: group/ungroup до 100 уникальных tabs, update title/color/collapsed, список до 25 recently closed sessions и restore по sessionId либо самого свежего entry. Extension нормализует TabGroup/Session/Tab/Window без сырых Chrome objects и возвращает отдельные `TAB_GROUP_NOT_FOUND`/`SESSION_NOT_FOUND`. Group/ungroup рекламируются при наличии соответствующих `chrome.tabs` methods; update дополнительно требует API и optional `tabGroups`, sessions — API и optional `sessions`, поэтому неподдерживаемые браузеры получают capability fallback.
 
 ### T-053 — Реализовать locator engine
 
@@ -1110,7 +1112,7 @@ CI запускает:
 3. T-020–T-026 — registry и безопасная адресная маршрутизация.
 4. T-030, T-031, T-033 — MCP transport и выбор браузера.
 5. T-040–T-046 — расширение, identity, pairing и command routing.
-6. T-050, T-051, T-053–T-058 — core automation.
+6. T-050–T-058 — core automation.
 7. T-080–T-082 — security baseline.
 8. T-090–T-096 — tests.
 9. T-100, T-101, T-103, T-105 — документация и релиз.

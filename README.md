@@ -225,6 +225,11 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_mute_tab`
 - `browser_get_tab_zoom`
 - `browser_set_tab_zoom`
+- `browser_group_tabs`
+- `browser_ungroup_tabs`
+- `browser_update_tab_group`
+- `browser_get_recently_closed`
+- `browser_restore_session`
 - `browser_get_html`
 - `browser_get_html_by_selector`
 - `browser_click_element`
@@ -233,6 +238,10 @@ needed. The store never includes original secret values in redaction metadata.
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
 accept optional `tabId`; when omitted, the active tab in the last focused
 window is used.
+
+Grouping and ungrouping use the Core tabs API. Updating a group and reading or
+restoring recently closed sessions require the optional Personal data profile;
+unsupported Chromium APIs are omitted from the browser's capabilities.
 
 ### Registered but not implemented by the current extension
 

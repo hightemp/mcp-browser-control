@@ -275,6 +275,8 @@
             "BROWSER_DISCONNECTED",
             "WINDOW_NOT_FOUND",
             "TAB_NOT_FOUND",
+            "TAB_GROUP_NOT_FOUND",
+            "SESSION_NOT_FOUND",
             "FRAME_NOT_FOUND",
             "STALE_TARGET",
             "ELEMENT_NOT_FOUND",

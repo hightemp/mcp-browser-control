@@ -70,6 +70,21 @@ const (
 	// CommandTabsSetZoom changes a browser tab's zoom factor.
 	CommandTabsSetZoom = "tabs.setZoom"
 
+	// CommandTabsGroup adds tabs to a new or existing group.
+	CommandTabsGroup = "tabs.group"
+
+	// CommandTabsUngroup removes tabs from their groups.
+	CommandTabsUngroup = "tabs.ungroup"
+
+	// CommandTabGroupsUpdate changes tab group presentation.
+	CommandTabGroupsUpdate = "tabGroups.update"
+
+	// CommandSessionsRecentlyClosed lists recently closed tabs and windows.
+	CommandSessionsRecentlyClosed = "sessions.recentlyClosed"
+
+	// CommandSessionsRestore reopens a recently closed tab or window.
+	CommandSessionsRestore = "sessions.restore"
+
 	// CommandPageGetHTML returns page or element HTML.
 	CommandPageGetHTML = "page.getHTML"
 

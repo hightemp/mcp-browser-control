@@ -38,7 +38,9 @@ optional **Observe**, **Debug**, and **Personal data**. Each profile shows its
 Chrome permissions, host allowlist, related tool domains, warning, and current
 state. Permission changes take effect immediately without reloading tabs or
 reconnecting the server. Personal data also requests Observe website access
-for origin-scoped cookie and storage operations.
+for origin-scoped cookie and storage operations. It includes `sessions` for
+recently closed entries and `tabGroups` for group title, color, and collapsed
+state management.
 
 Each installed browser profile generates its own stable browser ID. Install the
 extension in another profile or Chromium browser to connect a second browser.

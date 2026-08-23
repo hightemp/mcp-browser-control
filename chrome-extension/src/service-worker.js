@@ -19,6 +19,8 @@ import { CommandRouter } from "./command-router.js";
 import { createBrowserHandlers } from "./handlers/browser.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
+import { createTabGroupHandlers } from "./handlers/tab-groups.js";
+import { createSessionHandlers } from "./handlers/sessions.js";
 import { createWindowHandlers } from "./handlers/windows.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -50,7 +52,9 @@ const commandRouter = new CommandRouter({
   handlers: {
     browser: createBrowserHandlers(),
     page: createPageHandlers(chrome),
+    sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
+    tabGroups: createTabGroupHandlers(chrome),
     windows: createWindowHandlers(chrome),
   },
 });
@@ -450,6 +454,9 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
     browserVersion: getBrowserVersion(),
     apis: {
       tabs: Boolean(chrome.tabs),
+      tabGrouping: Boolean(chrome.tabs?.group && chrome.tabs?.ungroup),
+      tabGroups: Boolean(chrome.tabGroups?.update),
+      sessions: Boolean(chrome.sessions?.getRecentlyClosed && chrome.sessions?.restore),
       scripting: Boolean(chrome.scripting),
       windows: Boolean(chrome.windows),
     },

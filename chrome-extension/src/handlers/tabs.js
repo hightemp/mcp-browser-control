@@ -150,7 +150,7 @@ async function callChrome(operation) {
   }
 }
 
-function describeTab(tab) {
+export function describeTab(tab) {
   return {
     id: tab.id,
     windowId: tab.windowId,
@@ -169,5 +169,6 @@ function describeTab(tab) {
     favIconUrl: tab.favIconUrl,
     incognito: tab.incognito,
     groupId: tab.groupId,
+    sessionId: tab.sessionId,
   };
 }

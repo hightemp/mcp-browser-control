@@ -465,6 +465,7 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
     browserVersion: getBrowserVersion(),
     apis: {
       tabs: Boolean(chrome.tabs),
+      captureVisibleTab: Boolean(chrome.tabs?.captureVisibleTab),
       tabGrouping: Boolean(chrome.tabs?.group && chrome.tabs?.ungroup),
       tabGroups: Boolean(chrome.tabGroups?.update),
       sessions: Boolean(chrome.sessions?.getRecentlyClosed && chrome.sessions?.restore),

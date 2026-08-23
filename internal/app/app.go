@@ -110,7 +110,12 @@ func run(
 		server.WithRecovery(),
 		server.WithToolCapabilities(true),
 	)
-	browsertools.NewService(browserRegistry, requestRouter, selections).Register(mcpServer)
+	browsertools.NewService(
+		browserRegistry,
+		requestRouter,
+		selections,
+		browsertools.WithArtifactStore(artifactStore),
+	).Register(mcpServer)
 	artifactStore.RegisterResources(mcpServer)
 
 	websocketHandler := websockettransport.NewServer(

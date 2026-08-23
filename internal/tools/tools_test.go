@@ -956,6 +956,7 @@ func newTestService(
 					protocol.CommandPageDispatch,
 					protocol.CommandPageSubmit,
 					protocol.CommandPageWait,
+					protocol.CommandPageScreenshot,
 					protocol.CommandPageInfo,
 					protocol.CommandPageGetText,
 					protocol.CommandPageQuery,

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
@@ -27,6 +28,17 @@ type Service struct {
 	registry   *registry.Registry
 	router     *router.Router
 	selections *selection.Store
+	artifacts  *artifacts.Store
+}
+
+// ServiceOption configures a browser MCP tool service.
+type ServiceOption func(*Service)
+
+// WithArtifactStore enables tools that materialize binary browser results.
+func WithArtifactStore(store *artifacts.Store) ServiceOption {
+	return func(service *Service) {
+		service.artifacts = store
+	}
 }
 
 // NewService creates a browser MCP tool service.
@@ -34,12 +46,17 @@ func NewService(
 	browserRegistry *registry.Registry,
 	requestRouter *router.Router,
 	selections *selection.Store,
+	options ...ServiceOption,
 ) *Service {
-	return &Service{
+	service := &Service{
 		registry:   browserRegistry,
 		router:     requestRouter,
 		selections: selections,
 	}
+	for _, option := range options {
+		option(service)
+	}
+	return service
 }
 
 // Register adds browser resources, discovery tools, and browser command tools
@@ -275,6 +292,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerTabGroupAndSessionTools(mcpServer)
 	s.registerInteractionTools(mcpServer)
 	s.registerWaitTool(mcpServer)
+	s.registerScreenshotTool(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -908,31 +926,53 @@ func (s *Service) send(
 	params any,
 	timeoutMS *int,
 ) (*mcp.CallToolResult, error) {
+	browserID, resolvedTarget, result, duration, err := s.sendRaw(
+		ctx,
+		explicitBrowserID,
+		command,
+		target,
+		params,
+		timeoutMS,
+	)
+	if err != nil {
+		return errorResultWithDuration(err, duration)
+	}
+	return successResultWithTarget(browserID, resolvedTarget, result, duration)
+}
+
+func (s *Service) sendRaw(
+	ctx context.Context,
+	explicitBrowserID string,
+	command string,
+	target *protocol.Target,
+	params any,
+	timeoutMS *int,
+) (string, *protocol.Target, json.RawMessage, time.Duration, error) {
 	startedAt := time.Now()
 	browserID, err := s.resolveBrowser(ctx, explicitBrowserID)
 	if err != nil {
-		return errorResultWithDuration(err, time.Since(startedAt))
+		return "", target, nil, time.Since(startedAt), err
 	}
 	if commandUsesTab(command) {
 		target, err = s.resolveTarget(ctx, browserID, target)
 		if err != nil {
-			return errorResultWithDuration(err, time.Since(startedAt))
+			return browserID, target, nil, time.Since(startedAt), err
 		}
 	}
 	requestCtx, cancel, err := toolContext(ctx, timeoutMS)
 	if err != nil {
-		return errorResultWithDuration(err, time.Since(startedAt))
+		return browserID, target, nil, time.Since(startedAt), err
 	}
 	defer cancel()
 
 	result, err := s.router.Send(requestCtx, browserID, command, target, params)
 	if err != nil {
-		return errorResultWithDuration(err, time.Since(startedAt))
+		return browserID, target, nil, time.Since(startedAt), err
 	}
 	if len(result) == 0 {
 		result = json.RawMessage("null")
 	}
-	return successResultWithTarget(browserID, target, result, time.Since(startedAt))
+	return browserID, target, result, time.Since(startedAt), nil
 }
 
 func (s *Service) resolveTarget(

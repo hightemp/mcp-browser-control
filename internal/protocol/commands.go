@@ -140,6 +140,9 @@ const (
 	// CommandPageWait waits for a bounded page or browser condition.
 	CommandPageWait = "page.wait"
 
+	// CommandPageScreenshot captures a browser tab viewport.
+	CommandPageScreenshot = "page.screenshot"
+
 	// CommandConsoleRead reads captured console entries.
 	CommandConsoleRead = "console.read"
 

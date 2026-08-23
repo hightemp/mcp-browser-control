@@ -149,6 +149,11 @@ const COMMANDS = Object.freeze({
   }),
   "page.submit": Object.freeze({ domain: "page", handler: "submit", validate: validateSimpleAction }),
   "page.wait": Object.freeze({ domain: "page", handler: "wait", validate: validateWait }),
+  "page.screenshot": Object.freeze({
+    domain: "page",
+    handler: "screenshot",
+    validate: validateScreenshot,
+  }),
 });
 
 export const COMMAND_NAMES = Object.freeze(Object.keys(COMMANDS));
@@ -818,6 +823,23 @@ function validateWait(params, target) {
     default:
       throw protocolError(ErrorCode.INVALID_MESSAGE, "params.condition is invalid");
   }
+}
+
+function validateScreenshot(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "capture", "format", "quality", "maxWidth", "maxHeight", "maxBytes",
+  ]);
+  validateOptionalTabTarget(target);
+  validateEnum(params.capture, "params.capture", ["viewport"]);
+  validateEnum(params.format, "params.format", ["png", "jpeg"]);
+  validateIntegerRange(params.quality, "params.quality", 0, 100);
+  if (params.quality !== undefined && params.format !== "jpeg") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.quality is only valid for JPEG");
+  }
+  validateIntegerRange(params.maxWidth, "params.maxWidth", 1, 16_384);
+  validateIntegerRange(params.maxHeight, "params.maxHeight", 1, 16_384);
+  validateIntegerRange(params.maxBytes, "params.maxBytes", 1_024, 2_000_000);
 }
 
 function validateStringWait(params) {

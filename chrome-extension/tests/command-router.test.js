@@ -56,6 +56,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
         dispatch: handler,
         submit: handler,
         wait: handler,
+        screenshot: handler,
       },
     },
   });
@@ -120,6 +121,14 @@ test("router dispatches every allowlisted command to its domain handler", async 
       locator: { css: "#save" },
       elementState: "visible",
       mode: "event",
+    },
+    "page.screenshot": {
+      capture: "viewport",
+      format: "jpeg",
+      quality: 80,
+      maxWidth: 1_920,
+      maxHeight: 1_080,
+      maxBytes: 1_000_000,
     },
   };
 
@@ -198,6 +207,7 @@ test("router validates target and command params before invoking handlers", asyn
         dispatch: () => { calls += 1; },
         submit: () => { calls += 1; },
         wait: () => { calls += 1; },
+        screenshot: () => { calls += 1; },
       },
     },
   });
@@ -229,6 +239,8 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.wait", { condition: "element", locator: { css: "#a" } }),
     createRequest("page.wait", { condition: "attribute", locator: { css: "#a" }, attribute: "bad name", attributeState: "present" }),
     createRequest("page.wait", { condition: "attribute", locator: { css: "#a" }, attribute: "data-token", attributeState: "present" }),
+    createRequest("page.screenshot", { format: "png", quality: 80 }),
+    createRequest("page.screenshot", { format: "jpeg", maxBytes: 2_000_001 }),
     createRequest("windows.get", {}),
     createRequest("windows.create", { urls: [] }),
     createRequest("tabs.create", { index: -1 }),
@@ -398,6 +410,7 @@ function defaultHandlers() {
       dispatch: () => ({ dispatched: true }),
       submit: () => ({ submitted: true }),
       wait: () => ({ matched: true }),
+      screenshot: () => ({ dataBase64: "image" }),
     },
   };
 }

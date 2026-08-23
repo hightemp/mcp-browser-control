@@ -10,6 +10,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
       browserVersion: "116.0.0.0",
       apis: {
         tabs: true,
+        captureVisibleTab: true,
         tabGrouping: true,
         tabGroups: true,
         sessions: true,
@@ -95,6 +96,7 @@ test("capability detection removes unavailable or disabled commands", () => {
   });
   assert.equal(withoutFrameTree.includes("page.getHTML"), true);
   assert.equal(withoutFrameTree.includes("page.info"), false);
+  assert.equal(withoutFrameTree.includes("page.screenshot"), false);
 });
 
 function tabCapabilitiesWithoutStop() {

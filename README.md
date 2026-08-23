@@ -255,6 +255,7 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_dispatch_event`
 - `browser_submit`
 - `browser_wait`
+- `browser_screenshot`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
 accept optional `tabId`, `frameId`, and `documentId`; when `tabId` is omitted,
@@ -302,6 +303,17 @@ listeners, and observers. Network idle uses the optional Observe
 after tracked requests finish. Wait results report match metadata but never
 echo field values; value waits on sensitive fields and predicates on
 sensitive-looking attribute names are rejected.
+
+`browser_screenshot` captures the viewport of the addressed tab as PNG or
+JPEG. JPEG quality is configurable from 0 to 100. The command serializes
+captures per window, temporarily activates an inactive target when necessary,
+and restores the previously active tab. Encoded images are limited to
+2,000,000 bytes and 16,384 pixels per dimension by default; callers can request
+stricter limits. The server validates the image type and dimensions, removes
+inline base64 from the result, and stores the bytes as a temporary
+`browser://artifacts/{artifactId}` resource. Pixel content is not redacted, so
+the result includes an explicit sensitive-content warning. Full-page and
+element captures remain planned with the CDP-backed P1 implementation.
 
 Page inspection never returns unrestricted raw DOM by default. HTML defaults to
 100,000 characters and depth 50, supports include/exclude CSS filters, and has

@@ -10,6 +10,7 @@ const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 
 export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
   const bridge = new ContentScriptBridge(chromeAPI);
+  const captureQueues = new Map();
 
   function execute(request, signal) {
     const timeoutMs = request.timeoutMs || DEFAULT_COMMAND_TIMEOUT_MS;
@@ -25,6 +26,9 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     throwIfCancelled(signal);
     await assertPageAccess(tab);
     throwIfCancelled(signal);
+    if (request.command === "page.screenshot") {
+      return executeScreenshot(request, tab, signal);
+    }
     const frameId = request.target?.frameId ?? 0;
     const documentId = await currentDocument(request, tab.id, frameId);
     throwIfCancelled(signal);
@@ -134,6 +138,91 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     }
   }
 
+  async function executeScreenshot(request, tab, signal) {
+    if (!Number.isInteger(tab.windowId) || tab.windowId < 0) {
+      throw protocolError(ErrorCode.INTERNAL_ERROR, "The target tab has no browser window");
+    }
+    return withCaptureLock(captureQueues, tab.windowId, async () => {
+      throwIfCancelled(signal);
+      let originalTab;
+      let activatedTarget = false;
+      const warnings = [];
+      try {
+        const activeTabs = await chromeAPI.tabs.query({ active: true, windowId: tab.windowId });
+        throwIfCancelled(signal);
+        originalTab = activeTabs[0];
+        if (originalTab?.id !== tab.id) {
+          await chromeAPI.tabs.update(tab.id, { active: true });
+          activatedTarget = true;
+          throwIfCancelled(signal);
+        }
+        const currentTabs = await chromeAPI.tabs.query({ active: true, windowId: tab.windowId });
+        if (currentTabs[0]?.id !== tab.id) {
+          throw protocolError(
+            ErrorCode.INTERNAL_ERROR,
+            "The target tab could not be activated for viewport capture",
+            true,
+          );
+        }
+        let currentTab;
+        try {
+          currentTab = await chromeAPI.tabs.get(tab.id);
+        } catch {
+          throw protocolError(ErrorCode.TAB_NOT_FOUND, `Tab ${tab.id} was not found`);
+        }
+        if (currentTab.windowId !== tab.windowId) {
+          throw protocolError(
+            ErrorCode.STALE_TARGET,
+            "The target tab moved to another window before capture",
+            true,
+          );
+        }
+        await assertPageAccess(currentTab);
+        throwIfCancelled(signal);
+
+        const format = request.params.format || "png";
+        const options = { format };
+        if (format === "jpeg") options.quality = request.params.quality ?? 90;
+        let dataURL;
+        try {
+          dataURL = await chromeAPI.tabs.captureVisibleTab(tab.windowId, options);
+        } catch (error) {
+          throw mapChromeError(error);
+        }
+        throwIfCancelled(signal);
+        const image = decodeScreenshotDataURL(dataURL, format, request.params.maxBytes ?? 2_000_000);
+        const maxWidth = request.params.maxWidth ?? 16_384;
+        const maxHeight = request.params.maxHeight ?? 16_384;
+        if (image.width > maxWidth || image.height > maxHeight) {
+          throw protocolError(
+            ErrorCode.PAYLOAD_TOO_LARGE,
+            `Screenshot dimensions ${image.width}x${image.height} exceed the requested limits`,
+          );
+        }
+        return {
+          capture: "viewport",
+          format,
+          mimeType: image.mimeType,
+          dataBase64: image.dataBase64,
+          byteLength: image.byteLength,
+          width: image.width,
+          height: image.height,
+          tabId: tab.id,
+          windowId: tab.windowId,
+          warnings,
+        };
+      } finally {
+        if (activatedTarget && Number.isInteger(originalTab?.id)) {
+          try {
+            await chromeAPI.tabs.update(originalTab.id, { active: true });
+          } catch {
+            warnings.push("The previously active tab could not be restored after capture");
+          }
+        }
+      }
+    });
+  }
+
   async function resolveTab(explicitTabId) {
     if (Number.isInteger(explicitTabId)) {
       try {
@@ -223,7 +312,115 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     dispatch: execute,
     submit: execute,
     wait: execute,
+    screenshot: execute,
   };
+}
+
+async function withCaptureLock(queues, windowId, operation) {
+  const previous = queues.get(windowId) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => { release = resolve; });
+  queues.set(windowId, current);
+  await previous.catch(() => undefined);
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (queues.get(windowId) === current) queues.delete(windowId);
+  }
+}
+
+function decodeScreenshotDataURL(dataURL, format, maxBytes) {
+  const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
+  const prefix = `data:${mimeType};base64,`;
+  if (typeof dataURL !== "string" || !dataURL.startsWith(prefix)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned an invalid screenshot");
+  }
+  const dataBase64 = dataURL.slice(prefix.length);
+  if (
+    dataBase64.length === 0
+    || dataBase64.length % 4 !== 0
+    || !/^[A-Za-z0-9+/]*={0,2}$/.test(dataBase64)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid image data");
+  }
+  const padding = dataBase64.endsWith("==") ? 2 : (dataBase64.endsWith("=") ? 1 : 0);
+  const byteLength = (dataBase64.length / 4) * 3 - padding;
+  if (byteLength < 1 || byteLength > maxBytes) {
+    throw protocolError(
+      ErrorCode.PAYLOAD_TOO_LARGE,
+      `Screenshot size ${byteLength} bytes exceeds the ${maxBytes} byte limit`,
+    );
+  }
+  let binary;
+  try {
+    binary = atob(dataBase64);
+  } catch {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid image data");
+  }
+  if (binary.length !== byteLength) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid image data");
+  }
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  const { width, height } = format === "jpeg"
+    ? jpegDimensions(bytes)
+    : pngDimensions(bytes);
+  return { mimeType, dataBase64, byteLength, width, height };
+}
+
+function pngDimensions(bytes) {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (bytes.length < 24 || signature.some((value, index) => bytes[index] !== value)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned an invalid PNG screenshot");
+  }
+  const width = readUint32(bytes, 16);
+  const height = readUint32(bytes, 20);
+  return validImageDimensions(width, height);
+}
+
+function jpegDimensions(bytes) {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned an invalid JPEG screenshot");
+  }
+  const startOfFrame = new Set([
+    0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
+  ]);
+  let offset = 2;
+  while (offset + 3 < bytes.length) {
+    while (offset < bytes.length && bytes[offset] !== 0xff) offset += 1;
+    while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
+    if (offset >= bytes.length) break;
+    const marker = bytes[offset];
+    offset += 1;
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01
+      || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (offset + 1 >= bytes.length) break;
+    const segmentLength = (bytes[offset] << 8) | bytes[offset + 1];
+    if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
+    if (startOfFrame.has(marker) && segmentLength >= 7) {
+      const height = (bytes[offset + 3] << 8) | bytes[offset + 4];
+      const width = (bytes[offset + 5] << 8) | bytes[offset + 6];
+      return validImageDimensions(width, height);
+    }
+    offset += segmentLength;
+  }
+  throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned an invalid JPEG screenshot");
+}
+
+function readUint32(bytes, offset) {
+  return (
+    bytes[offset] * 0x1000000
+    + (bytes[offset + 1] << 16)
+    + (bytes[offset + 2] << 8)
+    + bytes[offset + 3]
+  );
+}
+
+function validImageDimensions(width, height) {
+  if (width < 1 || height < 1 || width > 16_384 || height > 16_384) {
+    throw protocolError(ErrorCode.PAYLOAD_TOO_LARGE, "Screenshot dimensions are out of range");
+  }
+  return { width, height };
 }
 
 function waitForDelay(delayMs, signal) {

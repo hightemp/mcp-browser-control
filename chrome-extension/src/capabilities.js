@@ -98,6 +98,7 @@ export function detectCapabilities({
       "page.submit",
       "page.wait",
     );
+    if (apis.captureVisibleTab) capabilities.push("page.screenshot");
   }
   return capabilities;
 }

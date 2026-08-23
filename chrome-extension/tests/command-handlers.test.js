@@ -482,6 +482,102 @@ test("page network-idle wait requires and uses the activity observer", async () 
   assert.equal(observed.signal instanceof AbortSignal, true);
 });
 
+test("page viewport screenshot captures and restores the addressed tab", async () => {
+  let activeTabId = 9;
+  const updates = [];
+  const captures = [];
+  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        active: tabId === activeTabId,
+        url: "https://example.com/page",
+      }),
+      query: async ({ active, windowId }) => {
+        assert.equal(active, true);
+        assert.equal(windowId, 3);
+        return [{ id: activeTabId, windowId: 3, active: true }];
+      },
+      update: async (tabId, update) => {
+        updates.push([tabId, update]);
+        if (update.active) activeTabId = tabId;
+        return { id: tabId, windowId: 3, active: true };
+      },
+      captureVisibleTab: async (windowId, options) => {
+        captures.push([windowId, options, activeTabId]);
+        return `data:image/png;base64,${pngBase64}`;
+      },
+    },
+    permissions: { contains: async () => true },
+  };
+  const page = createPageHandlers(chromeAPI);
+  const result = await page.screenshot({
+    command: "page.screenshot",
+    target: { tabId: 7 },
+    params: {
+      capture: "viewport",
+      format: "png",
+      maxWidth: 100,
+      maxHeight: 100,
+      maxBytes: 10_000,
+    },
+  }, new AbortController().signal);
+
+  assert.equal(result.width, 1);
+  assert.equal(result.height, 1);
+  assert.equal(result.byteLength, 68);
+  assert.equal(result.dataBase64, pngBase64);
+  assert.deepEqual(captures, [[3, { format: "png" }, 7]]);
+  assert.deepEqual(updates, [[7, { active: true }], [9, { active: true }]]);
+  assert.equal(activeTabId, 9);
+});
+
+test("page JPEG screenshot applies quality and rejects bounded payloads", async () => {
+  const jpegBytes = Uint8Array.from([
+    0xff, 0xd8,
+    0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x03,
+    0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+    0xff, 0xd9,
+  ]);
+  const jpegBase64 = btoa(String.fromCharCode(...jpegBytes));
+  let captureOptions;
+  const chromeAPI = {
+    tabs: {
+      get: async () => ({
+        id: 7, windowId: 3, active: true, url: "https://example.com/page",
+      }),
+      query: async () => [{ id: 7, windowId: 3, active: true }],
+      update: async () => assert.fail("the already active tab must not be updated"),
+      captureVisibleTab: async (_windowId, options) => {
+        captureOptions = options;
+        return `data:image/jpeg;base64,${jpegBase64}`;
+      },
+    },
+    permissions: { contains: async () => true },
+  };
+  const page = createPageHandlers(chromeAPI);
+  const request = {
+    command: "page.screenshot",
+    target: { tabId: 7 },
+    params: {
+      capture: "viewport",
+      format: "jpeg",
+      quality: 72,
+      maxWidth: 2,
+      maxHeight: 2,
+      maxBytes: 1_024,
+    },
+  };
+
+  await assert.rejects(
+    page.screenshot(request, new AbortController().signal),
+    (error) => error.code === ErrorCode.PAYLOAD_TOO_LARGE,
+  );
+  assert.deepEqual(captureOptions, { format: "jpeg", quality: 72 });
+});
+
 function fakeChromeEvent() {
   const listeners = new Set();
   return {

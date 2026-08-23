@@ -87,6 +87,51 @@ type getHTMLBySelectorArgs struct {
 	TimeoutMS  *int   `json:"timeoutMs,omitempty"`
 }
 
+type pageHTMLArgs struct {
+	BrowserID        string   `json:"browserId,omitempty"`
+	TabID            *int     `json:"tabId,omitempty"`
+	FrameID          *int     `json:"frameId,omitempty"`
+	DocumentID       string   `json:"documentId,omitempty"`
+	MaxChars         *int     `json:"maxChars,omitempty"`
+	MaxDepth         *int     `json:"maxDepth,omitempty"`
+	IncludeSelectors []string `json:"includeSelectors,omitempty"`
+	ExcludeSelectors []string `json:"excludeSelectors,omitempty"`
+	TimeoutMS        *int     `json:"timeoutMs,omitempty"`
+}
+
+type pageTextArgs struct {
+	BrowserID        string   `json:"browserId,omitempty"`
+	TabID            *int     `json:"tabId,omitempty"`
+	FrameID          *int     `json:"frameId,omitempty"`
+	DocumentID       string   `json:"documentId,omitempty"`
+	MaxChars         *int     `json:"maxChars,omitempty"`
+	Cursor           string   `json:"cursor,omitempty"`
+	IncludeSelectors []string `json:"includeSelectors,omitempty"`
+	ExcludeSelectors []string `json:"excludeSelectors,omitempty"`
+	TimeoutMS        *int     `json:"timeoutMs,omitempty"`
+}
+
+type pageQueryArgs struct {
+	BrowserID  string           `json:"browserId,omitempty"`
+	TabID      *int             `json:"tabId,omitempty"`
+	FrameID    *int             `json:"frameId,omitempty"`
+	DocumentID string           `json:"documentId,omitempty"`
+	Locator    protocol.Locator `json:"locator"`
+	Cursor     string           `json:"cursor,omitempty"`
+	Limit      *int             `json:"limit,omitempty"`
+	TimeoutMS  *int             `json:"timeoutMs,omitempty"`
+}
+
+type pageElementArgs struct {
+	BrowserID    string           `json:"browserId,omitempty"`
+	TabID        *int             `json:"tabId,omitempty"`
+	FrameID      *int             `json:"frameId,omitempty"`
+	DocumentID   string           `json:"documentId,omitempty"`
+	Locator      protocol.Locator `json:"locator"`
+	MaxHTMLChars *int             `json:"maxHTMLChars,omitempty"`
+	TimeoutMS    *int             `json:"timeoutMs,omitempty"`
+}
+
 type clickArgs struct {
 	BrowserID   string                `json:"browserId,omitempty"`
 	TabID       *int                  `json:"tabId,omitempty"`
@@ -221,12 +266,28 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	)
 	mcpServer.AddTool(
 		mcp.NewTool(
-			"browser_get_html",
-			mcp.WithDescription("Get the HTML content of a browser page"),
+			"browser_page_info",
+			mcp.WithDescription("Get page, viewport, scroll, and frame metadata"),
 			optionalBrowserID(),
 			optionalTabID(),
 			optionalFrameID(),
 			optionalDocumentID(),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserPageInfoHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_html",
+			mcp.WithDescription("Get bounded, redacted HTML from a browser page"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
+			mcp.WithNumber("maxChars", mcp.Description("Maximum returned characters"), mcp.Min(1), mcp.Max(1_000_000)),
+			mcp.WithNumber("maxDepth", mcp.Description("Maximum serialized DOM depth"), mcp.Min(0), mcp.Max(200)),
+			optionalSelectorArray("includeSelectors", "Only serialize elements matching these CSS selectors"),
+			optionalSelectorArray("excludeSelectors", "Exclude elements matching these CSS selectors"),
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserGetHTMLHandler),
@@ -243,6 +304,51 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserGetHTMLBySelectorHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_text",
+			mcp.WithDescription("Get paginated normalized visible text with sensitive values redacted"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
+			mcp.WithNumber("maxChars", mcp.Description("Maximum returned characters"), mcp.Min(1), mcp.Max(1_000_000)),
+			mcp.WithString("cursor", mcp.Description("Numeric cursor returned by a previous call")),
+			optionalSelectorArray("includeSelectors", "Only read elements matching these CSS selectors"),
+			optionalSelectorArray("excludeSelectors", "Exclude elements matching these CSS selectors"),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetTextHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_query",
+			mcp.WithDescription("Query elements with a locator and return a bounded result page"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
+			requiredLocator(),
+			mcp.WithString("cursor", mcp.Description("Numeric cursor returned by a previous call")),
+			mcp.WithNumber("limit", mcp.Description("Maximum matching elements to return"), mcp.Min(1), mcp.Max(100)),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserQueryHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_get_element",
+			mcp.WithDescription("Get normalized details for one strictly matched element"),
+			optionalBrowserID(),
+			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
+			requiredLocator(),
+			mcp.WithNumber("maxHTMLChars", mcp.Description("Maximum element HTML characters"), mcp.Min(1), mcp.Max(100_000)),
+			optionalTimeout(),
+		),
+		mcp.NewTypedToolHandler(s.browserGetElementHandler),
 	)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -467,7 +573,7 @@ func (s *Service) browserGetTabsHandler(
 	return s.send(ctx, args.BrowserID, protocol.CommandTabsList, nil, map[string]any{}, args.TimeoutMS)
 }
 
-func (s *Service) browserGetHTMLHandler(
+func (s *Service) browserPageInfoHandler(
 	ctx context.Context,
 	_ mcp.CallToolRequest,
 	args targetedArgs,
@@ -475,9 +581,33 @@ func (s *Service) browserGetHTMLHandler(
 	return s.send(
 		ctx,
 		args.BrowserID,
-		protocol.CommandPageGetHTML,
+		protocol.CommandPageInfo,
 		pageTarget(args.TabID, args.FrameID, args.DocumentID),
 		map[string]any{},
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserGetHTMLHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args pageHTMLArgs,
+) (*mcp.CallToolResult, error) {
+	params := map[string]any{}
+	putOptional(params, "maxChars", args.MaxChars)
+	putOptional(params, "maxDepth", args.MaxDepth)
+	if args.IncludeSelectors != nil {
+		params["includeSelectors"] = args.IncludeSelectors
+	}
+	if args.ExcludeSelectors != nil {
+		params["excludeSelectors"] = args.ExcludeSelectors
+	}
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageGetHTML,
+		pageTarget(args.TabID, args.FrameID, args.DocumentID),
+		params,
 		args.TimeoutMS,
 	)
 }
@@ -493,6 +623,77 @@ func (s *Service) browserGetHTMLBySelectorHandler(
 		protocol.CommandPageGetHTMLBySelector,
 		pageTarget(args.TabID, args.FrameID, args.DocumentID),
 		map[string]any{"selector": args.Selector},
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserGetTextHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args pageTextArgs,
+) (*mcp.CallToolResult, error) {
+	params := map[string]any{}
+	putOptional(params, "maxChars", args.MaxChars)
+	if args.Cursor != "" {
+		params["cursor"] = args.Cursor
+	}
+	if args.IncludeSelectors != nil {
+		params["includeSelectors"] = args.IncludeSelectors
+	}
+	if args.ExcludeSelectors != nil {
+		params["excludeSelectors"] = args.ExcludeSelectors
+	}
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageGetText,
+		pageTarget(args.TabID, args.FrameID, args.DocumentID),
+		params,
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserQueryHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args pageQueryArgs,
+) (*mcp.CallToolResult, error) {
+	target := pageTarget(args.TabID, args.FrameID, args.DocumentID)
+	if err := args.Locator.Validate(target); err != nil {
+		return errorResult(err)
+	}
+	params := map[string]any{"locator": args.Locator}
+	if args.Cursor != "" {
+		params["cursor"] = args.Cursor
+	}
+	putOptional(params, "limit", args.Limit)
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageQuery,
+		target,
+		params,
+		args.TimeoutMS,
+	)
+}
+
+func (s *Service) browserGetElementHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args pageElementArgs,
+) (*mcp.CallToolResult, error) {
+	target := pageTarget(args.TabID, args.FrameID, args.DocumentID)
+	if err := args.Locator.Validate(target); err != nil {
+		return errorResult(err)
+	}
+	params := map[string]any{"locator": args.Locator}
+	putOptional(params, "maxHTMLChars", args.MaxHTMLChars)
+	return s.send(
+		ctx,
+		args.BrowserID,
+		protocol.CommandPageGetElement,
+		target,
+		params,
 		args.TimeoutMS,
 	)
 }
@@ -787,6 +988,12 @@ func validateElementArgs(
 	return nil
 }
 
+func putOptional[T any](params map[string]any, name string, value *T) {
+	if value != nil {
+		params[name] = *value
+	}
+}
+
 func successResult(browserID string, data any) (*mcp.CallToolResult, error) {
 	return successResultWithTarget(browserID, nil, data, 0)
 }
@@ -926,8 +1133,15 @@ func optionalCoordinates() mcp.ToolOption {
 }
 
 func optionalLocator() mcp.ToolOption {
-	return mcp.WithObject(
-		"locator",
+	return locatorOption(false)
+}
+
+func requiredLocator() mcp.ToolOption {
+	return locatorOption(true)
+}
+
+func locatorOption(required bool) mcp.ToolOption {
+	propertyOptions := []mcp.PropertyOption{
 		mcp.Description("Element locator; exactly one primary strategy is required"),
 		mcp.Properties(map[string]any{
 			"css":         map[string]any{"type": "string", "minLength": 1},
@@ -964,6 +1178,19 @@ func optionalLocator() mcp.ToolOption {
 		}),
 		locatorObjectConstraints(),
 		mcp.AdditionalProperties(false),
+	}
+	if required {
+		propertyOptions = append(propertyOptions, mcp.Required())
+	}
+	return mcp.WithObject("locator", propertyOptions...)
+}
+
+func optionalSelectorArray(name, description string) mcp.ToolOption {
+	return mcp.WithArray(
+		name,
+		mcp.Description(description),
+		mcp.Items(map[string]any{"type": "string", "minLength": 1}),
+		mcp.MaxItems(50),
 	)
 }
 

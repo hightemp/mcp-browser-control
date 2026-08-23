@@ -173,7 +173,7 @@ func TestServiceUsesBrowserScopedSelectedTab(t *testing.T) {
 		callResult, _ := service.browserGetHTMLHandler(
 			context.Background(),
 			mcp.CallToolRequest{},
-			targetedArgs{BrowserID: "browser-a"},
+			pageHTMLArgs{BrowserID: "browser-a"},
 		)
 		result <- callResult
 	}()
@@ -198,7 +198,7 @@ func TestServiceUsesBrowserScopedSelectedTab(t *testing.T) {
 		callResult, _ := service.browserGetHTMLHandler(
 			context.Background(),
 			mcp.CallToolRequest{},
-			targetedArgs{BrowserID: "browser-a", TabID: &explicitTabID},
+			pageHTMLArgs{BrowserID: "browser-a", TabID: &explicitTabID},
 		)
 		result <- callResult
 	}()
@@ -223,7 +223,7 @@ func TestServiceUsesBrowserScopedSelectedTab(t *testing.T) {
 		callResult, _ := service.browserGetHTMLHandler(
 			context.Background(),
 			mcp.CallToolRequest{},
-			targetedArgs{
+			pageHTMLArgs{
 				BrowserID: "browser-a", FrameID: &frameID, DocumentID: "document-3",
 			},
 		)
@@ -379,6 +379,10 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 	clearField := false
 	timeoutMS := 500
 	frameID := 2
+	maxChars := 5_000
+	maxDepth := 12
+	limit := 10
+	maxHTMLChars := 2_000
 	roleLocator := &protocol.Locator{Role: "button", Name: "Save", IncludeShadowDOM: true}
 
 	tests := []struct {
@@ -405,12 +409,27 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			},
 		},
 		{
-			name:        "html",
-			wantCommand: protocol.CommandPageGetHTML,
+			name:        "page info",
+			wantCommand: protocol.CommandPageInfo,
 			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
-				return service.browserGetHTMLHandler(ctx, mcp.CallToolRequest{}, targetedArgs{BrowserID: "browser-a", TabID: &tabID})
+				return service.browserPageInfoHandler(ctx, mcp.CallToolRequest{}, targetedArgs{BrowserID: "browser-a", TabID: &tabID})
+			},
+		},
+		{
+			name:        "html",
+			wantCommand: protocol.CommandPageGetHTML,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"maxChars": float64(maxChars), "maxDepth": float64(maxDepth),
+				"includeSelectors": []any{"main"}, "excludeSelectors": []any{"script"},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserGetHTMLHandler(ctx, mcp.CallToolRequest{}, pageHTMLArgs{
+					BrowserID: "browser-a", TabID: &tabID, MaxChars: &maxChars, MaxDepth: &maxDepth,
+					IncludeSelectors: []string{"main"}, ExcludeSelectors: []string{"script"},
+				})
 			},
 		},
 		{
@@ -420,6 +439,55 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			wantParams:  map[string]any{"selector": selector},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserGetHTMLBySelectorHandler(ctx, mcp.CallToolRequest{}, getHTMLBySelectorArgs{BrowserID: "browser-a", TabID: &tabID, Selector: selector})
+			},
+		},
+		{
+			name:        "visible text",
+			wantCommand: protocol.CommandPageGetText,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"maxChars": float64(maxChars), "cursor": "100",
+				"includeSelectors": []any{"main"}, "excludeSelectors": []any{"nav"},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserGetTextHandler(ctx, mcp.CallToolRequest{}, pageTextArgs{
+					BrowserID: "browser-a", TabID: &tabID, MaxChars: &maxChars, Cursor: "100",
+					IncludeSelectors: []string{"main"}, ExcludeSelectors: []string{"nav"},
+				})
+			},
+		},
+		{
+			name:        "query",
+			wantCommand: protocol.CommandPageQuery,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{
+					"role": "button", "name": "Save", "includeShadowDOM": true,
+				},
+				"cursor": "20", "limit": float64(limit),
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserQueryHandler(ctx, mcp.CallToolRequest{}, pageQueryArgs{
+					BrowserID: "browser-a", TabID: &tabID, Locator: *roleLocator,
+					Cursor: "20", Limit: &limit,
+				})
+			},
+		},
+		{
+			name:        "element details",
+			wantCommand: protocol.CommandPageGetElement,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"locator": map[string]any{
+					"role": "button", "name": "Save", "includeShadowDOM": true,
+				},
+				"maxHTMLChars": float64(maxHTMLChars),
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserGetElementHandler(ctx, mcp.CallToolRequest{}, pageElementArgs{
+					BrowserID: "browser-a", TabID: &tabID, Locator: *roleLocator,
+					MaxHTMLChars: &maxHTMLChars,
+				})
 			},
 		},
 		{
@@ -617,6 +685,10 @@ func newTestService(
 					protocol.CommandNetworkRead,
 					protocol.CommandPageClick,
 					protocol.CommandPageFill,
+					protocol.CommandPageInfo,
+					protocol.CommandPageGetText,
+					protocol.CommandPageQuery,
+					protocol.CommandPageGetElement,
 					protocol.CommandPageGetHTML,
 					protocol.CommandPageGetHTMLBySelector,
 					protocol.CommandTabsList,

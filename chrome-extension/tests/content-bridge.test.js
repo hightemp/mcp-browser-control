@@ -34,6 +34,7 @@ test("bridge performs readiness handshake and document-scoped command messaging"
   assert.equal(messages.length, 2);
   assert.deepEqual(messages[1][2], { frameId: 2, documentId: "document-1" });
   assert.equal(messages[1][1].bridgeVersion, CONTENT_BRIDGE_VERSION);
+  assert.equal(messages[1][1].frameId, 2);
   assert.equal(messages[1][1].documentId, "document-1");
 });
 

@@ -148,25 +148,27 @@
     function describeElement(element, index, documentId) {
       const rect = element.getBoundingClientRect();
       const reference = createReference(element, documentId);
+      const attributes = [...(element.attributes || [])];
       return {
         index,
         tagName: element.tagName,
-        id: element.id || "",
-        className: String(element.className || ""),
+        id: String(element.id || "").slice(0, 500),
+        className: String(element.className || "").slice(0, 1_000),
         text: normalizedText(element.textContent).slice(0, 500),
         role: elementRole(element),
-        name: accessibleName(element),
+        name: accessibleName(element).slice(0, 500),
         visible: isVisible(element),
         enabled: isEnabled(element),
         reference,
         attributes: Object.fromEntries(
-          [...(element.attributes || [])].map((attribute) => [
-            attribute.name,
-            attribute.name === "value" && element.type === "password"
+          attributes.slice(0, 100).map((attribute) => [
+            attribute.name.slice(0, 200),
+            shouldRedactAttribute(element, attribute)
               ? "[REDACTED]"
-              : attribute.value,
+              : attribute.value.slice(0, 2_000),
           ]),
         ),
+        attributesTruncated: attributes.length > 100,
         boundingBox: {
           x: rect.x,
           y: rect.y,
@@ -518,6 +520,22 @@
 
   function clamp(value, minimum, maximum) {
     return Math.min(Math.max(value, minimum), Math.max(minimum, maximum));
+  }
+
+  function shouldRedactAttribute(element, attribute) {
+    if (/(?:password|secret|token|authorization|cookie|api[-_]?key)/i.test(attribute.name)) {
+      return true;
+    }
+    if (attribute.name.toLowerCase() !== "value") {
+      return false;
+    }
+    const identity = [
+      element.type,
+      element.id,
+      element.getAttribute?.("name"),
+      element.getAttribute?.("autocomplete"),
+    ].filter(Boolean).join(" ");
+    return /(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(identity);
   }
 
   function defaultID() {

@@ -219,7 +219,10 @@ test("page handlers preserve addressing and structured content errors", async ()
       sendMessage: async (...args) => {
         sent.push(args);
         if (args[1].type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.1" };
+          return { ready: true, bridgeVersion: "1.2" };
+        }
+        if (args[1].command === "page.info") {
+          return { success: true, result: { url: "https://example.com/page" } };
         }
         return {
           success: false,
@@ -233,7 +236,15 @@ test("page handlers preserve addressing and structured content errors", async ()
     },
     permissions: { contains: async () => true },
     scripting: { executeScript: async () => undefined },
-    webNavigation: { getFrame: async () => ({ documentId: "document-1" }) },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "document-1" }),
+      getAllFrames: async () => [{
+        frameId: 0,
+        parentFrameId: -1,
+        documentId: "document-1",
+        url: "https://example.com/page",
+      }],
+    },
   };
   const page = createPageHandlers(chromeAPI);
   const request = {
@@ -249,8 +260,16 @@ test("page handlers preserve addressing and structured content errors", async ()
   );
   assert.equal(sent.length, 2);
   assert.equal(sent[1][0], 7);
+  assert.equal(sent[1][1].frameId, 2);
   assert.equal(sent[1][1].documentId, "document-1");
   assert.deepEqual(sent[1][2], { frameId: 2, documentId: "document-1" });
+
+  const info = await page.info(
+    { command: "page.info", target: { tabId: 7 }, params: {} },
+    new AbortController().signal,
+  );
+  assert.equal(info.frames[0].documentId, "document-1");
+  assert.equal(info.frames[0].parentFrameId, -1);
 });
 
 test("page handler applies a command timeout across browser API calls", async () => {

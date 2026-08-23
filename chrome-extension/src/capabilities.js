@@ -72,9 +72,15 @@ export function detectCapabilities({
     && grantedPermissions.has("scripting")
     && hasWebsiteAccess
   ) {
+    if (apis.frameTree) {
+      capabilities.push("page.info");
+    }
     capabilities.push(
       "page.getHTML",
       "page.getHTMLBySelector",
+      "page.getText",
+      "page.query",
+      "page.getElement",
       "page.click",
       "page.fill",
     );

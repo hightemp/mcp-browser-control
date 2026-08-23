@@ -88,6 +88,18 @@ const (
 	// CommandPageGetHTML returns page or element HTML.
 	CommandPageGetHTML = "page.getHTML"
 
+	// CommandPageInfo returns bounded page and frame metadata.
+	CommandPageInfo = "page.info"
+
+	// CommandPageGetText returns normalized visible page text.
+	CommandPageGetText = "page.getText"
+
+	// CommandPageQuery returns paginated locator matches.
+	CommandPageQuery = "page.query"
+
+	// CommandPageGetElement returns normalized details for one element.
+	CommandPageGetElement = "page.getElement"
+
 	// CommandPageGetHTMLBySelector returns HTML for matching elements.
 	CommandPageGetHTMLBySelector = "page.getHTMLBySelector"
 

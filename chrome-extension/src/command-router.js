@@ -107,11 +107,19 @@ const COMMANDS = Object.freeze({
     handler: "restore",
     validate: validateSessionRestore,
   }),
-  "page.getHTML": Object.freeze({ domain: "page", handler: "getHTML", validate: validateEmpty }),
+  "page.info": Object.freeze({ domain: "page", handler: "info", validate: validateEmpty }),
+  "page.getHTML": Object.freeze({ domain: "page", handler: "getHTML", validate: validateGetHTML }),
   "page.getHTMLBySelector": Object.freeze({
     domain: "page",
     handler: "getHTMLBySelector",
     validate: validateSelector,
+  }),
+  "page.getText": Object.freeze({ domain: "page", handler: "getText", validate: validateGetText }),
+  "page.query": Object.freeze({ domain: "page", handler: "query", validate: validateQuery }),
+  "page.getElement": Object.freeze({
+    domain: "page",
+    handler: "getElement",
+    validate: validateGetElement,
   }),
   "page.click": Object.freeze({ domain: "page", handler: "click", validate: validateAction }),
   "page.fill": Object.freeze({ domain: "page", handler: "fill", validate: validateFill }),
@@ -209,6 +217,80 @@ function validateSelector(params) {
   validateParamsObject(params);
   assertAllowedProperties(params, ["selector"]);
   assertNonEmptyString(params.selector, "params.selector");
+}
+
+function validateGetHTML(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["maxChars", "maxDepth", "includeSelectors", "excludeSelectors"]);
+  validateIntegerRange(params.maxChars, "params.maxChars", 1, 1_000_000);
+  validateIntegerRange(params.maxDepth, "params.maxDepth", 0, 200);
+  validateSelectors(params.includeSelectors, "params.includeSelectors");
+  validateSelectors(params.excludeSelectors, "params.excludeSelectors");
+}
+
+function validateGetText(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["maxChars", "cursor", "includeSelectors", "excludeSelectors"]);
+  validateIntegerRange(params.maxChars, "params.maxChars", 1, 1_000_000);
+  validateCursor(params.cursor);
+  validateSelectors(params.includeSelectors, "params.includeSelectors");
+  validateSelectors(params.excludeSelectors, "params.excludeSelectors");
+}
+
+function validateQuery(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["locator", "cursor", "limit"]);
+  validateLocator(params.locator, target);
+  validateCursor(params.cursor);
+  validateIntegerRange(params.limit, "params.limit", 1, 100);
+}
+
+function validateGetElement(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["locator", "maxHTMLChars"]);
+  validateLocator(params.locator, target);
+  validateIntegerRange(params.maxHTMLChars, "params.maxHTMLChars", 1, 100_000);
+}
+
+function validateSelectors(selectors, path) {
+  if (selectors === undefined) {
+    return;
+  }
+  if (
+    !Array.isArray(selectors)
+    || selectors.length > 50
+    || selectors.some((selector) => typeof selector !== "string" || selector.trim() === "")
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `${path} must contain at most 50 non-empty CSS selectors`,
+    );
+  }
+}
+
+function validateCursor(cursor) {
+  if (
+    cursor !== undefined
+    && (
+      typeof cursor !== "string"
+      || !/^\d+$/.test(cursor)
+      || Number.parseInt(cursor, 10) > 1_000_000
+    )
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.cursor must be a numeric string no greater than 1000000",
+    );
+  }
+}
+
+function validateIntegerRange(value, path, minimum, maximum) {
+  if (value !== undefined && (!Number.isInteger(value) || value < minimum || value > maximum)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `${path} must be between ${minimum} and ${maximum}`,
+    );
+  }
 }
 
 function validateWindowTarget(params, target) {

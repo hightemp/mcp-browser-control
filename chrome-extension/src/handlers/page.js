@@ -27,7 +27,7 @@ export function createPageHandlers(chromeAPI) {
     const frameId = request.target?.frameId ?? 0;
     const documentId = await currentDocument(request, tab.id, frameId);
     throwIfCancelled(signal);
-    return bridge.execute({
+    const result = await bridge.execute({
       tabId: tab.id,
       frameId,
       documentId,
@@ -35,6 +35,34 @@ export function createPageHandlers(chromeAPI) {
       params: request.params,
       signal,
     });
+    if (request.command !== "page.info") {
+      return result;
+    }
+    throwIfCancelled(signal);
+    let frames;
+    try {
+      frames = await chromeAPI.webNavigation.getAllFrames({ tabId: tab.id });
+    } catch (error) {
+      throw mapChromeError(error);
+    }
+    const normalizedFrames = (frames || []).slice(0, 500).map((frame) => ({
+      frameId: frame.frameId,
+      parentFrameId: frame.parentFrameId,
+      documentId: frame.documentId || "",
+      url: String(frame.url || "").slice(0, 4_096),
+      errorOccurred: Boolean(frame.errorOccurred),
+    }));
+    return {
+      ...result,
+      frameCount: (frames || []).length,
+      frames: normalizedFrames,
+      warnings: [
+        ...(Array.isArray(result.warnings) ? result.warnings : []),
+        ...((frames || []).length > normalizedFrames.length
+          ? ["Frame metadata was truncated at 500 entries"]
+          : []),
+      ],
+    };
   }
 
   async function resolveTab(explicitTabId) {
@@ -104,8 +132,12 @@ export function createPageHandlers(chromeAPI) {
   }
 
   return {
+    info: execute,
     getHTML: execute,
     getHTMLBySelector: execute,
+    getText: execute,
+    query: execute,
+    getElement: execute,
     click: execute,
     fill: execute,
   };

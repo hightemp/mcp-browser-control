@@ -230,8 +230,12 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_update_tab_group`
 - `browser_get_recently_closed`
 - `browser_restore_session`
+- `browser_page_info`
 - `browser_get_html`
 - `browser_get_html_by_selector`
+- `browser_get_text`
+- `browser_query`
+- `browser_get_element`
 - `browser_click_element`
 - `browser_input_data`
 
@@ -262,6 +266,13 @@ References have a sliding 60-second lifetime and fail with `STALE_TARGET` after
 navigation, detachment, or expiry. Locator failures include the match count and
 bounded candidate diagnostics; actionability checks cover attachment,
 visibility, disabled state, viewport placement, and pointer obstruction.
+
+Page inspection never returns unrestricted raw DOM by default. HTML defaults to
+100,000 characters and depth 50, supports include/exclude CSS filters, and has
+hard limits of 1,000,000 characters and depth 200. Visible text and element
+queries use numeric cursors; query pages contain at most 100 elements. Results
+report truncation and redaction warnings, and password, secret, token, and
+credential field values are replaced before leaving the content script.
 
 Grouping and ungrouping use the Core tabs API. Updating a group and reading or
 restoring recently closed sessions require the optional Personal data profile;

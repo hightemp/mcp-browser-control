@@ -639,7 +639,7 @@ Group, ungroup, update group, recently closed и restore. Добавить capab
 
 - Приоритет: P0
 - Зависимости: T-046, T-053
-- Статус: `[~]`
+- Статус: `[x]`
 
 Page info, HTML, visible text, query и element details.
 
@@ -651,6 +651,8 @@ Page info, HTML, visible text, query и element details.
 - redaction password/secret fields;
 - frame metadata;
 - нормализованные результаты вместо сырого неограниченного HTML.
+
+Добавлены `browser_page_info`, bounded `browser_get_html`, `browser_get_text`, `browser_query` и `browser_get_element`. Page info объединяет document/viewport/scroll данные content script с нормализованным frame list из webNavigation. HTML ограничен maxChars/maxDepth и include/exclude selectors; text и query имеют numeric cursor, query limit и nextCursor. Password/secret/token/credential fields редактируются до ответа, HTML и text сообщают truncation/redaction warnings, а element details возвращают bounded sanitized HTML, states, value и document-scoped reference.
 
 ### T-055 — Реализовать semantic snapshot
 

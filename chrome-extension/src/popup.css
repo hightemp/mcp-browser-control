@@ -132,6 +132,17 @@ button.wide {
   width: 100%;
 }
 
+.wide-link {
+  display: block;
+  border-radius: 6px;
+  padding: 8px;
+  background: #475569;
+  color: white;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+
 .danger-zone {
   display: grid;
   gap: 8px;

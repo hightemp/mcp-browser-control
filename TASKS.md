@@ -476,7 +476,7 @@ Identity вынесена в тестируемый модуль: UUID созд�
 
 - Приоритет: P0
 - Зависимости: T-022, T-040, T-041
-- Статус: `[~]`
+- Статус: `[x]`
 
 Popup или side panel показывает:
 
@@ -489,6 +489,8 @@ Popup или side panel показывает:
 - ссылку на settings и диагностику.
 
 Badge должен различать connected, disconnected и error.
+
+Popup покрывает pairing/revoke, connect/disconnect/retry через Connect, rename/settings и destructive identity reset. Он показывает runtime browser, browser/connection IDs, endpoint, pairing state, heartbeat latency, last connected и granted profiles. Отдельная English options page выводит полные capabilities/permissions и diagnostics; badge имеет различимые `ON`, `OFF`, `!`, `PAIR` и переходные состояния.
 
 ### T-043 — Реализовать WebSocket lifecycle в service worker
 

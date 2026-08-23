@@ -36,6 +36,6 @@ export async function resetStoredIdentity(storage, confirmed, randomUUID = () =>
   }
   const browserId = randomUUID();
   await storage.set({ browserId });
-  await storage.remove("credential");
+  await storage.remove(["credential", "connectionDiagnostics"]);
   return browserId;
 }

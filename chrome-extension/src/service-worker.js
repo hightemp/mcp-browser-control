@@ -15,6 +15,7 @@ import {
   initializeStoredState,
   resetStoredIdentity,
 } from "./identity.js";
+import { badgeForStatus, permissionProfilesFor } from "./status.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   endpoint: "ws://127.0.0.1:8090/ws",
@@ -34,6 +35,8 @@ let keepaliveTimer = null;
 let pendingPairingCode = "";
 let authenticationBlocked = false;
 let pendingRevocation = null;
+let lastError = "";
+let lastPingSentAt = 0;
 const activeRequests = new Map();
 
 void connect();
@@ -270,11 +273,17 @@ async function handleSocketMessage(currentSocket, rawMessage) {
   switch (message.type) {
     case MessageType.WELCOME:
       connectionId = message.connectionId;
-	  if (message.result?.credential) {
-	    await chrome.storage.local.set({ credential: message.result.credential });
-	  }
-	  pendingPairingCode = "";
-	  authenticationBlocked = false;
+      if (message.result?.credential) {
+        await chrome.storage.local.set({ credential: message.result.credential });
+      }
+      await chrome.storage.local.set({
+        connectionDiagnostics: {
+          lastConnectedAt: new Date().toISOString(),
+          latencyMS: null,
+        },
+      });
+      pendingPairingCode = "";
+      authenticationBlocked = false;
       reconnectAttempts = 0;
       await chrome.alarms.clear(RECONNECT_ALARM);
       startKeepalive();
@@ -326,6 +335,7 @@ async function handleSocketMessage(currentSocket, rawMessage) {
       }));
       break;
     case MessageType.PONG:
+      await recordKeepaliveLatency();
       break;
     default:
       break;
@@ -579,11 +589,30 @@ function capabilitiesFor(permissions) {
 
 function startKeepalive() {
   stopKeepalive();
+  void sendKeepalive();
   keepaliveTimer = setInterval(() => {
-    void getIdentity().then((browserId) => {
-      sendMessage(createMessage(MessageType.PING, { browserId, connectionId }));
-    });
+    void sendKeepalive();
   }, KEEPALIVE_INTERVAL_MS);
+}
+
+async function sendKeepalive() {
+  const browserId = await getIdentity();
+  if (sendMessage(createMessage(MessageType.PING, { browserId, connectionId }))) {
+    lastPingSentAt = Date.now();
+  }
+}
+
+async function recordKeepaliveLatency() {
+  if (lastPingSentAt === 0) {
+    return;
+  }
+  const latencyMS = Math.max(0, Date.now() - lastPingSentAt);
+  lastPingSentAt = 0;
+  const { connectionDiagnostics = {} } = await chrome.storage.local.get("connectionDiagnostics");
+  await chrome.storage.local.set({
+    connectionDiagnostics: { ...connectionDiagnostics, latencyMS },
+  });
+  await broadcastStatusChanged();
 }
 
 function stopKeepalive() {
@@ -591,6 +620,7 @@ function stopKeepalive() {
     clearInterval(keepaliveTimer);
     keepaliveTimer = null;
   }
+  lastPingSentAt = 0;
 }
 
 async function scheduleReconnect() {
@@ -627,43 +657,51 @@ async function disconnect(manual, nextStatus = "disconnected") {
   if (currentSocket) {
     currentSocket.close(1000, "Disconnected by user");
   }
-	await chrome.alarms.clear(RECONNECT_ALARM);
-	await updateStatus(nextStatus);
+  await chrome.alarms.clear(RECONNECT_ALARM);
+  await updateStatus(nextStatus);
 }
 
 async function getStatus() {
   const browserId = await getIdentity();
   const settings = await getSettings();
   const permissions = await chrome.permissions.getAll();
-	const { credential } = await chrome.storage.local.get("credential");
+  const { credential, connectionDiagnostics = {} } = await chrome.storage.local.get([
+    "credential",
+    "connectionDiagnostics",
+  ]);
   return {
     status,
+    error: lastError,
     browserId,
     connectionId,
+    browserName: getBrowserName(),
+    browserVersion: getBrowserVersion(),
     settings,
-	paired: Boolean(credential),
+    paired: Boolean(credential),
     capabilities: capabilitiesFor(permissions),
     permissions,
+    permissionProfiles: permissionProfilesFor(permissions),
+    lastConnectedAt: connectionDiagnostics.lastConnectedAt || "",
+    latencyMS: Number.isFinite(connectionDiagnostics.latencyMS)
+      ? connectionDiagnostics.latencyMS
+      : null,
   };
 }
 
 async function updateStatus(nextStatus, error = "") {
   status = nextStatus;
-  const colors = {
-    connected: "#15803d",
-    connecting: "#ca8a04",
-    handshaking: "#ca8a04",
-	pairing_required: "#c2410c",
-    disconnected: "#64748b",
-    error: "#b91c1c",
-  };
-  await chrome.action.setBadgeBackgroundColor({ color: colors[nextStatus] || "#64748b" });
-	const badgeText = nextStatus === "connected" ? "ON" : nextStatus === "pairing_required" ? "PAIR" : "";
-	await chrome.action.setBadgeText({ text: badgeText });
+  lastError = error;
+  const badge = badgeForStatus(nextStatus);
+  await chrome.action.setBadgeBackgroundColor({ color: badge.color });
+  await chrome.action.setBadgeText({ text: badge.text });
+  await broadcastStatusChanged();
+}
+
+async function broadcastStatusChanged() {
   try {
     await chrome.runtime.sendMessage({
       type: "CONNECTION_STATUS_CHANGED",
-      data: { status: nextStatus, error },
+      data: { status, error: lastError },
     });
   } catch {
     // The popup is normally closed, so no receiver is expected.

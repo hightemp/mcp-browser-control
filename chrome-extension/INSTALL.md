@@ -26,6 +26,11 @@
 7. Enter the code and click **Pair**.
 8. Click **Grant access to websites** before using page inspection or interaction tools.
 
+The popup reports the runtime browser, stable browser and current connection
+IDs, measured heartbeat latency, last successful connection, and granted
+permission profiles. Use **Open settings and diagnostics** for the full
+capability and permission lists or to edit the endpoint and browser name.
+
 Each installed browser profile generates its own stable browser ID. Install the
 extension in another profile or Chromium browser to connect a second browser.
 Use `browser_list` and `browser_select` from the MCP client to choose between
@@ -65,3 +70,5 @@ pairing first when possible so its server-side credential is also removed.
 - **Permission required:** click **Grant access to websites** in the popup.
 - **Restricted URL:** switch to an HTTP or HTTPS page.
 - **Extension updated:** reload it from the extensions page, then reconnect.
+- **Stale diagnostics:** open the settings page and click **Refresh**; latency
+  appears after the next successful heartbeat.

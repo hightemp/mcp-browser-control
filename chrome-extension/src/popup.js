@@ -1,11 +1,16 @@
 const elements = {
   status: document.querySelector("#status"),
+  browserRuntime: document.querySelector("#browser-runtime"),
   browserId: document.querySelector("#browser-id"),
+  connectionId: document.querySelector("#connection-id"),
   displayName: document.querySelector("#display-name"),
   endpoint: document.querySelector("#endpoint"),
   autoConnect: document.querySelector("#auto-connect"),
   pairingCode: document.querySelector("#pairing-code"),
   paired: document.querySelector("#paired"),
+  latency: document.querySelector("#latency"),
+  lastConnected: document.querySelector("#last-connected"),
+  permissionProfiles: document.querySelector("#permission-profiles"),
   error: document.querySelector("#error"),
   save: document.querySelector("#save"),
   connect: document.querySelector("#connect"),
@@ -111,13 +116,30 @@ function renderResponse(response) {
   }
   const data = response.data;
   renderStatus(data.status);
+  showError(data.error || "");
+  elements.browserRuntime.textContent = [data.browserName, data.browserVersion]
+    .filter(Boolean)
+    .join(" ") || "Chromium";
   elements.browserId.textContent = data.browserId || "—";
   elements.browserId.title = data.browserId || "";
+  elements.connectionId.textContent = data.connectionId || "—";
+  elements.connectionId.title = data.connectionId || "";
   elements.displayName.value = data.settings?.displayName || "";
   elements.endpoint.value = data.settings?.endpoint || "";
   elements.autoConnect.checked = Boolean(data.settings?.autoConnect);
   elements.paired.textContent = data.paired ? "Yes" : "No";
+  elements.latency.textContent = Number.isFinite(data.latencyMS) ? `${data.latencyMS} ms` : "—";
+  elements.lastConnected.textContent = formatDate(data.lastConnectedAt);
+  elements.permissionProfiles.textContent = data.permissionProfiles?.join(", ") || "Core";
   elements.revokePairing.disabled = !data.paired;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "Never";
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : date.toLocaleString();
 }
 
 function renderStatus(status) {

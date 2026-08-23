@@ -29,6 +29,7 @@ test("identity reset requires confirmation and preserves settings", async () => 
   const storage = fakeStorage({
     browserId: "browser-old",
     credential: "secret-credential",
+    connectionDiagnostics: { lastConnectedAt: "2026-08-23T19:00:00Z", latencyMS: 5 },
     settings: { ...DEFAULT_SETTINGS, displayName: "Work Chrome" },
   });
 
@@ -42,6 +43,7 @@ test("identity reset requires confirmation and preserves settings", async () => 
   assert.equal(await resetStoredIdentity(storage, true, () => "browser-new"), "browser-new");
   assert.equal(storage.values.browserId, "browser-new");
   assert.equal(storage.values.credential, undefined);
+  assert.equal(storage.values.connectionDiagnostics, undefined);
   assert.equal(storage.values.settings.displayName, "Work Chrome");
 });
 

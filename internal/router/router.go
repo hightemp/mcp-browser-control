@@ -151,7 +151,10 @@ func (r *Router) Send(
 			if result.message.Error == nil {
 				return nil, protocol.NewError(protocol.CodeInvalidMessage, "browser response is missing an error", false)
 			}
-			return nil, result.message.Error
+			return nil, result.message.Error.WithContext(
+				result.message.RequestID,
+				result.message.Target,
+			)
 		}
 		return append(json.RawMessage(nil), result.message.Result...), nil
 	case <-requestCtx.Done():

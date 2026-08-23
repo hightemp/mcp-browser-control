@@ -154,7 +154,7 @@ internal/artifacts/
 
 - Приоритет: P0
 - Зависимости: T-011
-- Статус: `[~]`
+- Статус: `[x]`
 
 Добавить коды из раздела 13 PRD, typed Go errors и JavaScript error mapping.
 
@@ -165,6 +165,8 @@ internal/artifacts/
 - `retryable` выставляется последовательно;
 - target и requestId присутствуют в диагностике;
 - ошибки Chrome API переводятся в продуктовые коды.
+
+Реализованы единые typed errors, безопасная нормализация расширения, диагностика запроса и target, а также отображение ошибок Chrome API без утечки внутренних сообщений и stack trace.
 
 ### T-014 — Реализовать общий Target и Locator
 

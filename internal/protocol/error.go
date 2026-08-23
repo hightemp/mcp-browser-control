@@ -41,6 +41,8 @@ type Error struct {
 	Code      ErrorCode      `json:"code"`
 	Message   string         `json:"message"`
 	Retryable bool           `json:"retryable"`
+	RequestID string         `json:"requestId,omitempty"`
+	Target    *Target        `json:"target,omitempty"`
 	Details   map[string]any `json:"details,omitempty"`
 }
 
@@ -61,6 +63,23 @@ func NewError(code ErrorCode, message string, retryable bool) *Error {
 	}
 }
 
+// WithContext returns a copy enriched with request and target diagnostics.
+func (e *Error) WithContext(requestID string, target *Target) *Error {
+	if e == nil {
+		return nil
+	}
+	copyErr := *e
+	if copyErr.RequestID == "" {
+		copyErr.RequestID = requestID
+	}
+	if copyErr.Target == nil {
+		copyErr.Target = cloneTarget(target)
+	} else {
+		copyErr.Target = cloneTarget(copyErr.Target)
+	}
+	return &copyErr
+}
+
 // ErrorFrom converts an arbitrary error into a safe protocol error.
 func ErrorFrom(err error) *Error {
 	if err == nil {
@@ -70,6 +89,7 @@ func ErrorFrom(err error) *Error {
 	var protocolErr *Error
 	if errors.As(err, &protocolErr) {
 		copyErr := *protocolErr
+		copyErr.Target = cloneTarget(protocolErr.Target)
 		return &copyErr
 	}
 
@@ -77,8 +97,28 @@ func ErrorFrom(err error) *Error {
 	case errors.Is(err, context.DeadlineExceeded):
 		return NewError(CodeTimeout, "the browser command timed out", true)
 	case errors.Is(err, context.Canceled):
-		return NewError(CodeCancelled, "the browser command was cancelled", true)
+		return NewError(CodeCancelled, "the browser command was cancelled", false)
 	default:
 		return NewError(CodeInternal, "an internal error occurred", false)
 	}
+}
+
+func cloneTarget(target *Target) *Target {
+	if target == nil {
+		return nil
+	}
+	cloned := *target
+	if target.WindowID != nil {
+		value := *target.WindowID
+		cloned.WindowID = &value
+	}
+	if target.TabID != nil {
+		value := *target.TabID
+		cloned.TabID = &value
+	}
+	if target.FrameID != nil {
+		value := *target.FrameID
+		cloned.FrameID = &value
+	}
+	return &cloned
 }

@@ -5,6 +5,7 @@ import {
   ErrorCode,
   MessageType,
   createMessage,
+  mapChromeError,
   normalizeError,
   normalizePairingCode,
   validateIncomingMessage,
@@ -60,4 +61,31 @@ test("normalizeError does not expose stacks", () => {
     message: "failed",
     retryable: false,
   });
+});
+
+test("normalizeError adds request diagnostics without exposing stacks", () => {
+  const error = new Error("failed");
+  const target = { tabId: 42, frameId: 0 };
+  assert.deepEqual(normalizeError(error, { requestId: "request-1", target }), {
+    code: ErrorCode.INTERNAL_ERROR,
+    message: "failed",
+    retryable: false,
+    requestId: "request-1",
+    target,
+  });
+});
+
+test("mapChromeError returns safe stable product errors", () => {
+  const cases = [
+    ["No tab with id: 42", ErrorCode.TAB_NOT_FOUND, true],
+    ["Cannot access a chrome:// URL", ErrorCode.RESTRICTED_URL, false],
+    ["Missing host permission for the tab", ErrorCode.PERMISSION_REQUIRED, false],
+    ["secret implementation failure", ErrorCode.INTERNAL_ERROR, false],
+  ];
+  for (const [message, code, retryable] of cases) {
+    const mapped = mapChromeError(new Error(message));
+    assert.equal(mapped.code, code);
+    assert.equal(mapped.retryable, retryable);
+    assert.equal(mapped.message.includes("secret implementation failure"), false);
+  }
 });

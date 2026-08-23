@@ -205,6 +205,55 @@ func TestDecodeParamsAndErrorString(t *testing.T) {
 	}
 }
 
+func TestErrorWithContextClonesTarget(t *testing.T) {
+	t.Parallel()
+
+	tabID := 42
+	target := &Target{TabID: &tabID, DocumentID: "document-1"}
+	original := NewError(CodeElementNotFound, "element was not found", false)
+	enriched := original.WithContext("request-1", target)
+	if enriched.RequestID != "request-1" || enriched.Target == nil || *enriched.Target.TabID != 42 {
+		t.Fatalf("WithContext() = %#v", enriched)
+	}
+	tabID = 99
+	if got := *enriched.Target.TabID; got != 42 {
+		t.Errorf("cloned target tabId = %d, want 42", got)
+	}
+	if original.RequestID != "" || original.Target != nil {
+		t.Fatalf("original error was mutated: %#v", original)
+	}
+
+	converted := ErrorFrom(enriched)
+	*enriched.Target.TabID = 7
+	if got := *converted.Target.TabID; got != 42 {
+		t.Errorf("ErrorFrom() target tabId = %d, want 42", got)
+	}
+}
+
+func TestErrorFromContextErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		err       error
+		code      ErrorCode
+		retryable bool
+	}{
+		{name: "deadline", err: context.DeadlineExceeded, code: CodeTimeout, retryable: true},
+		{name: "cancelled", err: context.Canceled, code: CodeCancelled, retryable: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			protocolErr := ErrorFrom(test.err)
+			if protocolErr.Code != test.code || protocolErr.Retryable != test.retryable {
+				t.Fatalf("ErrorFrom() = %#v", protocolErr)
+			}
+		})
+	}
+}
+
 func boolPointer(value bool) *bool {
 	return &value
 }

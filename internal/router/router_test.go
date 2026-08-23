@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -269,6 +270,61 @@ func TestRouterCloseFailsPendingRequest(t *testing.T) {
 		assertProtocolErrorCode(t, err, protocol.CodeCancelled)
 	case <-time.After(time.Second):
 		t.Fatal("Send() did not return after Close()")
+	}
+}
+
+func TestRouterEnrichesBrowserErrorsWithRequestContext(t *testing.T) {
+	t.Parallel()
+
+	browserRegistry := registry.New()
+	connection := newFakeConnection("connection-a")
+	registerTestBrowser(t, browserRegistry, "browser-a", connection)
+	requestRouter := New(
+		browserRegistry,
+		WithIDGenerator(func() string { return "request-error" }),
+		WithLogger(log.New(io.Discard, "", 0)),
+	)
+	tabID := 42
+	result := make(chan error, 1)
+	go func() {
+		_, err := requestRouter.Send(
+			context.Background(),
+			"browser-a",
+			"page.click",
+			&protocol.Target{TabID: &tabID},
+			nil,
+		)
+		result <- err
+	}()
+	request := receiveMessage(t, connection.messages)
+	response, err := protocol.NewResponse(
+		request.RequestID,
+		"browser-a",
+		nil,
+		protocol.NewError(protocol.CodeElementNotFound, "element was not found", false),
+	)
+	if err != nil {
+		t.Fatalf("NewResponse() error = %v", err)
+	}
+	response.Target = request.Target
+	if !requestRouter.HandleResponse("browser-a", connection.ID(), response) {
+		t.Fatal("HandleResponse() = false")
+	}
+
+	select {
+	case resultErr := <-result:
+		var protocolErr *protocol.Error
+		if !errors.As(resultErr, &protocolErr) {
+			t.Fatalf("error type = %T", resultErr)
+		}
+		if protocolErr.RequestID != request.RequestID ||
+			protocolErr.Target == nil ||
+			protocolErr.Target.TabID == nil ||
+			*protocolErr.Target.TabID != tabID {
+			t.Fatalf("error context = %#v", protocolErr)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Send() did not return browser error")
 	}
 }
 

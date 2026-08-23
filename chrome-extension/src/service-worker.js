@@ -2,6 +2,7 @@ import {
   ErrorCode,
   MessageType,
   createMessage,
+  mapChromeError,
   normalizeError,
   normalizePairingCode,
   protocolError,
@@ -337,6 +338,7 @@ async function executeRequest(request) {
       requestId: request.requestId,
       browserId: await getIdentity(),
       connectionId,
+      target: request.target,
       success: true,
       result,
     }));
@@ -345,8 +347,9 @@ async function executeRequest(request) {
       requestId: request.requestId,
       browserId: await getIdentity(),
       connectionId,
+      target: request.target,
       success: false,
-      error: normalizeError(error),
+      error: normalizeError(error, { requestId: request.requestId, target: request.target }),
     }));
   } finally {
     activeRequests.delete(request.requestId);
@@ -377,7 +380,12 @@ async function dispatchCommand(request, signal) {
 }
 
 async function listTabs() {
-  const tabs = await chrome.tabs.query({});
+  let tabs;
+  try {
+    tabs = await chrome.tabs.query({});
+  } catch (error) {
+    throw mapChromeError(error);
+  }
   return {
     tabs: tabs.map((tab) => ({
       id: tab.id,
@@ -414,11 +422,15 @@ async function sendPageCommand(request, signal) {
   try {
     response = await chrome.tabs.sendMessage(tab.id, payload, { frameId });
   } catch {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id, frameIds: [frameId] },
-      files: ["src/content.js"],
-    });
-    response = await chrome.tabs.sendMessage(tab.id, payload, { frameId });
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id, frameIds: [frameId] },
+        files: ["src/content.js"],
+      });
+      response = await chrome.tabs.sendMessage(tab.id, payload, { frameId });
+    } catch (error) {
+      throw mapChromeError(error);
+    }
   }
   return unwrapPageResponse(response);
 }

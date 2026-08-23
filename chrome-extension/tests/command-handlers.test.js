@@ -40,7 +40,11 @@ test("page handlers preserve addressing and structured content errors", async ()
       get: async () => ({ id: 7, url: "https://example.com/page" }),
       sendMessage: async (...args) => {
         sent.push(args);
+        if (args[1].type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: "1.0" };
+        }
         return {
+          success: false,
           error: {
             code: ErrorCode.ELEMENT_NOT_FOUND,
             message: "No matching element",
@@ -65,7 +69,27 @@ test("page handlers preserve addressing and structured content errors", async ()
     (error) => error.code === ErrorCode.ELEMENT_NOT_FOUND
       && error.details.matches === 0,
   );
-  assert.equal(sent.length, 1);
-  assert.equal(sent[0][0], 7);
-  assert.deepEqual(sent[0][2], { frameId: 2 });
+  assert.equal(sent.length, 2);
+  assert.equal(sent[1][0], 7);
+  assert.deepEqual(sent[1][2], { frameId: 2, documentId: "document-1" });
+});
+
+test("page handler applies a command timeout across browser API calls", async () => {
+  const chromeAPI = {
+    tabs: {
+      get: async () => new Promise(() => {}),
+    },
+  };
+  const page = createPageHandlers(chromeAPI);
+  const request = {
+    command: "page.getHTML",
+    target: { tabId: 7 },
+    params: {},
+    timeoutMs: 5,
+  };
+
+  await assert.rejects(
+    page.getHTML(request, new AbortController().signal),
+    (error) => error.code === ErrorCode.TIMEOUT && error.retryable === true,
+  );
 });

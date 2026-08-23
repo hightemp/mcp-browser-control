@@ -71,6 +71,7 @@ pairing first when possible so its server-side credential is also removed.
   credential.
 - **Permission required:** click **Grant access to websites** in the popup.
 - **Restricted URL:** switch to an HTTP or HTTPS page.
+- **Page bridge incompatible:** reload the target tab after updating the extension.
 - **Extension updated:** reload it from the extensions page, then reconnect.
 - **Stale diagnostics:** open the settings page and click **Refresh**; latency
   appears after the next successful heartbeat.

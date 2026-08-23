@@ -550,7 +550,7 @@ Router вынесен в чистый тестируемый модуль с я�
 
 - Приоритет: P0
 - Зависимости: T-014, T-045
-- Статус: `[~]`
+- Статус: `[x]`
 
 - адресация tab/frame/document;
 - автоматическая инъекция только при разрешённом host access;
@@ -559,6 +559,8 @@ Router вынесен в чистый тестируемый модуль с я�
 - restricted URL handling;
 - timeout и cancellation;
 - сообщения не доверяют payload страницы.
+
+Service worker обращается к frame/document через отдельный versioned bridge и проверяет readiness перед каждой page-командой. После navigation отсутствующий content script инъецируется on demand только после host-access проверки; устаревшая версия требует reload. Весь вызов ограничен request timeout и cancellation, а bridge принимает только собственные extension messages и валидирует envelope и allowlisted error codes ответа.
 
 ### T-047 — Реализовать permission management UI
 

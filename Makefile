@@ -72,7 +72,7 @@ lint:
 	$(GOLANGCI_LINT) run ./...
 
 extension-check:
-	@for file in chrome-extension/src/*.js chrome-extension/tests/*.js; do \
+	@for file in chrome-extension/src/*.js chrome-extension/src/handlers/*.js chrome-extension/tests/*.js; do \
 		node --check "$$file"; \
 	done
 	$(NPM) test --prefix chrome-extension

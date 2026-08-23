@@ -4,38 +4,37 @@ import {
   mapChromeError,
   protocolError,
 } from "../protocol.js";
+import { ContentScriptBridge } from "../content-bridge.js";
+
+const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 
 export function createPageHandlers(chromeAPI) {
-  async function execute(request, signal) {
+  const bridge = new ContentScriptBridge(chromeAPI);
+
+  function execute(request, signal) {
+    return withTimeout(
+      (commandSignal) => executeWithinDeadline(request, commandSignal),
+      signal,
+      request.timeoutMs || DEFAULT_COMMAND_TIMEOUT_MS,
+    );
+  }
+
+  async function executeWithinDeadline(request, signal) {
     const tab = await resolveTab(request.target?.tabId);
+    throwIfCancelled(signal);
     await assertPageAccess(tab);
+    throwIfCancelled(signal);
     const frameId = request.target?.frameId ?? 0;
     await assertCurrentDocument(request, tab.id, frameId);
-    const payload = {
-      type: "MCP_BROWSER_COMMAND",
+    throwIfCancelled(signal);
+    return bridge.execute({
+      tabId: tab.id,
+      frameId,
+      documentId: request.target?.documentId,
       command: request.command,
       params: request.params,
-    };
-
-    throwIfCancelled(signal);
-    let response;
-    try {
-      response = await chromeAPI.tabs.sendMessage(tab.id, payload, { frameId });
-    } catch {
-      try {
-        throwIfCancelled(signal);
-        await chromeAPI.scripting.executeScript({
-          target: { tabId: tab.id, frameIds: [frameId] },
-          files: ["src/content.js"],
-        });
-        throwIfCancelled(signal);
-        response = await chromeAPI.tabs.sendMessage(tab.id, payload, { frameId });
-      } catch (error) {
-        throw mapChromeError(error);
-      }
-    }
-    throwIfCancelled(signal);
-    return unwrapPageResponse(response);
+      signal,
+    });
   }
 
   async function resolveTab(explicitTabId) {
@@ -106,20 +105,36 @@ export function createPageHandlers(chromeAPI) {
   };
 }
 
-function unwrapPageResponse(response) {
-  if (response?.error) {
-    throw protocolError(
-      response.error.code || ErrorCode.INTERNAL_ERROR,
-      response.error.message || "Page command failed",
-      Boolean(response.error.retryable),
-      response.error.details,
-    );
-  }
-  return response;
-}
-
 function throwIfCancelled(signal) {
   if (signal.aborted) {
-    throw protocolError(ErrorCode.CANCELLED, "Command was cancelled", true);
+    throw typeof signal.reason?.code === "string"
+      ? signal.reason
+      : protocolError(ErrorCode.CANCELLED, "Command was cancelled", true);
   }
+}
+
+function withTimeout(operation, parentSignal, timeoutMs) {
+  if (parentSignal.aborted) {
+    return Promise.reject(protocolError(ErrorCode.CANCELLED, "Command was cancelled", true));
+  }
+  const controller = new AbortController();
+  const onParentAbort = () => controller.abort(
+    protocolError(ErrorCode.CANCELLED, "Command was cancelled", true),
+  );
+  parentSignal.addEventListener("abort", onParentAbort, { once: true });
+  const timeout = setTimeout(() => controller.abort(
+    protocolError(ErrorCode.TIMEOUT, `Command timed out after ${timeoutMs} ms`, true),
+  ), timeoutMs);
+
+  return Promise.race([
+    operation(controller.signal),
+    new Promise((_, reject) => {
+      controller.signal.addEventListener("abort", () => reject(controller.signal.reason), {
+        once: true,
+      });
+    }),
+  ]).finally(() => {
+    clearTimeout(timeout);
+    parentSignal.removeEventListener("abort", onParentAbort);
+  });
 }

@@ -1,19 +1,38 @@
 (() => {
+  const BRIDGE_VERSION = "1.0";
+  if (globalThis.__mcpBrowserControlVersion === BRIDGE_VERSION) {
+    return;
+  }
   if (globalThis.__mcpBrowserControlLoaded) {
     return;
   }
   globalThis.__mcpBrowserControlLoaded = true;
+  globalThis.__mcpBrowserControlVersion = BRIDGE_VERSION;
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type !== "MCP_BROWSER_COMMAND") {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (sender?.id !== chrome.runtime.id) {
+      return false;
+    }
+    if (message?.type === "MCP_BROWSER_BRIDGE_READY") {
+      sendResponse({ ready: true, bridgeVersion: BRIDGE_VERSION });
+      return false;
+    }
+    if (
+      message?.type !== "MCP_BROWSER_COMMAND"
+      || message.bridgeVersion !== BRIDGE_VERSION
+      || !message.params
+      || typeof message.params !== "object"
+      || Array.isArray(message.params)
+    ) {
       return false;
     }
 
     Promise.resolve()
       .then(() => dispatch(message.command, message.params || {}))
-      .then(sendResponse)
+      .then((result) => sendResponse({ success: true, result }))
       .catch((error) => {
         sendResponse({
+          success: false,
           error: {
             code: error.code || "INTERNAL_ERROR",
             message: error.message || "Page command failed",

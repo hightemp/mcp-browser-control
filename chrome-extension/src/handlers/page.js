@@ -266,7 +266,7 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
       throw protocolError(ErrorCode.RESTRICTED_URL, `Cannot access ${parsed.protocol} pages`);
     }
-    const originPattern = `${parsed.protocol}//${parsed.host}/*`;
+    const originPattern = `${parsed.protocol}//${parsed.hostname}/*`;
     const granted = await chromeAPI.permissions.contains({
       origins: [originPattern],
     });

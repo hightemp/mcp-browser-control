@@ -144,7 +144,7 @@ async function assertPageAccess(chromeAPI, tab) {
     throw protocolError(ErrorCode.RESTRICTED_URL, `Cannot access ${parsed.protocol} pages`);
   }
   const granted = await chromeAPI.permissions.contains({
-    origins: [`${parsed.protocol}//${parsed.host}/*`],
+    origins: [`${parsed.protocol}//${parsed.hostname}/*`],
   });
   if (!granted) {
     throw protocolError(

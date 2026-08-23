@@ -12,11 +12,13 @@ NPM ?= npm
 GOLANGCI_LINT ?= golangci-lint
 GOVULNCHECK ?= govulncheck
 GITLEAKS ?= gitleaks
+CHROME_BIN ?= chromium
+E2E_EXTENSION_DIR := $(CURDIR)/chrome-extension/dist/e2e-extension
 
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-license-check extension-check security-check check verify clean
+.PHONY: help deps fmt fmt-check build run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -34,6 +36,7 @@ help:
 		'  lint            Run golangci-lint' \
 		'  extension-check Check extension formatting, lint, and tests' \
 		'  extension-build Build the unpacked production extension' \
+		'  e2e             Run two-profile Chrome for Testing E2E' \
 		'  security-check  Scan vulnerabilities, licenses, and secrets' \
 		'  check           Run non-mutating validation checks' \
 		'  verify          Format, check, measure coverage, and build' \
@@ -88,10 +91,16 @@ extension-test:
 extension-build:
 	$(NPM) run build --prefix chrome-extension
 
+extension-e2e-build:
+	$(NPM) run build:e2e --prefix chrome-extension
+
 extension-license-check:
 	$(NPM) run license:check --prefix chrome-extension
 
 extension-check: extension-format-check extension-lint extension-test
+
+e2e: extension-e2e-build
+	CHROME_BIN="$(CHROME_BIN)" MCP_BROWSER_EXTENSION_DIR="$(E2E_EXTENSION_DIR)" $(GO) test -tags=e2e -count=1 -timeout=2m ./internal/e2e
 
 security-check: extension-license-check
 	$(GOVULNCHECK) ./cmd/server

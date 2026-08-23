@@ -449,6 +449,21 @@ make extension-check
 make extension-build
 ```
 
+Run the real two-profile browser E2E with Chromium or Chrome for Testing 116+:
+
+```bash
+make e2e CHROME_BIN=/path/to/chrome-for-testing
+```
+
+The E2E target starts two isolated headless profiles, loads the unpacked MV3
+extension, pairs both with an in-process server, exercises selected and parallel
+page commands, and restarts one service worker to verify credential reconnect.
+It uses a generated test-only extension manifest with access only to loopback
+HTTP pages; the production manifest and optional permission flow are unchanged.
+Branded Chrome 137+ no longer accepts `--load-extension`, so use
+[Chrome for Testing](https://developer.chrome.com/docs/automation-and-testing/download-test-binaries)
+or a Chromium build for this target.
+
 Run the dependency, license, and repository secret scans after installing
 `govulncheck` and `gitleaks`:
 
@@ -475,7 +490,8 @@ internal/
 ├── selection/            per-MCP-session browser selection
 ├── tools/                MCP tool definitions and handlers
 ├── transport/websocket/  browser WebSocket transport
-└── integration/          multi-browser end-to-end component tests
+├── integration/          multi-browser end-to-end component tests
+└── e2e/                  real two-profile Chromium tests (e2e build tag)
 protocol/                 versioned schema, fixtures, and compatibility policy
 ```
 

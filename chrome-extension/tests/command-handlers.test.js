@@ -161,11 +161,17 @@ test("tab handlers keep every operation scoped to the addressed tab", async () =
 
 test("tab handler rejects missing site permission before page access", async () => {
   let scriptExecutions = 0;
+  const permissionRequests = [];
   const handlers = createTabHandlers({
     tabs: {
-      get: async () => ({ id: 42, url: "https://private.example/account" }),
+      get: async () => ({ id: 42, url: "http://127.0.0.1:4321/account" }),
     },
-    permissions: { contains: async () => false },
+    permissions: {
+      contains: async (request) => {
+        permissionRequests.push(request);
+        return false;
+      },
+    },
     scripting: {
       executeScript: async () => {
         scriptExecutions += 1;
@@ -178,8 +184,9 @@ test("tab handler rejects missing site permission before page access", async () 
     (error) =>
       error.code === ErrorCode.PERMISSION_REQUIRED &&
       error.retryable === false &&
-      error.details.origin === "https://private.example",
+      error.details.origin === "http://127.0.0.1:4321",
   );
+  assert.deepEqual(permissionRequests, [{ origins: ["http://127.0.0.1/*"] }]);
   assert.equal(scriptExecutions, 0);
 });
 

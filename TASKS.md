@@ -172,7 +172,7 @@ internal/artifacts/
 
 - Приоритет: P0
 - Зависимости: T-011
-- Статус: `[~]`
+- Статус: `[x]`
 
 Target включает `browserId/windowId/tabId/frameId/documentId`. Locator поддерживает CSS, XPath, text, role/name, label, placeholder, alt, title, test id, coordinates, nth и strict.
 
@@ -182,6 +182,8 @@ Target включает `browserId/windowId/tabId/frameId/documentId`. Locator �
 - locator содержит ровно одну основную стратегию;
 - координаты, nth и timeout имеют допустимые границы;
 - устаревшие element/document references возвращают `STALE_TARGET`.
+
+Target и Locator синхронизированы в Go, JavaScript и JSON Schema. Target привязывается к разрешённому browserId, а document-scoped target и element reference проверяются расширением до выполнения команды.
 
 ### T-015 — Ввести конфигурацию и безопасные defaults
 

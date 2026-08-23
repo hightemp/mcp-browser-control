@@ -55,7 +55,17 @@
     },
     {
       "if": { "properties": { "type": { "const": "request" } }, "required": ["type"] },
-      "then": { "required": ["requestId", "browserId", "command", "params"] }
+      "then": {
+        "required": ["requestId", "browserId", "command", "params"],
+        "properties": {
+          "params": {
+            "type": "object",
+            "properties": {
+              "locator": { "$ref": "#/$defs/locator" }
+            }
+          }
+        }
+      }
     },
     {
       "if": { "properties": { "type": { "const": "response" } }, "required": ["type"] },
@@ -113,11 +123,77 @@
     },
     "target": {
       "type": "object",
+      "required": ["browserId"],
       "properties": {
+        "browserId": { "$ref": "#/$defs/browserId" },
         "windowId": { "type": "integer", "minimum": 0 },
         "tabId": { "type": "integer", "minimum": 0 },
         "frameId": { "type": "integer", "minimum": 0 },
         "documentId": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              { "required": ["frameId"] },
+              { "required": ["documentId"] }
+            ]
+          },
+          "then": { "required": ["tabId"] }
+        }
+      ]
+    },
+    "coordinates": {
+      "type": "object",
+      "required": ["x", "y"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1000000 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1000000 }
+      },
+      "additionalProperties": false
+    },
+    "elementReference": {
+      "type": "object",
+      "required": ["elementId", "documentId"],
+      "properties": {
+        "elementId": { "$ref": "#/$defs/nonEmptyString" },
+        "documentId": { "$ref": "#/$defs/nonEmptyString" }
+      },
+      "additionalProperties": false
+    },
+    "locator": {
+      "type": "object",
+      "properties": {
+        "css": { "$ref": "#/$defs/nonEmptyString" },
+        "xpath": { "$ref": "#/$defs/nonEmptyString" },
+        "text": { "$ref": "#/$defs/nonEmptyString" },
+        "role": { "$ref": "#/$defs/nonEmptyString" },
+        "name": { "$ref": "#/$defs/nonEmptyString" },
+        "label": { "$ref": "#/$defs/nonEmptyString" },
+        "placeholder": { "$ref": "#/$defs/nonEmptyString" },
+        "alt": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "testId": { "$ref": "#/$defs/nonEmptyString" },
+        "coordinates": { "$ref": "#/$defs/coordinates" },
+        "element": { "$ref": "#/$defs/elementReference" },
+        "nth": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "strict": { "type": "boolean" }
+      },
+      "oneOf": [
+        { "required": ["css"] },
+        { "required": ["xpath"] },
+        { "required": ["text"] },
+        { "required": ["role"] },
+        { "required": ["label"] },
+        { "required": ["placeholder"] },
+        { "required": ["alt"] },
+        { "required": ["title"] },
+        { "required": ["testId"] },
+        { "required": ["coordinates"] },
+        { "required": ["element"] }
+      ],
+      "dependentRequired": {
+        "name": ["role"]
       }
     },
     "browserMetadata": {

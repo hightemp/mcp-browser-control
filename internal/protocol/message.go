@@ -28,15 +28,6 @@ const (
 	TypeCapabilitiesChanged MessageType = "capabilities_changed"
 )
 
-// Target identifies a browser object. All IDs are scoped to BrowserID in the
-// enclosing Message.
-type Target struct {
-	WindowID   *int   `json:"windowId,omitempty"`
-	TabID      *int   `json:"tabId,omitempty"`
-	FrameID    *int   `json:"frameId,omitempty"`
-	DocumentID string `json:"documentId,omitempty"`
-}
-
 // Message is the common protocol v1 envelope.
 type Message struct {
 	ProtocolVersion string          `json:"protocolVersion"`
@@ -105,11 +96,16 @@ func NewRequest(requestID, browserID, command string, target *Target, params any
 		return Message{}, fmt.Errorf("marshal request params: %w", err)
 	}
 
+	resolvedTarget, err := ResolveTarget(browserID, target)
+	if err != nil {
+		return Message{}, err
+	}
+
 	message := NewMessage(TypeRequest)
 	message.RequestID = requestID
 	message.BrowserID = browserID
 	message.Command = command
-	message.Target = target
+	message.Target = resolvedTarget
 	message.Params = rawParams
 	if timeout > 0 {
 		message.TimeoutMS = timeout.Milliseconds()
@@ -172,6 +168,23 @@ func (m Message) Validate() error {
 			Details: map[string]any{"expectedVersion": Version},
 		}
 	}
+	if m.TimeoutMS < 0 || m.TimeoutMS > MaxTimeoutMS {
+		return NewError(
+			CodeInvalidMessage,
+			fmt.Sprintf("timeoutMs must be between 1 and %d", MaxTimeoutMS),
+			false,
+		)
+	}
+	if m.Target != nil {
+		if err := validateMessageTarget(m.Target, m.BrowserID); err != nil {
+			return err
+		}
+	}
+	if m.Error != nil && m.Error.Target != nil {
+		if err := validateMessageTarget(m.Error.Target, m.BrowserID); err != nil {
+			return err
+		}
+	}
 
 	switch m.Type {
 	case TypeHello:
@@ -231,4 +244,14 @@ func marshalPayload(value any) (json.RawMessage, error) {
 		return nil, err
 	}
 	return raw, nil
+}
+
+func validateMessageTarget(target *Target, browserID string) error {
+	if err := target.Validate(); err != nil {
+		return err
+	}
+	if browserID == "" || target.BrowserID != browserID {
+		return NewError(CodeInvalidMessage, "target browserId must match message browserId", false)
+	}
+	return nil
 }

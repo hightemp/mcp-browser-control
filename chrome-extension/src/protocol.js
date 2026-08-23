@@ -1,4 +1,7 @@
 export const PROTOCOL_VERSION = "1.0";
+export const MAX_TIMEOUT_MS = 120_000;
+export const MAX_LOCATOR_NTH = 10_000;
+export const MAX_COORDINATE = 1_000_000;
 
 export const MessageType = Object.freeze({
   HELLO: "hello",
@@ -101,6 +104,9 @@ export function normalizeError(error, context = {}) {
 
 export function mapChromeError(error) {
   const message = String(error?.message || error || "").toLowerCase();
+  if (message.includes("no frame with id") || message.includes("frame was removed")) {
+    return protocolError(ErrorCode.FRAME_NOT_FOUND, "The target frame is no longer available", true);
+  }
   if (
     message.includes("no tab with id") ||
     message.includes("invalid tab id") ||
@@ -146,5 +152,156 @@ export function validateIncomingMessage(message, browserId) {
   if (message.browserId && message.browserId !== browserId) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "Message targets another browser instance");
   }
+  if (
+    message.timeoutMs !== undefined &&
+    (!Number.isInteger(message.timeoutMs) || message.timeoutMs < 1 || message.timeoutMs > MAX_TIMEOUT_MS)
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `timeoutMs must be between 1 and ${MAX_TIMEOUT_MS}`,
+    );
+  }
+  validateTarget(message.target, browserId);
+  validateTarget(message.error?.target, browserId);
+  if (message.params?.locator !== undefined) {
+    validateLocator(message.params.locator, message.target);
+  }
   return message;
+}
+
+export function validateTarget(target, browserId) {
+  if (target === undefined || target === null) {
+    return;
+  }
+  if (typeof target !== "object" || Array.isArray(target)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target must be an object");
+  }
+  if (!target.browserId || target.browserId !== browserId) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "target.browserId must match the resolved browser",
+    );
+  }
+  for (const field of ["windowId", "tabId", "frameId"]) {
+    if (target[field] !== undefined && (!Number.isInteger(target[field]) || target[field] < 0)) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, `target.${field} must not be negative`);
+    }
+  }
+  if (
+    target.tabId === undefined &&
+    (target.frameId !== undefined || target.documentId !== undefined)
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "target.frameId and documentId require tabId",
+    );
+  }
+  if (target.documentId !== undefined && !isNonEmptyString(target.documentId)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.documentId must not be empty");
+  }
+}
+
+export function validateLocator(locator, target = undefined) {
+  if (!locator || typeof locator !== "object" || Array.isArray(locator)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "locator is required");
+  }
+  const strategyFields = [
+    "css",
+    "xpath",
+    "text",
+    "role",
+    "label",
+    "placeholder",
+    "alt",
+    "title",
+    "testId",
+  ];
+  for (const field of strategyFields) {
+    if (locator[field] !== undefined && !isNonEmptyString(locator[field])) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, `locator.${field} must not be empty`);
+    }
+  }
+  let strategyCount = strategyFields.filter((field) => isNonEmptyString(locator[field])).length;
+  strategyCount += locator.coordinates !== undefined ? 1 : 0;
+  strategyCount += locator.element !== undefined ? 1 : 0;
+  if (strategyCount !== 1) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "locator must contain exactly one primary strategy",
+    );
+  }
+  if (locator.name !== undefined && !isNonEmptyString(locator.name)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "locator.name must not be empty");
+  }
+  if (isNonEmptyString(locator.name) && !isNonEmptyString(locator.role)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "locator.name requires locator.role");
+  }
+  if (
+    locator.nth !== undefined &&
+    (!Number.isInteger(locator.nth) || locator.nth < 0 || locator.nth > MAX_LOCATOR_NTH)
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `locator.nth must be between 0 and ${MAX_LOCATOR_NTH}`,
+    );
+  }
+  if (locator.strict !== undefined && typeof locator.strict !== "boolean") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "locator.strict must be a boolean");
+  }
+  if (locator.coordinates !== undefined) {
+    validateCoordinates(locator.coordinates);
+  }
+  if (locator.element !== undefined) {
+    validateElementReference(locator.element);
+    if (target?.documentId) {
+      assertFreshDocument(locator.element.documentId, target.documentId);
+    }
+  }
+  return locator;
+}
+
+export function assertFreshDocument(expectedDocumentId, actualDocumentId) {
+  if (expectedDocumentId && expectedDocumentId === actualDocumentId) {
+    return;
+  }
+  throw protocolError(
+    ErrorCode.STALE_TARGET,
+    "The referenced document is no longer current",
+    false,
+    { expectedDocumentId },
+  );
+}
+
+function validateCoordinates(coordinates) {
+  if (!coordinates || typeof coordinates !== "object" || Array.isArray(coordinates)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "locator.coordinates must be an object");
+  }
+  if (![coordinates.x, coordinates.y].every(isValidCoordinate)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `locator coordinates must be between 0 and ${MAX_COORDINATE}`,
+    );
+  }
+}
+
+function validateElementReference(reference) {
+  if (
+    !reference ||
+    typeof reference !== "object" ||
+    !isNonEmptyString(reference.elementId) ||
+    !isNonEmptyString(reference.documentId)
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "element reference requires elementId and documentId",
+    );
+  }
+}
+
+function isValidCoordinate(value) {
+  return Number.isFinite(value) && value >= 0 && value <= MAX_COORDINATE;
+}
+
+function isNonEmptyString(value) {
+  return typeof value === "string" && value.trim() !== "";
 }

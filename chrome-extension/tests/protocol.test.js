@@ -4,11 +4,14 @@ import test from "node:test";
 import {
   ErrorCode,
   MessageType,
+  assertFreshDocument,
   createMessage,
   mapChromeError,
   normalizeError,
   normalizePairingCode,
+  validateLocator,
   validateIncomingMessage,
+  validateTarget,
   validateServerEndpoint,
 } from "../src/protocol.js";
 
@@ -38,6 +41,10 @@ test("validateIncomingMessage isolates browser instances", () => {
   assert.equal(validateIncomingMessage(message, "browser-a"), message);
   assert.throws(
     () => validateIncomingMessage(message, "browser-b"),
+    (error) => error.code === ErrorCode.INVALID_MESSAGE,
+  );
+  assert.throws(
+    () => validateIncomingMessage({ ...message, timeoutMs: 120_001 }, "browser-a"),
     (error) => error.code === ErrorCode.INVALID_MESSAGE,
   );
 });
@@ -88,4 +95,72 @@ test("mapChromeError returns safe stable product errors", () => {
     assert.equal(mapped.retryable, retryable);
     assert.equal(mapped.message.includes("secret implementation failure"), false);
   }
+});
+
+test("validateTarget requires browser-scoped non-negative identifiers", () => {
+  assert.doesNotThrow(() =>
+    validateTarget({ browserId: "browser-a", tabId: 42, frameId: 0 }, "browser-a"),
+  );
+  for (const target of [
+    { tabId: 42 },
+    { browserId: "browser-b", tabId: 42 },
+    { browserId: "browser-a", tabId: -1 },
+    { browserId: "browser-a", frameId: 0 },
+  ]) {
+    assert.throws(
+      () => validateTarget(target, "browser-a"),
+      (error) => error.code === ErrorCode.INVALID_MESSAGE,
+    );
+  }
+});
+
+test("validateLocator accepts every primary strategy", () => {
+  const locators = [
+    { css: "#submit" },
+    { xpath: "//button" },
+    { text: "Submit" },
+    { role: "button", name: "Submit" },
+    { label: "Email" },
+    { placeholder: "name@example.com" },
+    { alt: "Company logo" },
+    { title: "Close" },
+    { testId: "submit" },
+    { coordinates: { x: 12.5, y: 24 } },
+    { element: { elementId: "element-1", documentId: "document-1" } },
+  ];
+  for (const locator of locators) {
+    assert.equal(validateLocator(locator), locator);
+  }
+});
+
+test("validateLocator enforces strategy and modifier bounds", () => {
+  for (const locator of [
+    {},
+    { css: "a", text: "link" },
+    { css: "a", text: " " },
+    { css: "a", name: "link" },
+    { css: "a", nth: -1 },
+    { coordinates: { x: -1, y: 0 } },
+  ]) {
+    assert.throws(
+      () => validateLocator(locator),
+      (error) => error.code === ErrorCode.INVALID_MESSAGE,
+    );
+  }
+});
+
+test("document-scoped targets and element references reject stale documents", () => {
+  assert.doesNotThrow(() => assertFreshDocument("document-1", "document-1"));
+  assert.throws(
+    () => assertFreshDocument("document-1", "document-2"),
+    (error) => error.code === ErrorCode.STALE_TARGET,
+  );
+  assert.throws(
+    () =>
+      validateLocator(
+        { element: { elementId: "element-1", documentId: "document-1" } },
+        { documentId: "document-2" },
+      ),
+    (error) => error.code === ErrorCode.STALE_TARGET,
+  );
 });

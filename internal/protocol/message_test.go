@@ -55,6 +55,18 @@ func TestMessageValidate(t *testing.T) {
 			wantErr: CodeInvalidMessage,
 		},
 		{
+			name: "request timeout too large",
+			message: Message{
+				ProtocolVersion: Version,
+				Type:            TypeRequest,
+				RequestID:       "request-1",
+				BrowserID:       "browser-1",
+				Command:         "tabs.list",
+				TimeoutMS:       MaxTimeoutMS + 1,
+			},
+			wantErr: CodeInvalidMessage,
+		},
+		{
 			name:    "hello without browser",
 			message: Message{ProtocolVersion: Version, Type: TypeHello, Params: json.RawMessage(`{}`)},
 			wantErr: CodeInvalidMessage,
@@ -151,6 +163,9 @@ func TestNewRequest(t *testing.T) {
 	}
 	if message.Target == nil || message.Target.TabID == nil || *message.Target.TabID != tabID {
 		t.Fatalf("Target.TabID = %#v, want %d", message.Target, tabID)
+	}
+	if message.Target.BrowserID != "browser-1" {
+		t.Errorf("Target.BrowserID = %q, want browser-1", message.Target.BrowserID)
 	}
 
 	var params map[string]bool

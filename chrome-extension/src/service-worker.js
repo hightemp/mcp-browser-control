@@ -1,6 +1,7 @@
 import {
   ErrorCode,
   MessageType,
+  assertFreshDocument,
   createMessage,
   mapChromeError,
   normalizeError,
@@ -408,6 +409,7 @@ async function sendPageCommand(request, signal) {
   const tab = await resolveTab(request.target?.tabId);
   await assertPageAccess(tab);
   const frameId = request.target?.frameId ?? 0;
+  await assertCurrentDocument(request, tab.id, frameId);
   const payload = {
     type: "MCP_BROWSER_COMMAND",
     command: request.command,
@@ -433,6 +435,25 @@ async function sendPageCommand(request, signal) {
     }
   }
   return unwrapPageResponse(response);
+}
+
+async function assertCurrentDocument(request, tabId, frameId) {
+  const expectedDocumentId =
+    request.target?.documentId || request.params?.locator?.element?.documentId;
+  if (!expectedDocumentId) {
+    return;
+  }
+
+  let frame;
+  try {
+    frame = await chrome.webNavigation.getFrame({ tabId, frameId });
+  } catch (error) {
+    throw mapChromeError(error);
+  }
+  if (!frame) {
+    throw protocolError(ErrorCode.FRAME_NOT_FOUND, "The target frame is no longer available", true);
+  }
+  assertFreshDocument(expectedDocumentId, frame.documentId);
 }
 
 function unwrapPageResponse(response) {

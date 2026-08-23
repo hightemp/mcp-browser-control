@@ -244,7 +244,7 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "html",
 			wantCommand: protocol.CommandPageGetHTML,
-			wantTarget:  &protocol.Target{TabID: &tabID},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserGetHTMLHandler(ctx, mcp.CallToolRequest{}, targetedArgs{BrowserID: "browser-a", TabID: &tabID})
@@ -253,7 +253,7 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "selector html",
 			wantCommand: protocol.CommandPageGetHTMLBySelector,
-			wantTarget:  &protocol.Target{TabID: &tabID},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{"selector": selector},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserGetHTMLBySelectorHandler(ctx, mcp.CallToolRequest{}, getHTMLBySelectorArgs{BrowserID: "browser-a", TabID: &tabID, Selector: selector})
@@ -262,7 +262,7 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "click",
 			wantCommand: protocol.CommandPageClick,
-			wantTarget:  &protocol.Target{TabID: &tabID},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{"selector": selector, "index": float64(index)},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserClickHandler(ctx, mcp.CallToolRequest{}, clickArgs{BrowserID: "browser-a", TabID: &tabID, Selector: &selector, Index: &index})
@@ -271,7 +271,7 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "input",
 			wantCommand: protocol.CommandPageFill,
-			wantTarget:  &protocol.Target{TabID: &tabID},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{"selector": "#name", "value": "Ada", "index": float64(index), "clear": false},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserInputHandler(ctx, mcp.CallToolRequest{}, inputArgs{BrowserID: "browser-a", TabID: &tabID, Selector: "#name", Value: "Ada", Index: &index, Clear: &clearField, TimeoutMS: &timeoutMS})
@@ -280,7 +280,7 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "console",
 			wantCommand: protocol.CommandConsoleRead,
-			wantTarget:  &protocol.Target{TabID: &tabID},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserGetConsoleHandler(ctx, mcp.CallToolRequest{}, targetedArgs{BrowserID: "browser-a", TabID: &tabID})
@@ -289,7 +289,7 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "network",
 			wantCommand: protocol.CommandNetworkRead,
-			wantTarget:  &protocol.Target{TabID: &tabID},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserGetNetworkHandler(ctx, mcp.CallToolRequest{}, targetedArgs{BrowserID: "browser-a", TabID: &tabID})
@@ -298,7 +298,7 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "custom",
 			wantCommand: "page.custom",
-			wantTarget:  &protocol.Target{TabID: &tabID},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{"key": "value"},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
 				return service.browserSendCommandHandler(ctx, mcp.CallToolRequest{}, sendCommandArgs{BrowserID: "browser-a", TabID: &tabID, Command: "page.custom", Data: map[string]any{"key": "value"}})

@@ -33,6 +33,12 @@ test("router dispatches every allowlisted command to its domain handler", async 
         recentlyClosed: handler,
         restore: handler,
       },
+      console: {
+        start: handler,
+        stop: handler,
+        clear: handler,
+        read: handler,
+      },
       page: {
         info: handler,
         getHTML: handler,
@@ -130,6 +136,16 @@ test("router dispatches every allowlisted command to its domain handler", async 
       maxHeight: 1_080,
       maxBytes: 1_000_000,
     },
+    "console.start": { bufferSize: 500, captureConsole: true, captureErrors: true },
+    "console.stop": {},
+    "console.clear": {},
+    "console.read": {
+      levels: ["warn", "error"],
+      kinds: ["console", "exception"],
+      cursor: "12",
+      limit: 50,
+      since: "2026-08-24T10:00:00Z",
+    },
   };
 
   for (const [index, command] of COMMAND_NAMES.entries()) {
@@ -183,6 +199,12 @@ test("router validates target and command params before invoking handlers", asyn
       sessions: {
         recentlyClosed: () => { calls += 1; },
         restore: () => { calls += 1; },
+      },
+      console: {
+        start: () => { calls += 1; },
+        stop: () => { calls += 1; },
+        clear: () => { calls += 1; },
+        read: () => { calls += 1; },
       },
       page: {
         info: () => { calls += 1; },
@@ -241,6 +263,11 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.wait", { condition: "attribute", locator: { css: "#a" }, attribute: "data-token", attributeState: "present" }),
     createRequest("page.screenshot", { format: "png", quality: 80 }),
     createRequest("page.screenshot", { format: "jpeg", maxBytes: 2_000_001 }),
+    createRequest("console.start", { captureConsole: false, captureErrors: false }),
+    createRequest("console.read", { levels: ["error", "error"] }),
+    createRequest("console.read", { kinds: ["network"] }),
+    createRequest("console.read", { cursor: "-1" }),
+    createRequest("console.read", { since: "yesterday" }),
     createRequest("windows.get", {}),
     createRequest("windows.create", { urls: [] }),
     createRequest("tabs.create", { index: -1 }),
@@ -386,6 +413,12 @@ function defaultHandlers() {
     sessions: {
       recentlyClosed: () => ({ sessions: [] }),
       restore: () => ({ session: {} }),
+    },
+    console: {
+      start: () => ({ active: true }),
+      stop: () => ({ active: false }),
+      clear: () => ({ cleared: true }),
+      read: () => ({ entries: [] }),
     },
     page: {
       info: () => ({ url: "" }),

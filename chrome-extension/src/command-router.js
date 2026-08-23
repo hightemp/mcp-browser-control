@@ -154,6 +154,26 @@ const COMMANDS = Object.freeze({
     handler: "screenshot",
     validate: validateScreenshot,
   }),
+  "console.start": Object.freeze({
+    domain: "console",
+    handler: "start",
+    validate: validateConsoleStart,
+  }),
+  "console.stop": Object.freeze({
+    domain: "console",
+    handler: "stop",
+    validate: validateConsoleEmpty,
+  }),
+  "console.clear": Object.freeze({
+    domain: "console",
+    handler: "clear",
+    validate: validateConsoleEmpty,
+  }),
+  "console.read": Object.freeze({
+    domain: "console",
+    handler: "read",
+    validate: validateConsoleRead,
+  }),
 });
 
 export const COMMAND_NAMES = Object.freeze(Object.keys(COMMANDS));
@@ -840,6 +860,67 @@ function validateScreenshot(params, target) {
   validateIntegerRange(params.maxWidth, "params.maxWidth", 1, 16_384);
   validateIntegerRange(params.maxHeight, "params.maxHeight", 1, 16_384);
   validateIntegerRange(params.maxBytes, "params.maxBytes", 1_024, 2_000_000);
+}
+
+function validateConsoleStart(params, target) {
+  validateParamsObject(params);
+  validateConsoleTarget(target);
+  assertAllowedProperties(params, ["bufferSize", "captureConsole", "captureErrors"]);
+  validateIntegerRange(params.bufferSize, "params.bufferSize", 1, 5_000);
+  validateOptionalBoolean(params.captureConsole, "params.captureConsole");
+  validateOptionalBoolean(params.captureErrors, "params.captureErrors");
+  if (params.captureConsole === false && params.captureErrors === false) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "At least one capture source must be enabled");
+  }
+}
+
+function validateConsoleEmpty(params, target) {
+  validateEmpty(params);
+  validateConsoleTarget(target);
+}
+
+function validateConsoleRead(params, target) {
+  validateParamsObject(params);
+  validateConsoleTarget(target);
+  assertAllowedProperties(params, ["levels", "kinds", "cursor", "limit", "since"]);
+  validateEnumArray(params.levels, "params.levels", ["debug", "log", "info", "warn", "error"]);
+  validateEnumArray(params.kinds, "params.kinds", [
+    "console", "exception", "unhandledRejection", "resourceError",
+  ]);
+  validateConsoleCursor(params.cursor);
+  validateIntegerRange(params.limit, "params.limit", 1, 200);
+  if (
+    params.since !== undefined
+    && (
+      typeof params.since !== "string"
+      || params.since.length > 100
+      || !Number.isFinite(Date.parse(params.since))
+    )
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.since must be an RFC 3339 timestamp");
+  }
+}
+
+function validateConsoleTarget(target) {
+  if (target?.windowId !== undefined) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Console commands do not accept windowId");
+  }
+}
+
+function validateConsoleCursor(cursor) {
+  if (cursor === undefined) return;
+  if (typeof cursor !== "string" || !/^\d+$/.test(cursor)
+    || !Number.isSafeInteger(Number.parseInt(cursor, 10))) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is out of range");
+  }
+}
+
+function validateEnumArray(values, path, allowed) {
+  if (values === undefined) return;
+  if (!Array.isArray(values) || values.length > allowed.length
+    || values.some((value) => !allowed.includes(value)) || new Set(values).size !== values.length) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} contains invalid values`);
+  }
 }
 
 function validateStringWait(params) {

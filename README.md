@@ -19,13 +19,14 @@ The first multi-browser vertical slice is implemented:
 - STDIO and authenticated Streamable HTTP transports are available; deprecated
   legacy SSE requires an explicit opt-in;
 - window, tab, tab-group, session, bounded page inspection, semantic snapshot,
-  locator, and DOM interaction tools work through the extension;
+  locator, DOM interaction, waits, viewport screenshots, and basic console
+  diagnostics work through the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-Screenshots, trusted CDP input, console capture, and full network capture are
-planned but not complete. Remote mode is not implemented; do not expose either
-server port outside the local machine.
+Full-page and element screenshots, trusted CDP input, CDP-enriched diagnostics,
+and full network capture are planned but not complete. Remote mode is not
+implemented; do not expose either server port outside the local machine.
 
 ## Architecture
 
@@ -256,6 +257,10 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_submit`
 - `browser_wait`
 - `browser_screenshot`
+- `browser_start_console_capture`
+- `browser_stop_console_capture`
+- `browser_clear_console_log`
+- `browser_get_console_log`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
 accept optional `tabId`, `frameId`, and `documentId`; when `tabId` is omitted,
@@ -315,6 +320,17 @@ inline base64 from the result, and stores the bytes as a temporary
 the result includes an explicit sensitive-content warning. Full-page and
 element captures remain planned with the CDP-backed P1 implementation.
 
+Console capture injects packaged, versioned bridges into the selected document's
+MAIN and ISOLATED worlds; it does not require the optional debugger permission.
+Start, stop, clear, and paginated read operations are available. Reads support
+level, kind, timestamp, and cursor filters. Console calls, JavaScript exceptions,
+unhandled rejections, and failed resource loads enter a per-document ring buffer
+bounded by both entry count and serialized size. Object serialization avoids
+getters, limits depth and breadth, handles cycles, and redacts credentials,
+authorization values, and sensitive URL query parameters in both bridge worlds.
+Capture is document-scoped and must be started again after navigation. CDP
+Runtime and Log enrichment remains part of the P1 debugger implementation.
+
 Page inspection never returns unrestricted raw DOM by default. HTML defaults to
 100,000 characters and depth 50, supports include/exclude CSS filters, and has
 hard limits of 1,000,000 characters and depth 200. Visible text and element
@@ -334,12 +350,11 @@ unsupported Chromium APIs are omitted from the browser's capabilities.
 
 ### Registered but not implemented by the current extension
 
-- `browser_get_console_log`
 - `browser_get_network_log`
 
-These return `CAPABILITY_UNAVAILABLE` until their event-driven implementations
-are added. `browser_send_command` is an expert entry point, but the extension
-still enforces its command allowlist.
+This returns `CAPABILITY_UNAVAILABLE` until its event-driven implementation is
+added. `browser_send_command` is an expert entry point, but the extension still
+enforces its command allowlist.
 
 ## Tool Result Envelope
 

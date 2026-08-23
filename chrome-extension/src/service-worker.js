@@ -17,6 +17,7 @@ import { badgeForStatus, permissionProfilesFor } from "./status.js";
 import { detectCapabilities } from "./capabilities.js";
 import { CommandRouter } from "./command-router.js";
 import { createBrowserHandlers } from "./handlers/browser.js";
+import { createConsoleHandlers } from "./handlers/console.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -53,6 +54,7 @@ const commandRouter = new CommandRouter({
   getCapabilities: getCurrentCapabilities,
   handlers: {
     browser: createBrowserHandlers(),
+    console: createConsoleHandlers(chrome),
     page: createPageHandlers(chrome, { networkActivity }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),

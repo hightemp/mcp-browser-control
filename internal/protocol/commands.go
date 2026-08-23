@@ -143,7 +143,13 @@ const (
 	// CommandPageScreenshot captures a browser tab viewport.
 	CommandPageScreenshot = "page.screenshot"
 
-	// CommandConsoleRead reads captured console entries.
+	// CommandConsoleStart starts console and page error capture.
+	CommandConsoleStart = "console.start"
+	// CommandConsoleStop stops console and page error capture.
+	CommandConsoleStop = "console.stop"
+	// CommandConsoleClear clears buffered console and page error entries.
+	CommandConsoleClear = "console.clear"
+	// CommandConsoleRead reads captured console and page error entries.
 	CommandConsoleRead = "console.read"
 
 	// CommandNetworkRead reads captured network entries.

@@ -787,7 +787,7 @@ P1 и будут реализованы после CDP Session Manager (T-060), 
 
 - Приоритет: P0
 - Зависимости: T-046
-- Статус: `[ ]`
+- Статус: `[~]`
 
 Заменить некорректное разовое получение console API на event-driven capture. Базовый P0-вариант реализовать через упакованный main-world bridge и content-script bridge без обязательного `debugger` permission. При наличии CDP capability расширять его событиями Runtime, Log и Network.
 
@@ -799,6 +799,21 @@ P1 и будут реализованы после CDP Session Manager (T-060), 
 - cursor и ring buffer;
 - serialization объектов с лимитами;
 - redaction.
+
+Реализован базовый P0 backend без `debugger`: типизированные MCP tools
+start/stop/clear/read адресуют конкретный browser/tab/frame/document, а
+упакованные versioned bridges исполняются в MAIN и ISOLATED worlds. Сборщик
+перехватывает console methods, JavaScript exceptions, unhandled rejections и
+ошибки загрузки ресурсов. Per-document ring buffer ограничен числом записей и
+двумя миллионами сериализованных символов; чтение поддерживает levels, kinds,
+RFC 3339 time filter, cursor и limit, а также сообщает eviction/cursor expiry.
+Сериализация ограничивает depth, breadth, nodes, строки и размер записи, не
+вызывает getters, обрабатывает cycles и повторно редактирует credentials,
+authorization values и чувствительные URL query parameters в обоих bridge
+worlds. Capture явно document-scoped и после navigation запускается заново.
+Добавлены негативные contract tests и сквозные тесты capture/filter/redaction,
+exceptions, stop/clear и ring eviction. Расширение событиями CDP Runtime/Log
+остаётся P1 после T-060, поэтому общий статус задачи частичный.
 
 ### T-062 — Реализовать network capture
 

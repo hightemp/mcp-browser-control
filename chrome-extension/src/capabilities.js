@@ -99,6 +99,7 @@ export function detectCapabilities({
       "page.wait",
     );
     if (apis.captureVisibleTab) capabilities.push("page.screenshot");
+    capabilities.push("console.start", "console.stop", "console.clear", "console.read");
   }
   return capabilities;
 }

@@ -708,7 +708,9 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
-				return service.browserGetConsoleHandler(ctx, mcp.CallToolRequest{}, targetedArgs{BrowserID: "browser-a", TabID: &tabID})
+				return service.browserGetConsoleHandler(ctx, mcp.CallToolRequest{}, consoleReadArgs{
+					consoleTargetArgs: consoleTargetArgs{BrowserID: "browser-a", TabID: &tabID},
+				})
 			},
 		},
 		{
@@ -940,6 +942,9 @@ func newTestService(
 				Capabilities: []string{
 					protocol.CommandBrowserPing,
 					protocol.CommandConsoleRead,
+					protocol.CommandConsoleStart,
+					protocol.CommandConsoleStop,
+					protocol.CommandConsoleClear,
 					protocol.CommandNetworkRead,
 					protocol.CommandPageClick,
 					protocol.CommandPageFill,

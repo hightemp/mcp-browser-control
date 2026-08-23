@@ -293,6 +293,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerInteractionTools(mcpServer)
 	s.registerWaitTool(mcpServer)
 	s.registerScreenshotTool(mcpServer)
+	s.registerConsoleTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -447,16 +448,6 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserInputHandler),
-	)
-	mcpServer.AddTool(
-		mcp.NewTool(
-			"browser_get_console_log",
-			mcp.WithDescription("Read captured browser console entries"),
-			optionalBrowserID(),
-			optionalTabID(),
-			optionalTimeout(),
-		),
-		mcp.NewTypedToolHandler(s.browserGetConsoleHandler),
 	)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -869,21 +860,6 @@ func (s *Service) browserInputHandler(
 		protocol.CommandPageFill,
 		target,
 		params,
-		args.TimeoutMS,
-	)
-}
-
-func (s *Service) browserGetConsoleHandler(
-	ctx context.Context,
-	_ mcp.CallToolRequest,
-	args targetedArgs,
-) (*mcp.CallToolResult, error) {
-	return s.send(
-		ctx,
-		args.BrowserID,
-		protocol.CommandConsoleRead,
-		targetWithTab(args.TabID),
-		map[string]any{},
 		args.TimeoutMS,
 	)
 }

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { createBrowserHandlers } from "../src/handlers/browser.js";
+import { createConsoleHandlers } from "../src/handlers/console.js";
 import { createPageHandlers } from "../src/handlers/page.js";
 import { createSessionHandlers } from "../src/handlers/sessions.js";
 import { createTabGroupHandlers } from "../src/handlers/tab-groups.js";
@@ -576,6 +577,74 @@ test("page JPEG screenshot applies quality and rejects bounded payloads", async 
     (error) => error.code === ErrorCode.PAYLOAD_TOO_LARGE,
   );
   assert.deepEqual(captureOptions, { format: "jpeg", quality: 72 });
+});
+
+test("console handlers inject packaged bridges and preserve document targeting", async () => {
+  let contentReady = false;
+  const injections = [];
+  const commands = [];
+  const chromeAPI = {
+    tabs: {
+      get: async () => ({ id: 7, windowId: 3, url: "https://example.com/page" }),
+      sendMessage: async (_tabId, message, options) => {
+        if (message.type === "MCP_BROWSER_CONSOLE_READY") {
+          if (!contentReady) throw new Error("Receiving end does not exist");
+          return { ready: true, bridgeVersion: "1.0" };
+        }
+        commands.push([message.command, message.params, options]);
+        return {
+          success: true,
+          result: message.command === "console.read"
+            ? { active: true, entries: [], nextCursor: "0" }
+            : { active: message.command === "console.start" },
+        };
+      },
+    },
+    permissions: { contains: async () => true },
+    scripting: {
+      executeScript: async (injection) => {
+        injections.push(injection);
+        if (injection.files.includes("src/console-content.js")) contentReady = true;
+      },
+    },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "document-1", url: "https://example.com/page" }),
+    },
+  };
+  const handlers = createConsoleHandlers(chromeAPI);
+  const signal = new AbortController().signal;
+  const target = { tabId: 7, frameId: 2, documentId: "document-1" };
+
+  const started = await handlers.start({
+    requestId: "console-start",
+    command: "console.start",
+    target,
+    params: { bufferSize: 250 },
+  }, signal);
+  assert.equal(started.active, true);
+  assert.equal(started.documentId, "document-1");
+  const read = await handlers.read({
+    requestId: "console-read",
+    command: "console.read",
+    target,
+    params: { levels: ["error"], limit: 10 },
+  }, signal);
+  assert.deepEqual(read.entries, []);
+
+  assert.deepEqual(injections, [
+    {
+      target: { tabId: 7, documentIds: ["document-1"] },
+      files: ["src/console-content.js"],
+      world: "ISOLATED",
+    },
+    {
+      target: { tabId: 7, documentIds: ["document-1"] },
+      files: ["src/console-main.js"],
+      world: "MAIN",
+    },
+  ]);
+  assert.deepEqual(commands.map(([command]) => command), ["console.start", "console.read"]);
+  assert.deepEqual(commands[0][2], { frameId: 2, documentId: "document-1" });
 });
 
 function fakeChromeEvent() {

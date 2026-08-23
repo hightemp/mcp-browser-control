@@ -41,8 +41,10 @@ func NewService(
 	}
 }
 
-// Register adds discovery and browser command tools to an MCP server.
+// Register adds browser resources, discovery tools, and browser command tools
+// to an MCP server.
 func (s *Service) Register(mcpServer *server.MCPServer) {
+	s.registerResources(mcpServer)
 	s.registerDiscoveryTools(mcpServer)
 	s.registerBrowserCommandTools(mcpServer)
 }

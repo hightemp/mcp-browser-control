@@ -165,6 +165,19 @@ over the session selection. If exactly one browser is connected, it is selected
 implicitly. If several browsers are connected and no selection was made, the
 server returns `AMBIGUOUS_BROWSER` rather than broadcasting the command.
 
+## Available MCP Resources
+
+- `browser://instances` — connected and retained browser instances;
+- `browser://instances/{browserId}` — metadata and connection state;
+- `browser://instances/{browserId}/tabs` — live tabs from a connected browser;
+- `browser://instances/{browserId}/capabilities` — runtime capabilities and permissions.
+
+All resources use `application/json`. Browser-specific URIs always address the
+explicit instance in the URI and never depend on MCP session selection. The
+pinned MCP SDK does not implement resource subscriptions, so update
+notifications are not advertised yet; clients can read a resource again to
+refresh it.
+
 ## Available MCP Tools
 
 ### Browser discovery

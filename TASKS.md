@@ -384,7 +384,7 @@ Streamable HTTP работает на едином `/mcp`, защищён Host/O
 
 - Приоритет: P1
 - Зависимости: T-031
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Ресурсы:
 
@@ -394,6 +394,8 @@ Streamable HTTP работает на едином `/mcp`, защищён Host/O
 - `browser://instances/{browserId}/capabilities`.
 
 Добавить resource update notifications, если библиотека и MCP client поддерживают их.
+
+Зарегистрирован статический JSON resource со списком instances и три URI template для instance metadata, live tabs и capabilities/permissions. Browser-specific resources используют только явный browserId из URI; tabs читаются через тот же безопасный router. В `mcp-go v0.32.0` отсутствует server-side обработка `resources/subscribe` и `resources/unsubscribe`, поэтому subscription capability и update notifications не заявляются до обновления SDK.
 
 ### T-033 — Стандартизировать результаты tools
 

@@ -212,7 +212,7 @@ Target и Locator синхронизированы в Go, JavaScript и JSON Sch
 
 - Приоритет: P0
 - Зависимости: T-011, T-013
-- Статус: `[~]`
+- Статус: `[x]`
 
 Registry хранит:
 
@@ -229,6 +229,8 @@ Registry хранит:
 - duplicate `browserId` обрабатывается атомарно;
 - старое соединение не может удалить новое;
 - snapshot registry не раскрывает внутренние mutable objects.
+
+Registry атомарно заменяет подключения, хранит активные и недавно отключённые immutable snapshots, сохраняет latency/reason/timestamps и защищает новое соединение от stale disconnect. Для очистки истории добавлен безопасный prune по времени.
 
 ### T-021 — Реализовать безопасную WebSocket connection abstraction
 

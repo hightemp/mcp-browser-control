@@ -12,6 +12,8 @@ The first multi-browser vertical slice is implemented:
 - every command is routed to exactly one browser connection;
 - browser selection is isolated per MCP session;
 - reconnecting a browser atomically replaces its old connection;
+- recently disconnected browsers remain visible with timestamps and a safe
+  disconnect reason until registry cleanup;
 - one-time pairing issues persistent per-browser credentials and every later
   handshake is authenticated;
 - STDIO, Streamable HTTP, and legacy SSE transports are available;

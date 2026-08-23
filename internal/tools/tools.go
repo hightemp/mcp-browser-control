@@ -286,10 +286,10 @@ func (s *Service) browserListHandler(
 	_ mcp.CallToolRequest,
 	_ emptyArgs,
 ) (*mcp.CallToolResult, error) {
-	browsers := s.registry.List()
+	browsers := s.registry.ListAll()
 	return successResult("", map[string]any{
 		"browsers":       browsers,
-		"connectedCount": len(browsers),
+		"connectedCount": s.registry.Count(),
 	})
 }
 
@@ -298,12 +298,22 @@ func (s *Service) browserGetHandler(
 	_ mcp.CallToolRequest,
 	args browserIDArgs,
 ) (*mcp.CallToolResult, error) {
+	if args.BrowserID != "" {
+		browser, ok := s.registry.Get(args.BrowserID)
+		if !ok {
+			return errorResult(protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false))
+		}
+		return successResult(args.BrowserID, browser)
+	}
 	browserID, err := s.resolveBrowser(ctx, args.BrowserID)
 	if err != nil {
 		return errorResult(err)
 	}
 	browser, ok := s.registry.Get(browserID)
-	if !ok {
+	if !ok || !browser.Connected {
+		if ok {
+			return errorResult(protocol.NewError(protocol.CodeBrowserDisconnected, "browser is disconnected", true))
+		}
 		return errorResult(protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false))
 	}
 	return successResult(browserID, browser)
@@ -317,6 +327,9 @@ func (s *Service) browserSelectHandler(
 	browser, ok := s.registry.Get(args.BrowserID)
 	if !ok {
 		return errorResult(protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false))
+	}
+	if !browser.Connected {
+		return errorResult(protocol.NewError(protocol.CodeBrowserDisconnected, "browser is disconnected", true))
 	}
 	if err := s.selections.Set(sessionID(ctx), args.BrowserID); err != nil {
 		return errorResult(err)
@@ -336,7 +349,8 @@ func (s *Service) browserGetSelectedHandler(
 	if !ok {
 		return successResult("", map[string]any{"selected": false})
 	}
-	browser, connected := s.registry.Get(selected.BrowserID)
+	browser, known := s.registry.Get(selected.BrowserID)
+	connected := known && browser.Connected
 	return successResult(selected.BrowserID, map[string]any{
 		"selected":  true,
 		"connected": connected,

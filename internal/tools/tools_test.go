@@ -210,6 +210,48 @@ func TestDiscoveryHandlers(t *testing.T) {
 	}
 }
 
+func TestDiscoveryIncludesDisconnectedBrowsers(t *testing.T) {
+	t.Parallel()
+
+	service, _, connectionB := newTestService(t)
+	if !service.registry.Disconnect("browser-b", connectionB.ID(), "browser closed") {
+		t.Fatal("Disconnect() = false")
+	}
+	result, err := service.browserListHandler(context.Background(), mcp.CallToolRequest{}, emptyArgs{})
+	if err != nil || result.IsError {
+		t.Fatalf("browserListHandler() = (%v, %v)", result, err)
+	}
+	response := decodeToolResponse(t, result)
+	data, ok := response.Data.(map[string]any)
+	if !ok {
+		t.Fatalf("data type = %T", response.Data)
+	}
+	if data["connectedCount"] != float64(1) {
+		t.Errorf("connectedCount = %#v, want 1", data["connectedCount"])
+	}
+	browsers, ok := data["browsers"].([]any)
+	if !ok || len(browsers) != 2 {
+		t.Fatalf("browsers = %#v, want two retained entries", data["browsers"])
+	}
+
+	get, err := service.browserGetHandler(
+		context.Background(),
+		mcp.CallToolRequest{},
+		browserIDArgs{BrowserID: "browser-b"},
+	)
+	if err != nil || get.IsError {
+		t.Fatalf("browserGetHandler(disconnected) = (%v, %v)", get, err)
+	}
+	selected, err := service.browserSelectHandler(
+		context.Background(),
+		mcp.CallToolRequest{},
+		browserSelectArgs{BrowserID: "browser-b"},
+	)
+	if err != nil || !selected.IsError {
+		t.Fatalf("browserSelectHandler(disconnected) = (%v, %v), want tool error", selected, err)
+	}
+}
+
 func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 	service, connectionA, _ := newTestService(t)
 	tabID := 17

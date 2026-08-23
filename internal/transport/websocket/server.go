@@ -233,8 +233,9 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 
+	disconnectReason := "connection closed"
 	defer func() {
-		s.registry.Unregister(browserID, connection.ID())
+		s.registry.Disconnect(browserID, connection.ID(), disconnectReason)
 		s.router.FailConnection(browserID, connection.ID())
 	}()
 
@@ -262,8 +263,10 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	for {
 		var message protocol.Message
 		if err := socket.ReadJSON(&message); err != nil {
-			if !gorilla.IsCloseError(err, gorilla.CloseNormalClosure, gorilla.CloseGoingAway) &&
-				!errors.Is(err, net.ErrClosed) {
+			if gorilla.IsCloseError(err, gorilla.CloseNormalClosure, gorilla.CloseGoingAway) {
+				disconnectReason = "browser closed connection"
+			} else if !errors.Is(err, net.ErrClosed) {
+				disconnectReason = "connection read failure"
 				s.logger.Printf(
 					"failed to read browser message: browserId=%s connectionId=%s error=%v",
 					browserID,
@@ -301,6 +304,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 			pong.BrowserID = browserID
 			pong.ConnectionID = connection.ID()
 			if err := connection.Send(request.Context(), pong); err != nil {
+				disconnectReason = "connection write failure"
 				s.logger.Printf("failed to send pong to browser %s: %v", browserID, err)
 				return
 			}
@@ -338,10 +342,12 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 				}
 			}
 			if err := connection.Send(request.Context(), acknowledgement); err != nil {
+				disconnectReason = "connection write failure"
 				s.logger.Printf("failed to send browser revoke acknowledgement: %v", err)
 				return
 			}
 			if revokeErr == nil {
+				disconnectReason = "credential revoked"
 				return
 			}
 		case protocol.TypePong, protocol.TypeEvent:

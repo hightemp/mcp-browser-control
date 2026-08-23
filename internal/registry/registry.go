@@ -43,8 +43,12 @@ type Browser struct {
 	Permissions      []string                 `json:"permissions"`
 	Incognito        bool                     `json:"incognito"`
 	RemoteAddress    string                   `json:"remoteAddress,omitempty"`
+	FirstSeen        time.Time                `json:"firstSeen"`
 	ConnectedAt      time.Time                `json:"connectedAt"`
 	LastSeen         time.Time                `json:"lastSeen"`
+	DisconnectedAt   *time.Time               `json:"disconnectedAt,omitempty"`
+	DisconnectReason string                   `json:"disconnectReason,omitempty"`
+	LatencyMS        *int64                   `json:"latencyMs,omitempty"`
 	Connected        bool                     `json:"connected"`
 }
 
@@ -53,7 +57,8 @@ type entry struct {
 	connection Connection
 }
 
-// Registry is a concurrency-safe store of active browser connections.
+// Registry is a concurrency-safe store of active connections and retained
+// disconnected browser snapshots.
 type Registry struct {
 	mu       sync.RWMutex
 	browsers map[string]*entry
@@ -81,10 +86,6 @@ func (r *Registry) Register(registration Registration, connection Connection) (C
 
 	now := r.now().UTC()
 	displayName := strings.TrimSpace(registration.DisplayName)
-	if displayName == "" {
-		displayName = registration.BrowserID
-	}
-
 	browser := Browser{
 		BrowserID:        registration.BrowserID,
 		ConnectionID:     connection.ID(),
@@ -95,6 +96,7 @@ func (r *Registry) Register(registration Registration, connection Connection) (C
 		Permissions:      normalizedStrings(registration.Permissions),
 		Incognito:        registration.Incognito,
 		RemoteAddress:    registration.RemoteAddress,
+		FirstSeen:        now,
 		ConnectedAt:      now,
 		LastSeen:         now,
 		Connected:        true,
@@ -102,28 +104,48 @@ func (r *Registry) Register(registration Registration, connection Connection) (C
 
 	r.mu.Lock()
 	oldEntry := r.browsers[registration.BrowserID]
+	if oldEntry != nil {
+		browser.FirstSeen = oldEntry.browser.FirstSeen
+		if displayName == "" {
+			browser.DisplayName = oldEntry.browser.DisplayName
+		}
+	}
+	if browser.DisplayName == "" {
+		browser.DisplayName = registration.BrowserID
+	}
 	r.browsers[registration.BrowserID] = &entry{
 		browser:    browser,
 		connection: connection,
 	}
 	r.mu.Unlock()
 
-	if oldEntry == nil {
+	if oldEntry == nil || oldEntry.connection == nil {
 		return nil, nil
 	}
 	return oldEntry.connection, nil
 }
 
-// Unregister removes a browser only if connectionID still owns the entry.
+// Unregister marks a browser disconnected only if connectionID still owns the
+// entry. The retained snapshot remains available for diagnostics.
 func (r *Registry) Unregister(browserID, connectionID string) bool {
+	return r.Disconnect(browserID, connectionID, "connection closed")
+}
+
+// Disconnect records an offline transition for the current connection.
+func (r *Registry) Disconnect(browserID, connectionID, reason string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	current, ok := r.browsers[browserID]
-	if !ok || current.browser.ConnectionID != connectionID {
+	if !ok || !current.browser.Connected || current.browser.ConnectionID != connectionID {
 		return false
 	}
-	delete(r.browsers, browserID)
+	now := r.now().UTC()
+	current.browser.Connected = false
+	current.browser.LastSeen = now
+	current.browser.DisconnectedAt = &now
+	current.browser.DisconnectReason = strings.TrimSpace(reason)
+	current.connection = nil
 	return true
 }
 
@@ -133,7 +155,7 @@ func (r *Registry) Touch(browserID, connectionID string) bool {
 	defer r.mu.Unlock()
 
 	current, ok := r.browsers[browserID]
-	if !ok || current.browser.ConnectionID != connectionID {
+	if !ok || !current.browser.Connected || current.browser.ConnectionID != connectionID {
 		return false
 	}
 	current.browser.LastSeen = r.now().UTC()
@@ -152,7 +174,7 @@ func (r *Registry) UpdateCapabilities(
 	defer r.mu.Unlock()
 
 	current, ok := r.browsers[browserID]
-	if !ok || current.browser.ConnectionID != connectionID {
+	if !ok || !current.browser.Connected || current.browser.ConnectionID != connectionID {
 		return false
 	}
 	current.browser.Capabilities = normalizedStrings(capabilities)
@@ -161,7 +183,26 @@ func (r *Registry) UpdateCapabilities(
 	return true
 }
 
-// Rename changes the display name of a connected browser.
+// RecordLatency updates the most recent round-trip latency for the current
+// connection.
+func (r *Registry) RecordLatency(browserID, connectionID string, latency time.Duration) bool {
+	if latency < 0 {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	current, ok := r.browsers[browserID]
+	if !ok || !current.browser.Connected || current.browser.ConnectionID != connectionID {
+		return false
+	}
+	milliseconds := latency.Milliseconds()
+	current.browser.LatencyMS = &milliseconds
+	current.browser.LastSeen = r.now().UTC()
+	return true
+}
+
+// Rename changes the display name of a known browser snapshot.
 func (r *Registry) Rename(browserID, displayName string) (Browser, error) {
 	displayName = strings.TrimSpace(displayName)
 	if displayName == "" {
@@ -179,7 +220,7 @@ func (r *Registry) Rename(browserID, displayName string) (Browser, error) {
 	return cloneBrowser(current.browser), nil
 }
 
-// Get returns a snapshot for a connected browser.
+// Get returns the retained snapshot for a known browser.
 func (r *Registry) Get(browserID string) (Browser, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -193,9 +234,21 @@ func (r *Registry) Get(browserID string) (Browser, bool) {
 
 // List returns connected browsers sorted by display name and browser ID.
 func (r *Registry) List() []Browser {
+	return r.list(false)
+}
+
+// ListAll returns connected and retained disconnected browser snapshots.
+func (r *Registry) ListAll() []Browser {
+	return r.list(true)
+}
+
+func (r *Registry) list(includeDisconnected bool) []Browser {
 	r.mu.RLock()
 	browsers := make([]Browser, 0, len(r.browsers))
 	for _, current := range r.browsers {
+		if !includeDisconnected && !current.browser.Connected {
+			continue
+		}
 		browsers = append(browsers, cloneBrowser(current.browser))
 	}
 	r.mu.RUnlock()
@@ -209,13 +262,32 @@ func (r *Registry) List() []Browser {
 	return browsers
 }
 
+// PruneDisconnected removes retained offline snapshots disconnected before
+// cutoff. Active browsers are never removed.
+func (r *Registry) PruneDisconnected(cutoff time.Time) int {
+	cutoff = cutoff.UTC()
+	removed := 0
+	r.mu.Lock()
+	for browserID, current := range r.browsers {
+		if current.browser.Connected || current.browser.DisconnectedAt == nil {
+			continue
+		}
+		if current.browser.DisconnectedAt.Before(cutoff) {
+			delete(r.browsers, browserID)
+			removed++
+		}
+	}
+	r.mu.Unlock()
+	return removed
+}
+
 // Connection returns the current connection for browserID.
 func (r *Registry) Connection(browserID string) (Connection, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	current, ok := r.browsers[browserID]
-	if !ok {
+	if !ok || !current.browser.Connected || current.connection == nil {
 		return nil, false
 	}
 	return current.connection, true
@@ -224,13 +296,27 @@ func (r *Registry) Connection(browserID string) (Connection, bool) {
 // Count returns the number of connected browser instances.
 func (r *Registry) Count() int {
 	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return len(r.browsers)
+	count := 0
+	for _, current := range r.browsers {
+		if current.browser.Connected {
+			count++
+		}
+	}
+	r.mu.RUnlock()
+	return count
 }
 
 func cloneBrowser(browser Browser) Browser {
 	browser.Capabilities = append([]string(nil), browser.Capabilities...)
 	browser.Permissions = append([]string(nil), browser.Permissions...)
+	if browser.DisconnectedAt != nil {
+		value := *browser.DisconnectedAt
+		browser.DisconnectedAt = &value
+	}
+	if browser.LatencyMS != nil {
+		value := *browser.LatencyMS
+		browser.LatencyMS = &value
+	}
 	return browser
 }
 

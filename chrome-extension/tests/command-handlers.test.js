@@ -159,6 +159,30 @@ test("tab handlers keep every operation scoped to the addressed tab", async () =
   }
 });
 
+test("tab handler rejects missing site permission before page access", async () => {
+  let scriptExecutions = 0;
+  const handlers = createTabHandlers({
+    tabs: {
+      get: async () => ({ id: 42, url: "https://private.example/account" }),
+    },
+    permissions: { contains: async () => false },
+    scripting: {
+      executeScript: async () => {
+        scriptExecutions += 1;
+      },
+    },
+  });
+
+  await assert.rejects(
+    handlers.stop({ target: { tabId: 42 }, params: {} }),
+    (error) =>
+      error.code === ErrorCode.PERMISSION_REQUIRED &&
+      error.retryable === false &&
+      error.details.origin === "https://private.example",
+  );
+  assert.equal(scriptExecutions, 0);
+});
+
 test("window handlers support list, get, create, update, focus, and close", async () => {
   const calls = [];
   const window = {

@@ -1057,9 +1057,16 @@ cancel, disconnect, credential-authenticated reconnect с тем же browserId 
 
 - Приоритет: P0
 - Зависимости: T-045, T-046
-- Статус: `[~]`
+- Статус: `[x]`
 
 Mock Chrome APIs для identity, pairing, reconnect, capability detection, tab routing, content bridge, permission denied и command errors.
+
+Unit suite использует mock Chrome APIs для identity и всех domain handlers,
+проверяет capability detection, адресацию tab, content bridge, cancellation,
+нормализованные command errors и отказ при отсутствии site permission. Отдельный
+service-worker harness выполняет полный pairing handshake, сохраняет credential,
+эмулирует разрыв WebSocket и подтверждает alarm-driven reconnect с credential без
+повторной передачи pairing code.
 
 ### T-095 — Двухбраузерный E2E
 

@@ -419,7 +419,7 @@ Streamable HTTP работает на едином `/mcp`, защищён Host/O
 
 - Приоритет: P1
 - Зависимости: T-015, T-033
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Для screenshot, PDF, HAR, trace и больших HTML:
 
@@ -430,6 +430,8 @@ Streamable HTTP работает на едином `/mcp`, защищён Host/O
 - MCP resource URI;
 - отсутствие path traversal;
 - redaction metadata.
+
+Disk-backed store использует 256-bit cryptographically random URL-safe IDs, owner-only directory/files и атомарную запись content/JSON metadata. MIME type, size, timestamps, TTL и нормализованные redaction rules сохраняются между перезапусками. Expired/orphaned entries очищаются при старте, чтении, записи и фоновым cleanup; настраиваемая общая квота вытесняет самые старые artifacts. MCP templates отдают text/blob content и отдельный metadata resource, а строгая проверка ID/URI исключает path traversal.
 
 ## 9. Этап 4 — Chromium Extension Manifest V3
 

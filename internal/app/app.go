@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/netguard"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
@@ -66,6 +67,14 @@ func run(
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	artifactStore, err := artifacts.New(
+		config.ArtifactDirectory,
+		config.ArtifactTTL,
+		artifacts.WithMaxBytes(config.ArtifactMaxBytes),
+	)
+	if err != nil {
+		return fmt.Errorf("initialize artifact store: %w", err)
+	}
 	authenticator, err := pairing.NewManager(
 		pairing.WithStorePath(config.CredentialFile),
 		pairing.WithCodeTTL(config.PairingTTL),
@@ -102,6 +111,7 @@ func run(
 		server.WithToolCapabilities(true),
 	)
 	browsertools.NewService(browserRegistry, requestRouter, selections).Register(mcpServer)
+	artifactStore.RegisterResources(mcpServer)
 
 	websocketHandler := websockettransport.NewServer(
 		browserRegistry,
@@ -195,6 +205,11 @@ func run(
 			return normalizeServerError(mcpHTTP.Serve(listener))
 		})
 	}
+	serveGroup.Add(1)
+	go func() {
+		defer serveGroup.Done()
+		artifactStore.RunCleanup(runCtx)
+	}()
 
 	var runErr error
 	select {

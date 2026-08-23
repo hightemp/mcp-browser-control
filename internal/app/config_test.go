@@ -54,7 +54,7 @@ func TestConfigFileFromEnvironment(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "server.json")
-	if err := os.WriteFile(path, []byte(`{"redactLogs":false,"artifactTTL":"2h"}`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{"redactLogs":false,"artifactTTL":"2h","artifactMaxBytes":1048576}`), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	lookup := func(name string) (string, bool) {
@@ -67,7 +67,7 @@ func TestConfigFileFromEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseConfigWithEnvironment() error = %v", err)
 	}
-	if config.RedactLogs || config.ArtifactTTL != 2*time.Hour {
+	if config.RedactLogs || config.ArtifactTTL != 2*time.Hour || config.ArtifactMaxBytes != 1048576 {
 		t.Fatalf("config = %#v", config)
 	}
 }
@@ -85,6 +85,7 @@ func TestConfigRejectsInvalidSources(t *testing.T) {
 		{name: "invalid file duration", fileContent: `{"pairingTTL":"later"}`, wantError: "parse pairingTTL"},
 		{name: "unsafe MCP host", environment: map[string]string{environmentPrefix + "MCP_HOST": "0.0.0.0"}, wantError: "loopback"},
 		{name: "invalid environment integer", environment: map[string]string{environmentPrefix + "PAIRING_MAX_ATTEMPTS": "many"}, wantError: "PAIRING_MAX_ATTEMPTS"},
+		{name: "invalid artifact quota", environment: map[string]string{environmentPrefix + "ARTIFACT_MAX_BYTES": "0"}, wantError: "artifact_max_bytes"},
 		{name: "unsafe origin", environment: map[string]string{environmentPrefix + "ORIGIN_ALLOWLIST": "https://example.com"}, wantError: "allowed origin"},
 		{name: "ping not below read timeout", environment: map[string]string{environmentPrefix + "WS_READ_TIMEOUT": "10s", environmentPrefix + "WS_PING_INTERVAL": "10s"}, wantError: "shorter"},
 		{name: "HTTP without token file", environment: map[string]string{environmentPrefix + "MCP_TOKEN_FILE": ""}, wantError: "mcp_token_file"},

@@ -46,6 +46,7 @@ type Config struct {
 	ToolProfile               string
 	ArtifactDirectory         string
 	ArtifactTTL               time.Duration
+	ArtifactMaxBytes          int64
 	LogLevel                  string
 	RedactLogs                bool
 	LegacySSEEnabled          bool
@@ -76,6 +77,7 @@ type fileConfig struct {
 	ToolProfile               *string   `json:"toolProfile"`
 	ArtifactDirectory         *string   `json:"artifactDirectory"`
 	ArtifactTTL               *string   `json:"artifactTTL"`
+	ArtifactMaxBytes          *int64    `json:"artifactMaxBytes"`
 	LogLevel                  *string   `json:"logLevel"`
 	RedactLogs                *bool     `json:"redactLogs"`
 	LegacySSEEnabled          *bool     `json:"legacySSEEnabled"`
@@ -134,6 +136,7 @@ func defaultConfig() Config {
 		ToolProfile:               "standard",
 		ArtifactDirectory:         defaultArtifactDirectory(),
 		ArtifactTTL:               24 * time.Hour,
+		ArtifactMaxBytes:          512 << 20,
 		LogLevel:                  "info",
 		RedactLogs:                true,
 	}
@@ -199,6 +202,9 @@ func (c Config) Validate() error {
 	if strings.TrimSpace(c.ArtifactDirectory) == "" {
 		return errors.New("artifact_dir must not be empty")
 	}
+	if c.ArtifactMaxBytes <= 0 {
+		return errors.New("artifact_max_bytes must be positive")
+	}
 	if !oneOf(c.PermissionProfile, "minimal", "standard", "full") {
 		return fmt.Errorf("unsupported permission_profile %q", c.PermissionProfile)
 	}
@@ -244,6 +250,7 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags.StringVar(&config.ToolProfile, "tool_profile", config.ToolProfile, "Tool profile: minimal, standard, or full")
 	flags.StringVar(&config.ArtifactDirectory, "artifact_dir", config.ArtifactDirectory, "Artifact storage directory")
 	flags.DurationVar(&config.ArtifactTTL, "artifact_ttl", config.ArtifactTTL, "Artifact retention time")
+	flags.Int64Var(&config.ArtifactMaxBytes, "artifact_max_bytes", config.ArtifactMaxBytes, "Maximum total artifact size")
 	flags.StringVar(&config.LogLevel, "log_level", config.LogLevel, "Log level: error, warn, info, or debug")
 	flags.BoolVar(&config.RedactLogs, "redact_logs", config.RedactLogs, "Redact sensitive values in logs")
 	flags.BoolVar(&config.LegacySSEEnabled, "enable_legacy_sse", config.LegacySSEEnabled, "Enable the deprecated legacy SSE transport")
@@ -286,6 +293,7 @@ func (f fileConfig) apply(config *Config) error {
 	assignString(&config.LogLevel, f.LogLevel)
 	assignInt64(&config.WebSocketMaxMessageBytes, f.WebSocketMaxMessageBytes)
 	assignInt64(&config.MCPMaxRequestBytes, f.MCPMaxRequestBytes)
+	assignInt64(&config.ArtifactMaxBytes, f.ArtifactMaxBytes)
 	assignInt(&config.PairingMaxAttempts, f.PairingMaxAttempts)
 	assignInt(&config.WebSocketSendQueueSize, f.WebSocketSendQueueSize)
 	if f.RedactLogs != nil {
@@ -357,6 +365,9 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 		return err
 	}
 	if err := assignEnvInt64(lookupEnv, "MCP_MAX_REQUEST_BYTES", &config.MCPMaxRequestBytes); err != nil {
+		return err
+	}
+	if err := assignEnvInt64(lookupEnv, "ARTIFACT_MAX_BYTES", &config.ArtifactMaxBytes); err != nil {
 		return err
 	}
 	if err := assignEnvInt(lookupEnv, "PAIRING_MAX_ATTEMPTS", &config.PairingMaxAttempts); err != nil {

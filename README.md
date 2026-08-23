@@ -97,6 +97,9 @@ Options:
 - `-mcp_token_file` — owner-only MCP HTTP Bearer token file
 - `-enable_legacy_sse` — explicitly enable the deprecated SSE transport
 - `-pairing_ttl` — lifetime of each one-time pairing code; default `10m`
+- `-artifact_dir` — owner-only temporary artifact directory
+- `-artifact_ttl` — artifact lifetime; default `24h`
+- `-artifact_max_bytes` — shared artifact quota; default `536870912`
 
 Flags, `MCP_BROWSER_*` environment variables, JSON configuration files,
 payload limits, origin allowlists, profiles, artifacts, and logging settings
@@ -170,13 +173,20 @@ server returns `AMBIGUOUS_BROWSER` rather than broadcasting the command.
 - `browser://instances` — connected and retained browser instances;
 - `browser://instances/{browserId}` — metadata and connection state;
 - `browser://instances/{browserId}/tabs` — live tabs from a connected browser;
-- `browser://instances/{browserId}/capabilities` — runtime capabilities and permissions.
+- `browser://instances/{browserId}/capabilities` — runtime capabilities and permissions;
+- `browser://artifacts/{artifactId}` — temporary text or binary command output;
+- `browser://artifacts/{artifactId}/metadata` — size, expiry, MIME type, and redaction rules.
 
-All resources use `application/json`. Browser-specific URIs always address the
-explicit instance in the URI and never depend on MCP session selection. The
-pinned MCP SDK does not implement resource subscriptions, so update
-notifications are not advertised yet; clients can read a resource again to
-refresh it.
+Browser instance resources use `application/json`. Browser-specific URIs
+always address the explicit instance in the URI and never depend on MCP session
+selection. Artifact content preserves its original MIME type and is returned as
+MCP text or base64 blob content. The pinned MCP SDK does not implement resource
+subscriptions, so update notifications are not advertised yet; clients can
+read a resource again to refresh it.
+
+Artifact IDs contain 256 bits of cryptographic randomness. Artifacts expire
+automatically, and the oldest entries are evicted when the configured quota is
+needed. The store never includes original secret values in redaction metadata.
 
 ## Available MCP Tools
 

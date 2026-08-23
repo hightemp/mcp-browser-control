@@ -39,6 +39,7 @@ to bind either listener to a non-loopback interface is rejected.
   "toolProfile": "standard",
   "artifactDirectory": "/home/user/.cache/mcp-browser-control/artifacts",
   "artifactTTL": "24h",
+  "artifactMaxBytes": 536870912,
   "logLevel": "info",
   "redactLogs": true,
   "legacySSEEnabled": false
@@ -66,7 +67,7 @@ storage.
 | Pairing controls | `MCP_BROWSER_PAIRING_TTL`, `MCP_BROWSER_PAIRING_MAX_ATTEMPTS`, `MCP_BROWSER_PAIRING_WINDOW` | `-pairing_ttl`, `-pairing_max_attempts`, `-pairing_window` |
 | Exact origins | `MCP_BROWSER_ORIGIN_ALLOWLIST` | `-origin_allowlist` |
 | Profiles | `MCP_BROWSER_PERMISSION_PROFILE`, `MCP_BROWSER_TOOL_PROFILE` | `-permission_profile`, `-tool_profile` |
-| Artifacts | `MCP_BROWSER_ARTIFACT_DIR`, `MCP_BROWSER_ARTIFACT_TTL` | `-artifact_dir`, `-artifact_ttl` |
+| Artifacts | `MCP_BROWSER_ARTIFACT_DIR`, `MCP_BROWSER_ARTIFACT_TTL`, `MCP_BROWSER_ARTIFACT_MAX_BYTES` | `-artifact_dir`, `-artifact_ttl`, `-artifact_max_bytes` |
 | Logging | `MCP_BROWSER_LOG_LEVEL`, `MCP_BROWSER_REDACT_LOGS` | `-log_level`, `-redact_logs` |
 | Deprecated SSE opt-in | `MCP_BROWSER_ENABLE_LEGACY_SSE` | `-enable_legacy_sse` |
 
@@ -84,3 +85,7 @@ The accepted permission, tool, and log profiles are `minimal`, `standard`, and
 `full` for profiles, and `error`, `warn`, `info`, and `debug` for logging.
 Profile-specific enforcement and artifact lifecycle behavior are applied by
 their respective subsystems as those capabilities are enabled.
+
+Artifacts are stored in an owner-only directory, expire after `artifactTTL`,
+and share the `artifactMaxBytes` quota. When a new artifact needs space, the
+oldest artifacts are evicted first.

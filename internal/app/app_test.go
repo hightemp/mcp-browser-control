@@ -93,6 +93,7 @@ func TestRunStopsCleanlyForEveryTransport(t *testing.T) {
 			config.CommandTimeout = time.Second
 			config.CredentialFile = ""
 			config.MCPTokenFile = filepath.Join(t.TempDir(), "mcp-token")
+			config.ArtifactDirectory = filepath.Join(t.TempDir(), "artifacts")
 			config.LegacySSEEnabled = transport == "sse"
 			if err := run(
 				ctx,
@@ -128,6 +129,7 @@ func TestRunRejectsOccupiedWebSocketAddress(t *testing.T) {
 	config.WebSocketPort = port
 	config.CommandTimeout = time.Second
 	config.CredentialFile = ""
+	config.ArtifactDirectory = filepath.Join(t.TempDir(), "artifacts")
 	runErr := run(
 		context.Background(),
 		config,

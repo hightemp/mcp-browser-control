@@ -25,6 +25,7 @@
 - `[x]` Создано минимальное Manifest V3 расширение с English UI и optional host access.
 - `[x]` Добавлены Go unit/race tests, WebSocket integration tests, JavaScript protocol tests и двухбраузерный MCP integration test.
 - `[x]` Суммарное покрытие внутренних Go-пакетов первого инкремента — не менее 80%.
+- `[x]` Точка входа перенесена в `cmd/server`, локальные операции унифицированы в `Makefile`.
 
 ## 4. Общий Definition of Done
 
@@ -890,7 +891,7 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 
 Покрыть registry, duplicate connection, router, selection, pending requests, timeout, cancellation, disconnect cleanup, error mapping, redaction и config.
 
-Реализовано в первом инкременте; суммарное statement coverage `internal/...` — 82,2%. Redaction дополнительно проверяется extension protocol tests.
+Реализовано в первом инкременте; суммарное statement coverage `internal/...` в atomic-режиме — 84,1%. Redaction дополнительно проверяется extension protocol tests.
 
 ### T-091 — Race и stress tests
 
@@ -1005,7 +1006,7 @@ README на английском должен содержать:
 
 - Приоритет: P0
 - Зависимости: T-040, T-090, T-094
-- Статус: `[ ]`
+- Статус: `[~]`
 
 CI запускает:
 
@@ -1015,6 +1016,8 @@ CI запускает:
 - dependency/license scan;
 - secret scan;
 - build artifacts.
+
+Локальные команды `fmt-check`, `vet`, `lint`, `test-race`, `coverage`, extension checks и сборка добавлены в `Makefile`; CI workflow ещё не создан.
 
 ### T-104 — Подготовить reproducible builds
 

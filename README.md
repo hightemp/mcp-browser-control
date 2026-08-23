@@ -49,9 +49,11 @@ boundaries.
 Install dependencies and start the default Streamable HTTP transport:
 
 ```bash
-go mod tidy
-go run .
+make deps
+make run
 ```
+
+The equivalent direct Go command is `go run ./cmd/server`.
 
 Endpoints:
 
@@ -61,13 +63,13 @@ Endpoints:
 STDIO:
 
 ```bash
-go run . -t stdio
+make run ARGS="-t stdio"
 ```
 
 Legacy SSE:
 
 ```bash
-go run . -t sse
+make run ARGS="-t sse"
 ```
 
 Options:
@@ -191,7 +193,20 @@ Until then, loopback binding is mandatory for safe use.
 
 ## Development
 
-Run all Go checks:
+Build the server:
+
+```bash
+make build
+./bin/mcp-browser-control
+```
+
+Run the full local verification suite:
+
+```bash
+make verify
+```
+
+Individual Go checks remain available:
 
 ```bash
 go fmt ./...
@@ -204,13 +219,13 @@ golangci-lint run ./...
 Run extension checks:
 
 ```bash
-node --check chrome-extension/src/service-worker.js
-npm test --prefix chrome-extension
+make extension-check
 ```
 
 Core packages:
 
 ```text
+cmd/server/               executable entry point
 internal/
 ├── app/                  process assembly and transport lifecycle
 ├── mcpsession/           secure Streamable HTTP session IDs

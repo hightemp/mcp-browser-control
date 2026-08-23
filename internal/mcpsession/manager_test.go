@@ -1,11 +1,20 @@
 package mcpsession
 
-import "testing"
+import (
+	"sync"
+	"testing"
+)
 
 func TestManagerLifecycle(t *testing.T) {
 	t.Parallel()
 
-	manager, err := NewManager()
+	var observerMu sync.Mutex
+	var terminatedSessions []string
+	manager, err := NewManager(WithTerminationObserver(func(sessionID string) {
+		observerMu.Lock()
+		terminatedSessions = append(terminatedSessions, sessionID)
+		observerMu.Unlock()
+	}))
 	if err != nil {
 		t.Fatalf("NewManager() error = %v", err)
 	}
@@ -39,8 +48,24 @@ func TestManagerLifecycle(t *testing.T) {
 	if !terminated {
 		t.Error("terminated session is active")
 	}
+	if _, err := manager.Terminate(first); err != nil {
+		t.Fatalf("second Terminate() error = %v", err)
+	}
+	observerMu.Lock()
+	if len(terminatedSessions) != 1 || terminatedSessions[0] != first {
+		t.Errorf("terminated sessions = %#v", terminatedSessions)
+	}
+	observerMu.Unlock()
+
+	terminated, err = manager.Validate(second)
+	if err != nil || terminated {
+		t.Errorf("second session Validate() = (%v, %v), want (false, nil)", terminated, err)
+	}
 
 	if _, err := manager.Validate("untrusted-session"); err == nil {
 		t.Error("Validate(untrusted) error = nil")
+	}
+	if _, err := manager.Terminate("untrusted-session"); err == nil {
+		t.Error("Terminate(untrusted) error = nil")
 	}
 }

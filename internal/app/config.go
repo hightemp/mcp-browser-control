@@ -36,6 +36,7 @@ type Config struct {
 	ShutdownTimeout           time.Duration
 	WebSocketMaxMessageBytes  int64
 	MCPMaxRequestBytes        int64
+	MCPTokenFile              string
 	CredentialFile            string
 	PairingTTL                time.Duration
 	PairingMaxAttempts        int
@@ -47,6 +48,7 @@ type Config struct {
 	ArtifactTTL               time.Duration
 	LogLevel                  string
 	RedactLogs                bool
+	LegacySSEEnabled          bool
 }
 
 type fileConfig struct {
@@ -64,6 +66,7 @@ type fileConfig struct {
 	ShutdownTimeout           *string   `json:"shutdownTimeout"`
 	WebSocketMaxMessageBytes  *int64    `json:"webSocketMaxMessageBytes"`
 	MCPMaxRequestBytes        *int64    `json:"mcpMaxRequestBytes"`
+	MCPTokenFile              *string   `json:"mcpTokenFile"`
 	CredentialFile            *string   `json:"credentialFile"`
 	PairingTTL                *string   `json:"pairingTTL"`
 	PairingMaxAttempts        *int      `json:"pairingMaxAttempts"`
@@ -75,6 +78,7 @@ type fileConfig struct {
 	ArtifactTTL               *string   `json:"artifactTTL"`
 	LogLevel                  *string   `json:"logLevel"`
 	RedactLogs                *bool     `json:"redactLogs"`
+	LegacySSEEnabled          *bool     `json:"legacySSEEnabled"`
 }
 
 func parseConfig(args []string, stderr io.Writer) (Config, error) {
@@ -121,6 +125,7 @@ func defaultConfig() Config {
 		ShutdownTimeout:           5 * time.Second,
 		WebSocketMaxMessageBytes:  4 << 20,
 		MCPMaxRequestBytes:        4 << 20,
+		MCPTokenFile:              defaultMCPTokenFile(),
 		CredentialFile:            defaultCredentialFile(),
 		PairingTTL:                10 * time.Minute,
 		PairingMaxAttempts:        5,
@@ -179,6 +184,12 @@ func (c Config) Validate() error {
 	if c.PairingMaxAttempts <= 0 {
 		return errors.New("pairing_max_attempts must be positive")
 	}
+	if c.Transport != "stdio" && strings.TrimSpace(c.MCPTokenFile) == "" {
+		return errors.New("mcp_token_file is required for HTTP transports")
+	}
+	if c.Transport == "sse" && !c.LegacySSEEnabled {
+		return errors.New("legacy SSE transport requires enable_legacy_sse")
+	}
 	if c.WebSocketPingInterval >= c.WebSocketReadTimeout {
 		return errors.New("ws_ping_interval must be shorter than ws_read_timeout")
 	}
@@ -209,7 +220,7 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags := flag.NewFlagSet(serverName, flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	flags.StringVar(&config.ConfigFile, "config", config.ConfigFile, "Path to a JSON configuration file")
-	flags.StringVar(&config.Transport, "t", config.Transport, "Transport: streamable-http, stdio, or sse")
+	flags.StringVar(&config.Transport, "t", config.Transport, "Transport: streamable-http, stdio, or deprecated sse")
 	flags.StringVar(&config.MCPHost, "h", config.MCPHost, "MCP HTTP host")
 	flags.StringVar(&config.MCPPort, "p", config.MCPPort, "MCP HTTP port")
 	flags.StringVar(&config.WebSocketHost, "ws_host", config.WebSocketHost, "Browser WebSocket host")
@@ -223,6 +234,7 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags.DurationVar(&config.ShutdownTimeout, "shutdown_timeout", config.ShutdownTimeout, "Graceful shutdown timeout")
 	flags.Int64Var(&config.WebSocketMaxMessageBytes, "ws_max_message_bytes", config.WebSocketMaxMessageBytes, "Maximum browser message size")
 	flags.Int64Var(&config.MCPMaxRequestBytes, "mcp_max_request_bytes", config.MCPMaxRequestBytes, "Maximum MCP HTTP request size")
+	flags.StringVar(&config.MCPTokenFile, "mcp_token_file", config.MCPTokenFile, "Owner-only MCP HTTP bearer token file")
 	flags.StringVar(&config.CredentialFile, "credential_file", config.CredentialFile, "Persistent credential store; empty uses memory only")
 	flags.DurationVar(&config.PairingTTL, "pairing_ttl", config.PairingTTL, "One-time pairing code lifetime")
 	flags.IntVar(&config.PairingMaxAttempts, "pairing_max_attempts", config.PairingMaxAttempts, "Invalid pairing attempts per window")
@@ -234,6 +246,7 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags.DurationVar(&config.ArtifactTTL, "artifact_ttl", config.ArtifactTTL, "Artifact retention time")
 	flags.StringVar(&config.LogLevel, "log_level", config.LogLevel, "Log level: error, warn, info, or debug")
 	flags.BoolVar(&config.RedactLogs, "redact_logs", config.RedactLogs, "Redact sensitive values in logs")
+	flags.BoolVar(&config.LegacySSEEnabled, "enable_legacy_sse", config.LegacySSEEnabled, "Enable the deprecated legacy SSE transport")
 	if err := flags.Parse(args); err != nil {
 		return fmt.Errorf("parse flags: %w", err)
 	}
@@ -266,6 +279,7 @@ func (f fileConfig) apply(config *Config) error {
 	assignString(&config.WebSocketHost, f.WebSocketHost)
 	assignString(&config.WebSocketPort, f.WebSocketPort)
 	assignString(&config.CredentialFile, f.CredentialFile)
+	assignString(&config.MCPTokenFile, f.MCPTokenFile)
 	assignString(&config.PermissionProfile, f.PermissionProfile)
 	assignString(&config.ToolProfile, f.ToolProfile)
 	assignString(&config.ArtifactDirectory, f.ArtifactDirectory)
@@ -276,6 +290,9 @@ func (f fileConfig) apply(config *Config) error {
 	assignInt(&config.WebSocketSendQueueSize, f.WebSocketSendQueueSize)
 	if f.RedactLogs != nil {
 		config.RedactLogs = *f.RedactLogs
+	}
+	if f.LegacySSEEnabled != nil {
+		config.LegacySSEEnabled = *f.LegacySSEEnabled
 	}
 	if f.OriginAllowlist != nil {
 		config.OriginAllowlist = normalizeStringList(*f.OriginAllowlist)
@@ -313,6 +330,7 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 	assignEnvString(lookupEnv, "WS_HOST", &config.WebSocketHost)
 	assignEnvString(lookupEnv, "WS_PORT", &config.WebSocketPort)
 	assignEnvString(lookupEnv, "CREDENTIAL_FILE", &config.CredentialFile)
+	assignEnvString(lookupEnv, "MCP_TOKEN_FILE", &config.MCPTokenFile)
 	assignEnvString(lookupEnv, "PERMISSION_PROFILE", &config.PermissionProfile)
 	assignEnvString(lookupEnv, "TOOL_PROFILE", &config.ToolProfile)
 	assignEnvString(lookupEnv, "ARTIFACT_DIR", &config.ArtifactDirectory)
@@ -354,6 +372,13 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 		}
 		config.RedactLogs = parsed
 	}
+	if value, ok := lookupEnv(environmentPrefix + "ENABLE_LEGACY_SSE"); ok {
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("parse %sENABLE_LEGACY_SSE: %w", environmentPrefix, err)
+		}
+		config.LegacySSEEnabled = parsed
+	}
 	return nil
 }
 
@@ -382,6 +407,14 @@ func defaultCredentialFile() string {
 		return filepath.Join(".mcp-browser-control", "credentials.json")
 	}
 	return filepath.Join(configurationDirectory, "mcp-browser-control", "credentials.json")
+}
+
+func defaultMCPTokenFile() string {
+	configurationDirectory, err := os.UserConfigDir()
+	if err != nil || configurationDirectory == "" {
+		return filepath.Join(".mcp-browser-control", "mcp-token")
+	}
+	return filepath.Join(configurationDirectory, "mcp-browser-control", "mcp-token")
 }
 
 func defaultArtifactDirectory() string {

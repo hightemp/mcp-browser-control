@@ -12,18 +12,33 @@ import (
 	"sync/atomic"
 )
 
+// Option configures a Manager.
+type Option func(*Manager)
+
+// WithTerminationObserver registers cleanup invoked once when a session is
+// successfully terminated.
+func WithTerminationObserver(observer func(sessionID string)) Option {
+	return func(manager *Manager) {
+		manager.terminationObserver = observer
+	}
+}
+
 // Manager implements server.SessionIdManager.
 type Manager struct {
-	secret     [32]byte
-	counter    atomic.Uint64
-	mu         sync.RWMutex
-	terminated map[string]bool
+	secret              [32]byte
+	counter             atomic.Uint64
+	mu                  sync.RWMutex
+	terminated          map[string]bool
+	terminationObserver func(sessionID string)
 }
 
 // NewManager creates a session manager with a process-local random secret.
-func NewManager() (*Manager, error) {
+func NewManager(options ...Option) (*Manager, error) {
 	manager := &Manager{
 		terminated: make(map[string]bool),
+	}
+	for _, option := range options {
+		option(manager)
 	}
 	if _, err := rand.Read(manager.secret[:]); err != nil {
 		return nil, fmt.Errorf("generate MCP session secret: %w", err)
@@ -60,10 +75,20 @@ func (m *Manager) Validate(sessionID string) (bool, error) {
 // Terminate marks a known session as terminated.
 func (m *Manager) Terminate(sessionID string) (bool, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	if _, ok := m.terminated[sessionID]; !ok {
+	terminated, ok := m.terminated[sessionID]
+	if !ok {
+		m.mu.Unlock()
 		return false, fmt.Errorf("unknown MCP session ID")
 	}
+	if terminated {
+		m.mu.Unlock()
+		return false, nil
+	}
 	m.terminated[sessionID] = true
+	observer := m.terminationObserver
+	m.mu.Unlock()
+	if observer != nil {
+		observer(sessionID)
+	}
 	return false, nil
 }

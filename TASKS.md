@@ -344,7 +344,7 @@ Store изолирует browser и per-browser tab selection по MCP session, 
 
 - Приоритет: P0
 - Зависимости: T-015
-- Статус: `[~]`
+- Статус: `[x]`
 
 Критерии:
 
@@ -355,6 +355,8 @@ Store изолирует browser и per-browser tab selection по MCP session, 
 - корректное session lifecycle;
 - STDIO продолжает работать;
 - legacy SSE изолирован feature flag и помечен deprecated.
+
+Streamable HTTP работает на едином `/mcp`, защищён Host/Origin/size guards и обязательным постоянным Bearer token из owner-only файла. Криптографические session IDs изолируют параллельных клиентов, а `DELETE /mcp` завершает session и очищает её selection state. STDIO не требует HTTP authentication; legacy SSE запускается только с явным `enable_legacy_sse` и пишет deprecation warning.
 
 ### T-031 — Реализовать browser discovery tools
 

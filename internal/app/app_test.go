@@ -3,15 +3,20 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 func TestParseConfig(t *testing.T) {
@@ -87,6 +92,8 @@ func TestRunStopsCleanlyForEveryTransport(t *testing.T) {
 			config.WebSocketPort = "0"
 			config.CommandTimeout = time.Second
 			config.CredentialFile = ""
+			config.MCPTokenFile = filepath.Join(t.TempDir(), "mcp-token")
+			config.LegacySSEEnabled = transport == "sse"
 			if err := run(
 				ctx,
 				config,
@@ -162,12 +169,119 @@ func TestGuardedMCPHandlerLimitsRequests(t *testing.T) {
 		}
 		writer.WriteHeader(http.StatusNoContent)
 	})
-	handler := guardedMCPHandler(config, next)
+	handler := guardedMCPHandler(config, "test-token", next)
 	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8896/mcp", strings.NewReader("12345"))
+	request.Header.Set("Authorization", "Bearer test-token")
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusRequestEntityTooLarge {
 		t.Errorf("status = %d, want %d", response.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
+func TestGuardedStreamableHTTPSessions(t *testing.T) {
+	t.Parallel()
+
+	sessionManager, err := mcpsession.NewManager()
+	if err != nil {
+		t.Fatalf("mcpsession.NewManager() error = %v", err)
+	}
+	mcpServer := server.NewMCPServer("test", "1.0.0")
+	streamable := server.NewStreamableHTTPServer(
+		mcpServer,
+		server.WithSessionIdManager(sessionManager),
+	)
+	config := defaultConfig()
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", guardedMCPHandler(config, "test-bearer-token", streamable))
+	httpServer := httptest.NewServer(mux)
+	t.Cleanup(httpServer.Close)
+
+	initializePayload, err := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "initialize",
+		"params": map[string]any{
+			"protocolVersion": "2025-03-26",
+			"clientInfo": map[string]string{
+				"name":    "integration-test",
+				"version": "1.0.0",
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal initialize request: %v", err)
+	}
+
+	unauthorizedRequest, err := http.NewRequest(
+		http.MethodPost,
+		httpServer.URL+"/mcp",
+		bytes.NewReader(initializePayload),
+	)
+	if err != nil {
+		t.Fatalf("NewRequest() error = %v", err)
+	}
+	unauthorizedRequest.Header.Set("Content-Type", "application/json")
+	unauthorizedResponse, err := httpServer.Client().Do(unauthorizedRequest)
+	if err != nil {
+		t.Fatalf("unauthorized request error = %v", err)
+	}
+	_ = unauthorizedResponse.Body.Close()
+	if unauthorizedResponse.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthorized status = %d, want %d", unauthorizedResponse.StatusCode, http.StatusUnauthorized)
+	}
+
+	sessionIDs := make([]string, 0, 2)
+	for range 2 {
+		request, requestErr := http.NewRequest(
+			http.MethodPost,
+			httpServer.URL+"/mcp",
+			bytes.NewReader(initializePayload),
+		)
+		if requestErr != nil {
+			t.Fatalf("NewRequest() error = %v", requestErr)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Authorization", "Bearer test-bearer-token")
+		response, requestErr := httpServer.Client().Do(request)
+		if requestErr != nil {
+			t.Fatalf("initialize request error = %v", requestErr)
+		}
+		_ = response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("initialize status = %d, want %d", response.StatusCode, http.StatusOK)
+		}
+		sessionID := response.Header.Get("Mcp-Session-Id")
+		if sessionID == "" {
+			t.Fatal("initialize response omitted Mcp-Session-Id")
+		}
+		sessionIDs = append(sessionIDs, sessionID)
+	}
+	if sessionIDs[0] == sessionIDs[1] {
+		t.Fatalf("two clients received the same session ID %q", sessionIDs[0])
+	}
+
+	deleteRequest, err := http.NewRequest(http.MethodDelete, httpServer.URL+"/mcp", nil)
+	if err != nil {
+		t.Fatalf("NewRequest() error = %v", err)
+	}
+	deleteRequest.Header.Set("Authorization", "Bearer test-bearer-token")
+	deleteRequest.Header.Set("Mcp-Session-Id", sessionIDs[0])
+	deleteResponse, err := httpServer.Client().Do(deleteRequest)
+	if err != nil {
+		t.Fatalf("delete session request error = %v", err)
+	}
+	_ = deleteResponse.Body.Close()
+	if deleteResponse.StatusCode != http.StatusOK {
+		t.Fatalf("delete session status = %d, want %d", deleteResponse.StatusCode, http.StatusOK)
+	}
+	terminated, err := sessionManager.Validate(sessionIDs[0])
+	if err != nil || !terminated {
+		t.Fatalf("terminated session validation = (%v, %v), want (true, nil)", terminated, err)
+	}
+	terminated, err = sessionManager.Validate(sessionIDs[1])
+	if err != nil || terminated {
+		t.Fatalf("active session validation = (%v, %v), want (false, nil)", terminated, err)
 	}
 }
 

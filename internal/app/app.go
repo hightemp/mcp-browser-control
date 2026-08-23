@@ -17,6 +17,7 @@ import (
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/security/pairing"
+	securitytoken "github.com/hightemp/go_mcp_browser_ext_tool/internal/security/token"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/selection"
 	browsertools "github.com/hightemp/go_mcp_browser_ext_tool/internal/tools"
 	websockettransport "github.com/hightemp/go_mcp_browser_ext_tool/internal/transport/websocket"
@@ -53,6 +54,15 @@ func run(
 ) error {
 	if err := config.Validate(); err != nil {
 		return fmt.Errorf("validate config: %w", err)
+	}
+	mcpToken := ""
+	if config.Transport != "stdio" {
+		var err error
+		mcpToken, err = securitytoken.LoadOrCreate(config.MCPTokenFile)
+		if err != nil {
+			return fmt.Errorf("initialize MCP HTTP authentication: %w", err)
+		}
+		logger.Printf("MCP HTTP bearer authentication enabled; token file: %s", config.MCPTokenFile)
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -147,7 +157,9 @@ func run(
 			return stdioServer.Listen(runCtx, stdin, stdout)
 		})
 	case "streamable-http", "http":
-		sessionManager, managerErr := mcpsession.NewManager()
+		sessionManager, managerErr := mcpsession.NewManager(
+			mcpsession.WithTerminationObserver(selections.Delete),
+		)
 		if managerErr != nil {
 			closeServer(websocketHTTP, logger)
 			return managerErr
@@ -157,7 +169,7 @@ func run(
 			server.WithSessionIdManager(sessionManager),
 		)
 		mux := http.NewServeMux()
-		mux.Handle("/mcp", guardedMCPHandler(config, streamable))
+		mux.Handle("/mcp", guardedMCPHandler(config, mcpToken, streamable))
 		mcpHTTP = newHTTPServer(config, mux)
 		listener, listenErr := net.Listen("tcp", mcpHTTP.Addr)
 		if listenErr != nil {
@@ -169,9 +181,10 @@ func run(
 			return normalizeServerError(mcpHTTP.Serve(listener))
 		})
 	case "sse":
+		logger.Printf("warning: legacy MCP SSE transport is deprecated")
 		baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(config.MCPHost, config.MCPPort))
 		sse := server.NewSSEServer(mcpServer, server.WithBaseURL(baseURL))
-		mcpHTTP = newHTTPServer(config, guardedMCPHandler(config, sse))
+		mcpHTTP = newHTTPServer(config, guardedMCPHandler(config, mcpToken, sse))
 		listener, listenErr := net.Listen("tcp", mcpHTTP.Addr)
 		if listenErr != nil {
 			closeServer(websocketHTTP, logger)
@@ -233,8 +246,9 @@ func newHTTPServer(config Config, handler http.Handler) *http.Server {
 	}
 }
 
-func guardedMCPHandler(config Config, handler http.Handler) http.Handler {
-	local := netguard.LocalOnlyWithOrigins(handler, config.OriginAllowlist)
+func guardedMCPHandler(config Config, bearerToken string, handler http.Handler) http.Handler {
+	authenticated := netguard.BearerToken(handler, bearerToken)
+	local := netguard.LocalOnlyWithOrigins(authenticated, config.OriginAllowlist)
 	return http.MaxBytesHandler(local, config.MCPMaxRequestBytes)
 }
 

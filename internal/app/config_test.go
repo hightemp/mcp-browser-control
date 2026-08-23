@@ -87,6 +87,9 @@ func TestConfigRejectsInvalidSources(t *testing.T) {
 		{name: "invalid environment integer", environment: map[string]string{environmentPrefix + "PAIRING_MAX_ATTEMPTS": "many"}, wantError: "PAIRING_MAX_ATTEMPTS"},
 		{name: "unsafe origin", environment: map[string]string{environmentPrefix + "ORIGIN_ALLOWLIST": "https://example.com"}, wantError: "allowed origin"},
 		{name: "ping not below read timeout", environment: map[string]string{environmentPrefix + "WS_READ_TIMEOUT": "10s", environmentPrefix + "WS_PING_INTERVAL": "10s"}, wantError: "shorter"},
+		{name: "HTTP without token file", environment: map[string]string{environmentPrefix + "MCP_TOKEN_FILE": ""}, wantError: "mcp_token_file"},
+		{name: "legacy SSE without opt in", environment: map[string]string{environmentPrefix + "TRANSPORT": "sse"}, wantError: "enable_legacy_sse"},
+		{name: "invalid legacy SSE flag", environment: map[string]string{environmentPrefix + "ENABLE_LEGACY_SSE": "sometimes"}, wantError: "ENABLE_LEGACY_SSE"},
 	}
 
 	for _, test := range tests {
@@ -109,6 +112,22 @@ func TestConfigRejectsInvalidSources(t *testing.T) {
 				t.Fatalf("error = %v, want substring %q", err, test.wantError)
 			}
 		})
+	}
+}
+
+func TestConfigEnablesLegacySSEExplicitly(t *testing.T) {
+	t.Parallel()
+
+	config, err := parseConfigWithEnvironment(
+		[]string{"-t", "sse", "-enable_legacy_sse", "-mcp_token_file", "/tmp/test-token"},
+		io.Discard,
+		emptyEnvironment,
+	)
+	if err != nil {
+		t.Fatalf("parseConfigWithEnvironment() error = %v", err)
+	}
+	if !config.LegacySSEEnabled {
+		t.Error("LegacySSEEnabled = false")
 	}
 }
 

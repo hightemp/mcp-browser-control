@@ -16,7 +16,8 @@ The first multi-browser vertical slice is implemented:
   disconnect reason until registry cleanup;
 - one-time pairing issues persistent per-browser credentials and every later
   handshake is authenticated;
-- STDIO, Streamable HTTP, and legacy SSE transports are available;
+- STDIO and authenticated Streamable HTTP transports are available; deprecated
+  legacy SSE requires an explicit opt-in;
 - tab listing, HTML inspection, CSS queries, clicking, and input work through
   the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
@@ -64,6 +65,13 @@ Endpoints:
 - MCP: `http://127.0.0.1:8896/mcp`
 - Browser extensions: `ws://127.0.0.1:8090/ws`
 
+Streamable HTTP requires a Bearer token. On first start, the server creates a
+random token in the owner-only file printed in the startup log. The default is
+`$XDG_CONFIG_HOME/mcp-browser-control/mcp-token` (usually
+`~/.config/mcp-browser-control/mcp-token`). Configure the MCP client to send
+`Authorization: Bearer <token>` on every `/mcp` request. The token itself is
+never printed by the server.
+
 STDIO:
 
 ```bash
@@ -73,12 +81,12 @@ make run ARGS="-t stdio"
 Legacy SSE:
 
 ```bash
-make run ARGS="-t sse"
+make run ARGS="-t sse -enable_legacy_sse"
 ```
 
 Options:
 
-- `-t` — `streamable-http`, `stdio`, or `sse`
+- `-t` — `streamable-http`, `stdio`, or deprecated `sse`
 - `-h` — MCP HTTP host; default `127.0.0.1`
 - `-p` — MCP HTTP port; default `8896`
 - `-ws_host` — extension WebSocket host; default `127.0.0.1`
@@ -86,6 +94,8 @@ Options:
 - `-command_timeout` — default browser command timeout; default `15s`
 - `-credential_file` — persistent hashed credential store; defaults to the
   operating system's user configuration directory
+- `-mcp_token_file` — owner-only MCP HTTP Bearer token file
+- `-enable_legacy_sse` — explicitly enable the deprecated SSE transport
 - `-pairing_ttl` — lifetime of each one-time pairing code; default `10m`
 
 Flags, `MCP_BROWSER_*` environment variables, JSON configuration files,
@@ -222,6 +232,8 @@ acknowledged credential revocation exchange. Browser commands use
 
 - HTTP and WebSocket listeners bind to loopback by default.
 - MCP HTTP validates `Host` and `Origin` to reduce DNS rebinding risk.
+- MCP HTTP requires a cryptographically random Bearer token stored with
+  owner-only permissions.
 - Extension WebSocket endpoints must be loopback addresses.
 - Browser registration requires a valid credential or an unexpired one-time
   pairing code.

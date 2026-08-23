@@ -76,3 +76,41 @@ func TestLocalOnlyWithOrigins(t *testing.T) {
 		})
 	}
 }
+
+func TestBearerToken(t *testing.T) {
+	t.Parallel()
+
+	next := http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusNoContent)
+	})
+	handler := BearerToken(next, "correct-secret-token")
+	tests := []struct {
+		name          string
+		authorization string
+		wantStatus    int
+	}{
+		{name: "valid", authorization: "Bearer correct-secret-token", wantStatus: http.StatusNoContent},
+		{name: "case insensitive scheme", authorization: "bearer correct-secret-token", wantStatus: http.StatusNoContent},
+		{name: "missing", wantStatus: http.StatusUnauthorized},
+		{name: "wrong", authorization: "Bearer wrong-token", wantStatus: http.StatusUnauthorized},
+		{name: "wrong scheme", authorization: "Basic correct-secret-token", wantStatus: http.StatusUnauthorized},
+		{name: "extra field", authorization: "Bearer correct-secret-token extra", wantStatus: http.StatusUnauthorized},
+	}
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8896/mcp", nil)
+			request.Header.Set("Authorization", test.authorization)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != test.wantStatus {
+				t.Errorf("status = %d, want %d", response.Code, test.wantStatus)
+			}
+			if test.wantStatus == http.StatusUnauthorized &&
+				response.Header().Get("WWW-Authenticate") != "Bearer" {
+				t.Error("unauthorized response is missing Bearer challenge")
+			}
+		})
+	}
+}

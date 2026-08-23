@@ -2,11 +2,37 @@
 package netguard
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 )
+
+// BearerToken requires an exact HTTP Bearer credential. Hash comparison keeps
+// validation time independent of the candidate token length.
+func BearerToken(next http.Handler, expectedToken string) http.Handler {
+	expectedHash := sha256.Sum256([]byte(expectedToken))
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		fields := strings.Fields(request.Header.Get("Authorization"))
+		if len(fields) != 2 || !strings.EqualFold(fields[0], "Bearer") {
+			unauthorized(writer)
+			return
+		}
+		candidateHash := sha256.Sum256([]byte(fields[1]))
+		if subtle.ConstantTimeCompare(candidateHash[:], expectedHash[:]) != 1 {
+			unauthorized(writer)
+			return
+		}
+		next.ServeHTTP(writer, request)
+	})
+}
+
+func unauthorized(writer http.ResponseWriter) {
+	writer.Header().Set("WWW-Authenticate", "Bearer")
+	http.Error(writer, "unauthorized", http.StatusUnauthorized)
+}
 
 // LocalOnly rejects non-loopback Host and Origin headers. Native MCP clients
 // commonly omit Origin, which is accepted.

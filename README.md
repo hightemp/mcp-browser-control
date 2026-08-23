@@ -236,8 +236,32 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_input_data`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
-accept optional `tabId`; when omitted, the active tab in the last focused
-window is used.
+accept optional `tabId`, `frameId`, and `documentId`; when `tabId` is omitted,
+the browser-scoped selected tab or active tab in the last focused window is
+used. A supplied document ID prevents commands from running after navigation.
+
+Click and fill accept a legacy CSS `selector`, viewport `coordinates`, or a
+structured `locator`. Locators support CSS, XPath, normalized text, ARIA
+role/name, label, placeholder, alt, title, test ID, coordinates, and temporary
+element references. Actions use strict matching by default; use `nth` to pick a
+specific match or `strict: false` to intentionally accept the first match.
+Set `includeShadowDOM: true` to traverse open shadow roots.
+
+```json
+{
+  "locator": {
+    "role": "button",
+    "name": "Save",
+    "includeShadowDOM": true
+  }
+}
+```
+
+Element results include a reference scoped to the current Chrome document.
+References have a sliding 60-second lifetime and fail with `STALE_TARGET` after
+navigation, detachment, or expiry. Locator failures include the match count and
+bounded candidate diagnostics; actionability checks cover attachment,
+visibility, disabled state, viewport placement, and pointer obstruction.
 
 Grouping and ungrouping use the Core tabs API. Updating a group and reading or
 restoring recently closed sessions require the optional Personal data profile;

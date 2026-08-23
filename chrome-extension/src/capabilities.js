@@ -68,6 +68,7 @@ export function detectCapabilities({
   if (
     featureFlags.pageAutomation !== false
     && apis.scripting
+    && apis.webNavigation
     && grantedPermissions.has("scripting")
     && hasWebsiteAccess
   ) {

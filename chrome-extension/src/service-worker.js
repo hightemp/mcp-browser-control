@@ -458,6 +458,7 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
       tabGroups: Boolean(chrome.tabGroups?.update),
       sessions: Boolean(chrome.sessions?.getRecentlyClosed && chrome.sessions?.restore),
       scripting: Boolean(chrome.scripting),
+      webNavigation: Boolean(chrome.webNavigation?.getFrame),
       windows: Boolean(chrome.windows),
     },
     permissions,

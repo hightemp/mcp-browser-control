@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
@@ -70,40 +71,46 @@ type browserRenameArgs struct {
 }
 
 type targetedArgs struct {
-	BrowserID string `json:"browserId,omitempty"`
-	TabID     *int   `json:"tabId,omitempty"`
-	TimeoutMS *int   `json:"timeoutMs,omitempty"`
+	BrowserID  string `json:"browserId,omitempty"`
+	TabID      *int   `json:"tabId,omitempty"`
+	FrameID    *int   `json:"frameId,omitempty"`
+	DocumentID string `json:"documentId,omitempty"`
+	TimeoutMS  *int   `json:"timeoutMs,omitempty"`
 }
 
 type getHTMLBySelectorArgs struct {
-	BrowserID string `json:"browserId,omitempty"`
-	TabID     *int   `json:"tabId,omitempty"`
-	Selector  string `json:"selector"`
-	TimeoutMS *int   `json:"timeoutMs,omitempty"`
-}
-
-type coordinates struct {
-	X float64 `json:"x"`
-	Y float64 `json:"y"`
+	BrowserID  string `json:"browserId,omitempty"`
+	TabID      *int   `json:"tabId,omitempty"`
+	FrameID    *int   `json:"frameId,omitempty"`
+	DocumentID string `json:"documentId,omitempty"`
+	Selector   string `json:"selector"`
+	TimeoutMS  *int   `json:"timeoutMs,omitempty"`
 }
 
 type clickArgs struct {
-	BrowserID   string       `json:"browserId,omitempty"`
-	TabID       *int         `json:"tabId,omitempty"`
-	Selector    *string      `json:"selector,omitempty"`
-	Index       *int         `json:"index,omitempty"`
-	Coordinates *coordinates `json:"coordinates,omitempty"`
-	TimeoutMS   *int         `json:"timeoutMs,omitempty"`
+	BrowserID   string                `json:"browserId,omitempty"`
+	TabID       *int                  `json:"tabId,omitempty"`
+	FrameID     *int                  `json:"frameId,omitempty"`
+	DocumentID  string                `json:"documentId,omitempty"`
+	Selector    *string               `json:"selector,omitempty"`
+	Index       *int                  `json:"index,omitempty"`
+	Coordinates *protocol.Coordinates `json:"coordinates,omitempty"`
+	Locator     *protocol.Locator     `json:"locator,omitempty"`
+	TimeoutMS   *int                  `json:"timeoutMs,omitempty"`
 }
 
 type inputArgs struct {
-	BrowserID string `json:"browserId,omitempty"`
-	TabID     *int   `json:"tabId,omitempty"`
-	Selector  string `json:"selector"`
-	Value     string `json:"value"`
-	Index     *int   `json:"index,omitempty"`
-	Clear     *bool  `json:"clear,omitempty"`
-	TimeoutMS *int   `json:"timeoutMs,omitempty"`
+	BrowserID   string                `json:"browserId,omitempty"`
+	TabID       *int                  `json:"tabId,omitempty"`
+	FrameID     *int                  `json:"frameId,omitempty"`
+	DocumentID  string                `json:"documentId,omitempty"`
+	Selector    *string               `json:"selector,omitempty"`
+	Index       *int                  `json:"index,omitempty"`
+	Coordinates *protocol.Coordinates `json:"coordinates,omitempty"`
+	Locator     *protocol.Locator     `json:"locator,omitempty"`
+	Value       string                `json:"value"`
+	Clear       *bool                 `json:"clear,omitempty"`
+	TimeoutMS   *int                  `json:"timeoutMs,omitempty"`
 }
 
 type sendCommandArgs struct {
@@ -218,6 +225,8 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			mcp.WithDescription("Get the HTML content of a browser page"),
 			optionalBrowserID(),
 			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserGetHTMLHandler),
@@ -228,6 +237,8 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			mcp.WithDescription("Get HTML for elements matching a CSS selector"),
 			optionalBrowserID(),
 			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
 			mcp.WithString("selector", mcp.Required(), mcp.Description("CSS selector")),
 			optionalTimeout(),
 		),
@@ -236,19 +247,15 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_click_element",
-			mcp.WithDescription("Click an element by selector or viewport coordinates"),
+			mcp.WithDescription("Click one actionable element using a strict locator by default"),
 			optionalBrowserID(),
 			optionalTabID(),
+			optionalFrameID(),
+			optionalDocumentID(),
 			mcp.WithString("selector", mcp.Description("CSS selector")),
-			mcp.WithNumber("index", mcp.Description("Zero-based matching element index"), mcp.DefaultNumber(0)),
-			mcp.WithObject(
-				"coordinates",
-				mcp.Description("Viewport coordinates"),
-				mcp.Properties(map[string]any{
-					"x": map[string]any{"type": "number"},
-					"y": map[string]any{"type": "number"},
-				}),
-			),
+			mcp.WithNumber("index", mcp.Description("Legacy zero-based CSS match index")),
+			optionalCoordinates(),
+			optionalLocator(),
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserClickHandler),
@@ -256,12 +263,16 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_input_data",
-			mcp.WithDescription("Fill an input field on a browser page"),
+			mcp.WithDescription("Fill one actionable input using a strict locator by default"),
 			optionalBrowserID(),
 			optionalTabID(),
-			mcp.WithString("selector", mcp.Required(), mcp.Description("CSS selector")),
+			optionalFrameID(),
+			optionalDocumentID(),
+			mcp.WithString("selector", mcp.Description("CSS selector")),
 			mcp.WithString("value", mcp.Required(), mcp.Description("Value to enter")),
-			mcp.WithNumber("index", mcp.Description("Zero-based matching element index"), mcp.DefaultNumber(0)),
+			mcp.WithNumber("index", mcp.Description("Legacy zero-based CSS match index")),
+			optionalCoordinates(),
+			optionalLocator(),
 			mcp.WithBoolean(
 				"clear",
 				mcp.Description("Clear the field before entering the value"),
@@ -465,7 +476,7 @@ func (s *Service) browserGetHTMLHandler(
 		ctx,
 		args.BrowserID,
 		protocol.CommandPageGetHTML,
-		targetWithTab(args.TabID),
+		pageTarget(args.TabID, args.FrameID, args.DocumentID),
 		map[string]any{},
 		args.TimeoutMS,
 	)
@@ -480,7 +491,7 @@ func (s *Service) browserGetHTMLBySelectorHandler(
 		ctx,
 		args.BrowserID,
 		protocol.CommandPageGetHTMLBySelector,
-		targetWithTab(args.TabID),
+		pageTarget(args.TabID, args.FrameID, args.DocumentID),
 		map[string]any{"selector": args.Selector},
 		args.TimeoutMS,
 	)
@@ -491,12 +502,9 @@ func (s *Service) browserClickHandler(
 	_ mcp.CallToolRequest,
 	args clickArgs,
 ) (*mcp.CallToolResult, error) {
-	if args.Selector == nil && args.Coordinates == nil {
-		return errorResult(protocol.NewError(
-			protocol.CodeInvalidMessage,
-			"either selector or coordinates must be provided",
-			false,
-		))
+	target := pageTarget(args.TabID, args.FrameID, args.DocumentID)
+	if err := validateElementArgs(args.Selector, args.Coordinates, args.Locator, args.Index, target); err != nil {
+		return errorResult(err)
 	}
 
 	params := make(map[string]any)
@@ -509,11 +517,14 @@ func (s *Service) browserClickHandler(
 	if args.Coordinates != nil {
 		params["coordinates"] = args.Coordinates
 	}
+	if args.Locator != nil {
+		params["locator"] = args.Locator
+	}
 	return s.send(
 		ctx,
 		args.BrowserID,
 		protocol.CommandPageClick,
-		targetWithTab(args.TabID),
+		target,
 		params,
 		args.TimeoutMS,
 	)
@@ -524,13 +535,25 @@ func (s *Service) browserInputHandler(
 	_ mcp.CallToolRequest,
 	args inputArgs,
 ) (*mcp.CallToolResult, error) {
+	target := pageTarget(args.TabID, args.FrameID, args.DocumentID)
+	if err := validateElementArgs(args.Selector, args.Coordinates, args.Locator, args.Index, target); err != nil {
+		return errorResult(err)
+	}
 	params := map[string]any{
-		"selector": args.Selector,
-		"value":    args.Value,
-		"clear":    true,
+		"value": args.Value,
+		"clear": true,
+	}
+	if args.Selector != nil {
+		params["selector"] = *args.Selector
 	}
 	if args.Index != nil {
 		params["index"] = *args.Index
+	}
+	if args.Coordinates != nil {
+		params["coordinates"] = args.Coordinates
+	}
+	if args.Locator != nil {
+		params["locator"] = args.Locator
 	}
 	if args.Clear != nil {
 		params["clear"] = *args.Clear
@@ -539,7 +562,7 @@ func (s *Service) browserInputHandler(
 		ctx,
 		args.BrowserID,
 		protocol.CommandPageFill,
-		targetWithTab(args.TabID),
+		target,
 		params,
 		args.TimeoutMS,
 	)
@@ -630,26 +653,26 @@ func (s *Service) resolveTarget(
 	browserID string,
 	target *protocol.Target,
 ) (*protocol.Target, error) {
-	resolved, err := protocol.ResolveTarget(browserID, target)
-	if err != nil {
-		return nil, err
-	}
 	var explicitTabID *int
-	if resolved != nil {
-		explicitTabID = resolved.TabID
+	if target != nil {
+		explicitTabID = target.TabID
 	}
 	tabID, err := s.selections.ResolveTab(sessionID(ctx), browserID, explicitTabID)
 	if err != nil {
 		return nil, err
 	}
-	if tabID == nil {
-		return resolved, nil
+	if target == nil && tabID == nil {
+		return nil, nil
 	}
-	if resolved == nil {
-		return &protocol.Target{BrowserID: browserID, TabID: tabID}, nil
+	resolved := &protocol.Target{BrowserID: browserID, TabID: tabID}
+	if target != nil {
+		*resolved = *target
+		if resolved.BrowserID == "" {
+			resolved.BrowserID = browserID
+		}
+		resolved.TabID = tabID
 	}
-	resolved.TabID = tabID
-	return resolved, nil
+	return protocol.ResolveTarget(browserID, resolved)
 }
 
 func commandUsesTab(command string) bool {
@@ -708,6 +731,60 @@ func targetWithTab(tabID *int) *protocol.Target {
 		return nil
 	}
 	return &protocol.Target{TabID: tabID}
+}
+
+func pageTarget(tabID, frameID *int, documentID string) *protocol.Target {
+	if tabID == nil && frameID == nil && documentID == "" {
+		return nil
+	}
+	return &protocol.Target{
+		TabID:      tabID,
+		FrameID:    frameID,
+		DocumentID: documentID,
+	}
+}
+
+func validateElementArgs(
+	selector *string,
+	coordinates *protocol.Coordinates,
+	locator *protocol.Locator,
+	index *int,
+	target *protocol.Target,
+) error {
+	addressCount := 0
+	if selector != nil {
+		addressCount++
+		if strings.TrimSpace(*selector) == "" {
+			return protocol.NewError(protocol.CodeInvalidMessage, "selector must not be empty", false)
+		}
+	}
+	if coordinates != nil {
+		addressCount++
+		if err := coordinates.Validate(); err != nil {
+			return err
+		}
+	}
+	if locator != nil {
+		addressCount++
+		if err := locator.Validate(target); err != nil {
+			return err
+		}
+	}
+	if addressCount != 1 {
+		return protocol.NewError(
+			protocol.CodeInvalidMessage,
+			"exactly one of selector, coordinates, or locator must be provided",
+			false,
+		)
+	}
+	if index != nil && (*index < 0 || selector == nil) {
+		return protocol.NewError(
+			protocol.CodeInvalidMessage,
+			"index must be a non-negative integer and can only be used with selector",
+			false,
+		)
+	}
+	return nil
 }
 
 func successResult(browserID string, data any) (*mcp.CallToolResult, error) {
@@ -818,6 +895,97 @@ func optionalTabID() mcp.ToolOption {
 		"tabId",
 		mcp.Description("Browser tab ID; omit to use the active tab"),
 	)
+}
+
+func optionalFrameID() mcp.ToolOption {
+	return mcp.WithNumber(
+		"frameId",
+		mcp.Description("Frame ID; omit for the top-level frame"),
+		mcp.Min(0),
+	)
+}
+
+func optionalDocumentID() mcp.ToolOption {
+	return mcp.WithString(
+		"documentId",
+		mcp.Description("Current document ID used to reject stale targets"),
+	)
+}
+
+func optionalCoordinates() mcp.ToolOption {
+	return mcp.WithObject(
+		"coordinates",
+		mcp.Description("Viewport coordinates in CSS pixels"),
+		mcp.Properties(map[string]any{
+			"x": map[string]any{"type": "number", "minimum": 0, "maximum": protocol.MaxCoordinate},
+			"y": map[string]any{"type": "number", "minimum": 0, "maximum": protocol.MaxCoordinate},
+		}),
+		requiredObjectProperties("x", "y"),
+		mcp.AdditionalProperties(false),
+	)
+}
+
+func optionalLocator() mcp.ToolOption {
+	return mcp.WithObject(
+		"locator",
+		mcp.Description("Element locator; exactly one primary strategy is required"),
+		mcp.Properties(map[string]any{
+			"css":         map[string]any{"type": "string", "minLength": 1},
+			"xpath":       map[string]any{"type": "string", "minLength": 1},
+			"text":        map[string]any{"type": "string", "minLength": 1},
+			"role":        map[string]any{"type": "string", "minLength": 1},
+			"name":        map[string]any{"type": "string", "minLength": 1},
+			"label":       map[string]any{"type": "string", "minLength": 1},
+			"placeholder": map[string]any{"type": "string", "minLength": 1},
+			"alt":         map[string]any{"type": "string", "minLength": 1},
+			"title":       map[string]any{"type": "string", "minLength": 1},
+			"testId":      map[string]any{"type": "string", "minLength": 1},
+			"coordinates": map[string]any{
+				"type":     "object",
+				"required": []string{"x", "y"},
+				"properties": map[string]any{
+					"x": map[string]any{"type": "number", "minimum": 0, "maximum": protocol.MaxCoordinate},
+					"y": map[string]any{"type": "number", "minimum": 0, "maximum": protocol.MaxCoordinate},
+				},
+				"additionalProperties": false,
+			},
+			"element": map[string]any{
+				"type":     "object",
+				"required": []string{"elementId", "documentId"},
+				"properties": map[string]any{
+					"elementId":  map[string]any{"type": "string", "minLength": 1},
+					"documentId": map[string]any{"type": "string", "minLength": 1},
+				},
+				"additionalProperties": false,
+			},
+			"nth":              map[string]any{"type": "integer", "minimum": 0, "maximum": protocol.MaxLocatorNth},
+			"strict":           map[string]any{"type": "boolean", "default": true},
+			"includeShadowDOM": map[string]any{"type": "boolean", "default": false},
+		}),
+		locatorObjectConstraints(),
+		mcp.AdditionalProperties(false),
+	)
+}
+
+func requiredObjectProperties(names ...string) mcp.PropertyOption {
+	return func(schema map[string]any) {
+		schema["required"] = names
+	}
+}
+
+func locatorObjectConstraints() mcp.PropertyOption {
+	return func(schema map[string]any) {
+		strategies := []string{
+			"css", "xpath", "text", "role", "label", "placeholder",
+			"alt", "title", "testId", "coordinates", "element",
+		}
+		oneOf := make([]map[string]any, 0, len(strategies))
+		for _, strategy := range strategies {
+			oneOf = append(oneOf, map[string]any{"required": []string{strategy}})
+		}
+		schema["oneOf"] = oneOf
+		schema["dependentRequired"] = map[string]any{"name": []string{"role"}}
+	}
 }
 
 func optionalTimeout() mcp.ToolOption {

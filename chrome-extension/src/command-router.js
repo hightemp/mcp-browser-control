@@ -459,6 +459,12 @@ function validateElementAddress(params, target) {
   if (params.locator !== undefined) {
     validateLocator(params.locator, target);
   }
+  if (params.index !== undefined && params.selector === undefined) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.index can only be used with params.selector",
+    );
+  }
 }
 
 function validateParamsObject(params) {

@@ -216,6 +216,31 @@ func TestServiceUsesBrowserScopedSelectedTab(t *testing.T) {
 	if !ok || stored.TabID != 17 {
 		t.Fatalf("explicit tab replaced selection: %#v", stored)
 	}
+
+	frameID := 3
+	result = make(chan *mcp.CallToolResult, 1)
+	go func() {
+		callResult, _ := service.browserGetHTMLHandler(
+			context.Background(),
+			mcp.CallToolRequest{},
+			targetedArgs{
+				BrowserID: "browser-a", FrameID: &frameID, DocumentID: "document-3",
+			},
+		)
+		result <- callResult
+	}()
+	request = receiveToolMessage(t, connectionA.messages)
+	if request.Target == nil || request.Target.TabID == nil || *request.Target.TabID != 17 ||
+		request.Target.FrameID == nil || *request.Target.FrameID != frameID ||
+		request.Target.DocumentID != "document-3" {
+		t.Fatalf("selected frame target = %#v", request.Target)
+	}
+	response, err = protocol.NewResponse(request.RequestID, "browser-a", map[string]bool{"ok": true}, nil)
+	if err != nil {
+		t.Fatalf("NewResponse() error = %v", err)
+	}
+	service.router.HandleResponse("browser-a", connectionA.ID(), response)
+	<-result
 }
 
 func TestDiscoveryHandlers(t *testing.T) {
@@ -350,8 +375,11 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 	tabID := 17
 	index := 2
 	selector := "#submit"
+	inputSelector := "#name"
 	clearField := false
 	timeoutMS := 500
+	frameID := 2
+	roleLocator := &protocol.Locator{Role: "button", Name: "Save", IncludeShadowDOM: true}
 
 	tests := []struct {
 		name        string
@@ -404,12 +432,30 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			},
 		},
 		{
+			name:        "locator click in frame",
+			wantCommand: protocol.CommandPageClick,
+			wantTarget: &protocol.Target{
+				BrowserID: "browser-a", TabID: &tabID, FrameID: &frameID, DocumentID: "document-1",
+			},
+			wantParams: map[string]any{
+				"locator": map[string]any{
+					"role": "button", "name": "Save", "includeShadowDOM": true,
+				},
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				return service.browserClickHandler(ctx, mcp.CallToolRequest{}, clickArgs{
+					BrowserID: "browser-a", TabID: &tabID, FrameID: &frameID,
+					DocumentID: "document-1", Locator: roleLocator,
+				})
+			},
+		},
+		{
 			name:        "input",
 			wantCommand: protocol.CommandPageFill,
 			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
 			wantParams:  map[string]any{"selector": "#name", "value": "Ada", "index": float64(index), "clear": false},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
-				return service.browserInputHandler(ctx, mcp.CallToolRequest{}, inputArgs{BrowserID: "browser-a", TabID: &tabID, Selector: "#name", Value: "Ada", Index: &index, Clear: &clearField, TimeoutMS: &timeoutMS})
+				return service.browserInputHandler(ctx, mcp.CallToolRequest{}, inputArgs{BrowserID: "browser-a", TabID: &tabID, Selector: &inputSelector, Value: "Ada", Index: &index, Clear: &clearField, TimeoutMS: &timeoutMS})
 			},
 		},
 		{
@@ -515,7 +561,18 @@ func TestCommandHandlerValidation(t *testing.T) {
 		clickArgs{BrowserID: "browser-a"},
 	)
 	if err != nil || !missingTarget.IsError {
-		t.Fatalf("click without selector or coordinates = (%v, %v), want tool error", missingTarget, err)
+		t.Fatalf("click without an element address = (%v, %v), want tool error", missingTarget, err)
+	}
+
+	selector := "button"
+	invalidLocator := &protocol.Locator{CSS: "button", Text: "Save"}
+	invalidAddress, err := service.browserClickHandler(
+		context.Background(),
+		mcp.CallToolRequest{},
+		clickArgs{BrowserID: "browser-a", Selector: &selector, Locator: invalidLocator},
+	)
+	if err != nil || !invalidAddress.IsError {
+		t.Fatalf("click with multiple addresses = (%v, %v), want tool error", invalidAddress, err)
 	}
 
 	invalidTimeout := 0

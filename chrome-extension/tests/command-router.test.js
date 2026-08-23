@@ -147,6 +147,8 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.getHTMLBySelector", { selector: "" }),
     createRequest("page.click", { selector: "button", coordinates: { x: 1, y: 2 } }),
     createRequest("page.click", { coordinates: { x: -1, y: 2 } }),
+    createRequest("page.click", { coordinates: { x: 1, y: 2 }, index: 0 }),
+    createRequest("page.click", { locator: { css: "button", unexpected: true } }),
     createRequest("page.fill", { selector: "input" }),
     createRequest("page.fill", { selector: "input", value: "x", clear: "yes" }),
     createRequest("windows.get", {}),

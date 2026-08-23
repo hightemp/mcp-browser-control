@@ -177,7 +177,8 @@
         "coordinates": { "$ref": "#/$defs/coordinates" },
         "element": { "$ref": "#/$defs/elementReference" },
         "nth": { "type": "integer", "minimum": 0, "maximum": 10000 },
-        "strict": { "type": "boolean" }
+        "strict": { "type": "boolean" },
+        "includeShadowDOM": { "type": "boolean" }
       },
       "oneOf": [
         { "required": ["css"] },
@@ -194,7 +195,8 @@
       ],
       "dependentRequired": {
         "name": ["role"]
-      }
+      },
+      "additionalProperties": false
     },
     "browserMetadata": {
       "type": "object",

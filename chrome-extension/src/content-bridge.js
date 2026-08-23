@@ -1,6 +1,6 @@
 import { ErrorCode, mapChromeError, protocolError } from "./protocol.js";
 
-export const CONTENT_BRIDGE_VERSION = "1.0";
+export const CONTENT_BRIDGE_VERSION = "1.1";
 
 const READY_MESSAGE = Object.freeze({
   type: "MCP_BROWSER_BRIDGE_READY",
@@ -30,6 +30,7 @@ export class ContentScriptBridge {
         bridgeVersion: CONTENT_BRIDGE_VERSION,
         command,
         params,
+        documentId,
       }, options),
       signal,
     );
@@ -54,7 +55,7 @@ export class ContentScriptBridge {
     try {
       await abortable(this.chromeAPI.scripting.executeScript({
         target: { tabId, frameIds: [frameId] },
-        files: ["src/content.js"],
+        files: ["src/locator-engine.js", "src/content.js"],
       }), signal);
       const response = await abortable(
         this.chromeAPI.tabs.sendMessage(tabId, READY_MESSAGE, options),

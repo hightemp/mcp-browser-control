@@ -120,7 +120,7 @@ test("validateTarget requires browser-scoped non-negative identifiers", () => {
 
 test("validateLocator accepts every primary strategy", () => {
   const locators = [
-    { css: "#submit" },
+    { css: "#submit", includeShadowDOM: true },
     { xpath: "//button" },
     { text: "Submit" },
     { role: "button", name: "Submit" },
@@ -145,6 +145,8 @@ test("validateLocator enforces strategy and modifier bounds", () => {
     { css: "a", name: "link" },
     { css: "a", nth: -1 },
     { coordinates: { x: -1, y: 0 } },
+    { css: "a", includeShadowDOM: "yes" },
+    { css: "a", unknown: true },
   ]) {
     assert.throws(
       () => validateLocator(locator),

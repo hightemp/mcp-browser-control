@@ -622,7 +622,7 @@ Group, ungroup, update group, recently closed и restore. Добавить capab
 
 - Приоритет: P0
 - Зависимости: T-014, T-046
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Критерии:
 
@@ -632,6 +632,8 @@ Group, ungroup, update group, recently closed и restore. Добавить capab
 - понятная диагностика 0 или нескольких совпадений;
 - open shadow roots;
 - element reference имеет document identity и TTL.
+
+Добавлен единый locator engine для CSS, XPath, text, role/name, label, placeholder, alt, title, test id, coordinates и element reference. Действия используют strict mode по умолчанию, `nth` и `strict: false` остаются явными модификаторами; ошибки нулевого и неоднозначного результата содержат match count и краткие сведения о кандидатах. Движок умеет обходить open shadow roots через `includeShadowDOM`, проверяет attached/visible/enabled/viewport/pointer overlap и выдаёт стабильные ссылки с document identity и sliding TTL 60 секунд. Click/fill MCP tools принимают locator, frameId и documentId, а content bridge всегда сверяет актуальный Chrome documentId.
 
 ### T-054 — Реализовать page inspection tools
 

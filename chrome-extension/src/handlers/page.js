@@ -25,12 +25,12 @@ export function createPageHandlers(chromeAPI) {
     await assertPageAccess(tab);
     throwIfCancelled(signal);
     const frameId = request.target?.frameId ?? 0;
-    await assertCurrentDocument(request, tab.id, frameId);
+    const documentId = await currentDocument(request, tab.id, frameId);
     throwIfCancelled(signal);
     return bridge.execute({
       tabId: tab.id,
       frameId,
-      documentId: request.target?.documentId,
+      documentId,
       command: request.command,
       params: request.params,
       signal,
@@ -74,13 +74,9 @@ export function createPageHandlers(chromeAPI) {
     }
   }
 
-  async function assertCurrentDocument(request, tabId, frameId) {
+  async function currentDocument(request, tabId, frameId) {
     const expectedDocumentId =
       request.target?.documentId || request.params.locator?.element?.documentId;
-    if (!expectedDocumentId) {
-      return;
-    }
-
     let frame;
     try {
       frame = await chromeAPI.webNavigation.getFrame({ tabId, frameId });
@@ -94,7 +90,17 @@ export function createPageHandlers(chromeAPI) {
         true,
       );
     }
-    assertFreshDocument(expectedDocumentId, frame.documentId);
+    if (expectedDocumentId) {
+      assertFreshDocument(expectedDocumentId, frame.documentId);
+    }
+    if (typeof frame.documentId !== "string" || !frame.documentId) {
+      throw protocolError(
+        ErrorCode.CAPABILITY_UNAVAILABLE,
+        "The browser did not provide a document identity for this frame",
+        true,
+      );
+    }
+    return frame.documentId;
   }
 
   return {

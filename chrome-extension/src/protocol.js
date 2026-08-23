@@ -246,6 +246,22 @@ export function validateLocator(locator, target = undefined) {
     "title",
     "testId",
   ];
+  const allowedFields = new Set([
+    ...strategyFields,
+    "name",
+    "coordinates",
+    "element",
+    "nth",
+    "strict",
+    "includeShadowDOM",
+  ]);
+  const unexpectedField = Object.keys(locator).find((field) => !allowedFields.has(field));
+  if (unexpectedField) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `Unexpected locator property "${unexpectedField}"`,
+    );
+  }
   for (const field of strategyFields) {
     if (locator[field] !== undefined && !isNonEmptyString(locator[field])) {
       throw protocolError(ErrorCode.INVALID_MESSAGE, `locator.${field} must not be empty`);
@@ -277,6 +293,15 @@ export function validateLocator(locator, target = undefined) {
   }
   if (locator.strict !== undefined && typeof locator.strict !== "boolean") {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "locator.strict must be a boolean");
+  }
+  if (
+    locator.includeShadowDOM !== undefined
+    && typeof locator.includeShadowDOM !== "boolean"
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "locator.includeShadowDOM must be a boolean",
+    );
   }
   if (locator.coordinates !== undefined) {
     validateCoordinates(locator.coordinates);

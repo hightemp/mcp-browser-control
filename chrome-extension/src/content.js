@@ -1,5 +1,5 @@
 (() => {
-  const BRIDGE_VERSION = "1.0";
+  const BRIDGE_VERSION = "1.1";
   if (globalThis.__mcpBrowserControlVersion === BRIDGE_VERSION) {
     return;
   }
@@ -8,6 +8,12 @@
   }
   globalThis.__mcpBrowserControlLoaded = true;
   globalThis.__mcpBrowserControlVersion = BRIDGE_VERSION;
+
+  const locatorFactory = globalThis.__mcpBrowserLocatorEngine;
+  if (!locatorFactory || typeof locatorFactory.create !== "function") {
+    throw new Error("MCP browser locator engine is unavailable");
+  }
+  const locatorEngine = locatorFactory.create({ document, window });
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (sender?.id !== chrome.runtime.id) {
@@ -28,7 +34,9 @@
     }
 
     Promise.resolve()
-      .then(() => dispatch(message.command, message.params || {}))
+      .then(() => dispatch(message.command, message.params || {}, {
+        documentId: message.documentId || "",
+      }))
       .then((result) => sendResponse({ success: true, result }))
       .catch((error) => {
         sendResponse({
@@ -37,22 +45,25 @@
             code: error.code || "INTERNAL_ERROR",
             message: error.message || "Page command failed",
             retryable: Boolean(error.retryable),
+            ...(error.details && typeof error.details === "object"
+              ? { details: error.details }
+              : {}),
           },
         });
       });
     return true;
   });
 
-  function dispatch(command, params) {
+  function dispatch(command, params, context) {
     switch (command) {
       case "page.getHTML":
         return getHTML();
       case "page.getHTMLBySelector":
-        return getHTMLBySelector(params);
+        return getHTMLBySelector(params, context);
       case "page.click":
-        return click(params);
+        return click(params, context);
       case "page.fill":
-        return fill(params);
+        return fill(params, context);
       default:
         throw commandError("INVALID_COMMAND", `Unknown page command "${command}"`);
     }
@@ -67,38 +78,46 @@
     };
   }
 
-  function getHTMLBySelector(params) {
+  function getHTMLBySelector(params, context) {
     const selector = requiredSelector(params.selector);
     const elements = [...document.querySelectorAll(selector)];
     return {
       selector,
       count: elements.length,
       html: elements.map((element) => element.outerHTML).join("\n"),
-      elements: elements.map((element, index) => describeElement(element, index)),
+      elements: elements.map((element, index) =>
+        locatorEngine.describeElement(element, index, context.documentId)),
       timestamp: new Date().toISOString(),
     };
   }
 
-  async function click(params) {
-    const element = resolveElement(params);
-    await ensureActionable(element);
+  async function click(params, context) {
+    const resolved = resolveElement(params, context, true);
+    const { element } = resolved;
+    await locatorEngine.ensureActionable(element, { pointer: true });
     element.click();
     return {
-      element: describeElement(element, params.index || 0),
+      matchCount: resolved.count,
+      element: locatorEngine.describeElement(
+        element,
+        resolved.index,
+        context.documentId,
+      ),
       timestamp: new Date().toISOString(),
     };
   }
 
-  async function fill(params) {
-    const element = resolveElement(params);
-    if (!["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName)) {
+  async function fill(params, context) {
+    const resolved = resolveElement(params, context, true);
+    const { element } = resolved;
+    if (!["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName) && !element.isContentEditable) {
       throw commandError("INVALID_MESSAGE", `${element.tagName} does not accept input`);
     }
     if (params.value === undefined || params.value === null) {
       throw commandError("INVALID_MESSAGE", "value is required");
     }
 
-    await ensureActionable(element);
+    await locatorEngine.ensureActionable(element);
     element.focus();
     const value = String(params.value);
     if (element.tagName === "SELECT") {
@@ -109,67 +128,53 @@
         throw commandError("ELEMENT_NOT_FOUND", `Select option "${value}" was not found`);
       }
       element.value = option.value;
-    } else {
+    } else if (!element.isContentEditable) {
       if (params.clear !== false) {
         setNativeValue(element, "");
       }
       setNativeValue(element, value);
+    } else {
+      if (params.clear !== false) {
+        element.textContent = "";
+      }
+      element.textContent += value;
     }
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText" }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
 
     return {
       element: {
-        ...describeElement(element, params.index || 0),
-        value: element.type === "password" ? "[REDACTED]" : element.value,
+        ...locatorEngine.describeElement(element, resolved.index, context.documentId),
+        value: element.type === "password"
+          ? "[REDACTED]"
+          : element.isContentEditable
+            ? element.textContent
+            : element.value,
       },
+      matchCount: resolved.count,
       timestamp: new Date().toISOString(),
     };
   }
 
-  function resolveElement(params) {
-    if (params.coordinates) {
-      const { x, y } = params.coordinates;
-      const element = document.elementFromPoint(x, y);
-      if (!element) {
-        throw commandError("ELEMENT_NOT_FOUND", `No element found at (${x}, ${y})`);
-      }
-      return element;
+  function resolveElement(params, context, strictDefault) {
+    let locator = params.locator;
+    if (!locator && params.coordinates) {
+      locator = { coordinates: params.coordinates };
     }
-
-    const selector = requiredSelector(params.selector);
-    const elements = [...document.querySelectorAll(selector)];
-    const index = Number.isInteger(params.index) ? params.index : 0;
-    if (!elements[index]) {
-      throw commandError(
-        "ELEMENT_NOT_FOUND",
-        `No element found for selector "${selector}" at index ${index}`,
-      );
+    if (!locator) {
+      locator = {
+        css: requiredSelector(params.selector),
+        ...(Number.isInteger(params.index) ? { nth: params.index } : {}),
+      };
     }
-    return elements[index];
-  }
-
-  async function ensureActionable(element) {
-    if (element.disabled) {
-      throw commandError("INVALID_MESSAGE", "Element is disabled");
-    }
-    let rect = element.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) {
-      throw commandError("ELEMENT_NOT_FOUND", "Element is not visible");
-    }
-    const inViewport =
-      rect.bottom >= 0 &&
-      rect.right >= 0 &&
-      rect.top <= window.innerHeight &&
-      rect.left <= window.innerWidth;
-    if (!inViewport) {
-      element.scrollIntoView({ block: "center", inline: "center" });
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      rect = element.getBoundingClientRect();
-      if (rect.width <= 0 || rect.height <= 0) {
-        throw commandError("ELEMENT_NOT_FOUND", "Element is not visible after scrolling");
-      }
-    }
+    const resolved = locatorEngine.resolve(locator, {
+      documentId: context.documentId,
+      strictDefault,
+    });
+    return {
+      ...resolved,
+      index: locator.nth ?? 0,
+    };
   }
 
   function requiredSelector(value) {
@@ -177,31 +182,6 @@
       throw commandError("INVALID_MESSAGE", "selector is required");
     }
     return value;
-  }
-
-  function describeElement(element, index) {
-    const rect = element.getBoundingClientRect();
-    return {
-      index,
-      tagName: element.tagName,
-      id: element.id,
-      className: String(element.className || ""),
-      text: String(element.textContent || "").trim().slice(0, 500),
-      attributes: Object.fromEntries(
-        [...element.attributes].map((attribute) => [
-          attribute.name,
-          attribute.name === "value" && element.type === "password"
-            ? "[REDACTED]"
-            : attribute.value,
-        ]),
-      ),
-      boundingBox: {
-        x: rect.x,
-        y: rect.y,
-        width: rect.width,
-        height: rect.height,
-      },
-    };
   }
 
   function setNativeValue(element, value) {

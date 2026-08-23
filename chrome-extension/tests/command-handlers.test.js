@@ -219,7 +219,7 @@ test("page handlers preserve addressing and structured content errors", async ()
       sendMessage: async (...args) => {
         sent.push(args);
         if (args[1].type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.0" };
+          return { ready: true, bridgeVersion: "1.1" };
         }
         return {
           success: false,
@@ -249,6 +249,7 @@ test("page handlers preserve addressing and structured content errors", async ()
   );
   assert.equal(sent.length, 2);
   assert.equal(sent[1][0], 7);
+  assert.equal(sent[1][1].documentId, "document-1");
   assert.deepEqual(sent[1][2], { frameId: 2, documentId: "document-1" });
 });
 

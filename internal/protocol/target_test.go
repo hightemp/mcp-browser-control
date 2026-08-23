@@ -62,7 +62,7 @@ func TestLocatorValidateStrategies(t *testing.T) {
 	t.Parallel()
 
 	strategies := map[string]Locator{
-		"css":         {CSS: "#submit"},
+		"css":         {CSS: "#submit", IncludeShadowDOM: true},
 		"xpath":       {XPath: "//button"},
 		"text":        {Text: "Submit"},
 		"role":        {Role: "button", Name: "Submit"},

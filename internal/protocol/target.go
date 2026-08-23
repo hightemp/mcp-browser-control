@@ -41,20 +41,21 @@ type ElementReference struct {
 // Locator identifies an element with exactly one primary strategy. Name is a
 // qualifier for Role; Nth and Strict are strategy modifiers.
 type Locator struct {
-	CSS         string            `json:"css,omitempty"`
-	XPath       string            `json:"xpath,omitempty"`
-	Text        string            `json:"text,omitempty"`
-	Role        string            `json:"role,omitempty"`
-	Name        string            `json:"name,omitempty"`
-	Label       string            `json:"label,omitempty"`
-	Placeholder string            `json:"placeholder,omitempty"`
-	Alt         string            `json:"alt,omitempty"`
-	Title       string            `json:"title,omitempty"`
-	TestID      string            `json:"testId,omitempty"`
-	Coordinates *Coordinates      `json:"coordinates,omitempty"`
-	Element     *ElementReference `json:"element,omitempty"`
-	Nth         *int              `json:"nth,omitempty"`
-	Strict      *bool             `json:"strict,omitempty"`
+	CSS              string            `json:"css,omitempty"`
+	XPath            string            `json:"xpath,omitempty"`
+	Text             string            `json:"text,omitempty"`
+	Role             string            `json:"role,omitempty"`
+	Name             string            `json:"name,omitempty"`
+	Label            string            `json:"label,omitempty"`
+	Placeholder      string            `json:"placeholder,omitempty"`
+	Alt              string            `json:"alt,omitempty"`
+	Title            string            `json:"title,omitempty"`
+	TestID           string            `json:"testId,omitempty"`
+	Coordinates      *Coordinates      `json:"coordinates,omitempty"`
+	Element          *ElementReference `json:"element,omitempty"`
+	Nth              *int              `json:"nth,omitempty"`
+	Strict           *bool             `json:"strict,omitempty"`
+	IncludeShadowDOM bool              `json:"includeShadowDOM,omitempty"`
 }
 
 // ResolveTarget returns an immutable copy associated with the resolved

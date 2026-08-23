@@ -14,6 +14,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
         tabGroups: true,
         sessions: true,
         scripting: true,
+        webNavigation: true,
         windows: true,
       },
       permissions: {
@@ -71,6 +72,17 @@ test("capability detection removes unavailable or disabled commands", () => {
     }),
     [...tabCapabilitiesWithoutStop(), "tabs.group", "tabs.ungroup"],
   );
+
+  const withoutDocumentIdentity = detectCapabilities({
+    browserVersion: "116",
+    apis: { tabs: true, scripting: true, webNavigation: false },
+    permissions: {
+      permissions: ["tabs", "scripting"],
+      origins: ["https://example.com/*"],
+    },
+  });
+  assert.equal(withoutDocumentIdentity.includes("tabs.stop"), true);
+  assert.equal(withoutDocumentIdentity.some((name) => name.startsWith("page.")), false);
 });
 
 function tabCapabilitiesWithoutStop() {

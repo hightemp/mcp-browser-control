@@ -34,6 +34,7 @@ test("bridge performs readiness handshake and document-scoped command messaging"
   assert.equal(messages.length, 2);
   assert.deepEqual(messages[1][2], { frameId: 2, documentId: "document-1" });
   assert.equal(messages[1][1].bridgeVersion, CONTENT_BRIDGE_VERSION);
+  assert.equal(messages[1][1].documentId, "document-1");
 });
 
 test("bridge injects on demand when navigation removed the content script", async () => {
@@ -68,7 +69,7 @@ test("bridge injects on demand when navigation removed the content script", asyn
   assert.equal(readyAttempts, 2);
   assert.deepEqual(injections, [{
     target: { tabId: 9, frameIds: [0] },
-    files: ["src/content.js"],
+    files: ["src/locator-engine.js", "src/content.js"],
   }]);
 });
 

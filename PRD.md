@@ -224,9 +224,10 @@
 - координаты;
 - `nth` и режим strict;
 - явный frame;
-- опциональный проход через open shadow roots.
+- опциональный проход через open shadow roots через `includeShadowDOM`.
 
 Ответ locator-инструмента должен включать число совпадений и диагностические данные при неоднозначности.
+Действия используют strict mode по умолчанию. Возвращаемая element reference привязана к Chrome document identity, имеет sliding TTL 60 секунд и после navigation, detach или истечения срока должна давать `STALE_TARGET`.
 
 ### FR-7. Взаимодействие со страницей
 

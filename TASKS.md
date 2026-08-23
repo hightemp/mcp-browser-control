@@ -936,7 +936,7 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 
 - Приоритет: P0
 - Зависимости: T-015, T-022, T-030
-- Статус: `[~]`
+- Статус: `[x]`
 
 - loopback binding по умолчанию;
 - Origin/Host validation;
@@ -946,6 +946,16 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 - rate limits;
 - безопасные timeouts;
 - отсутствие токенов в URL и логах.
+
+Оба listener по умолчанию и при валидации конфигурации ограничены loopback;
+HTTP и WebSocket проверяют Host/Origin, а endpoints требуют bearer token или
+browser credential/pairing. Размеры request/message, deadlines, ping/read/write
+timeouts и очереди ограничены. Добавлены настраиваемые token buckets: отдельный
+для каждой MCP-сессии во всех transports и отдельный для каждого browser
+WebSocket. Таблица session buckets имеет TTL и жёсткий предел, очищается при
+завершении сессии; browser flood закрывается кодом 1008. Секреты не передаются
+через URL и не записываются в обычные логи. Security tests покрывают forbidden
+Origin, oversized frame, bounded event flood и превышение message rate.
 
 ### T-081 — Реализовать redaction и data limits
 

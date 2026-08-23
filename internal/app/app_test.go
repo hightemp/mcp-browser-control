@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/ratelimit"
 	"github.com/mark3labs/mcp-go/server"
 )
 
@@ -284,6 +285,89 @@ func TestGuardedStreamableHTTPSessions(t *testing.T) {
 	terminated, err = sessionManager.Validate(sessionIDs[1])
 	if err != nil || terminated {
 		t.Fatalf("active session validation = (%v, %v), want (false, nil)", terminated, err)
+	}
+}
+
+func TestMCPRequestRateLimitIsScopedBySession(t *testing.T) {
+	t.Parallel()
+
+	limits, err := ratelimit.NewKeyed(1, 1, 8, time.Minute)
+	if err != nil {
+		t.Fatalf("ratelimit.NewKeyed() error = %v", err)
+	}
+	hooks := &server.Hooks{}
+	addMCPRequestRateLimitHook(hooks, limits)
+	mcpServer := server.NewMCPServer("test", "1.0.0", server.WithHooks(hooks))
+	sessionManager, err := mcpsession.NewManager()
+	if err != nil {
+		t.Fatalf("mcpsession.NewManager() error = %v", err)
+	}
+	streamable := server.NewStreamableHTTPServer(
+		mcpServer,
+		server.WithSessionIdManager(sessionManager),
+	)
+	httpServer := httptest.NewServer(streamable)
+	t.Cleanup(httpServer.Close)
+
+	initializePayload := []byte(`{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2025-03-26",
+    "clientInfo": {"name": "rate-limit-test", "version": "1.0.0"}
+  }
+}`)
+	initialize := func() string {
+		t.Helper()
+		request, requestErr := http.NewRequest(
+			http.MethodPost,
+			httpServer.URL,
+			bytes.NewReader(initializePayload),
+		)
+		if requestErr != nil {
+			t.Fatalf("http.NewRequest() error = %v", requestErr)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		response, requestErr := httpServer.Client().Do(request)
+		if requestErr != nil {
+			t.Fatalf("initialize request error = %v", requestErr)
+		}
+		defer func() { _ = response.Body.Close() }()
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("initialize status = %d, want %d", response.StatusCode, http.StatusOK)
+		}
+		sessionID := response.Header.Get("Mcp-Session-Id")
+		if sessionID == "" {
+			t.Fatal("initialize response omitted Mcp-Session-Id")
+		}
+		return sessionID
+	}
+
+	sessionA := initialize()
+	ping := []byte(`{"jsonrpc":"2.0","id":2,"method":"ping"}`)
+	request, err := http.NewRequest(http.MethodPost, httpServer.URL, bytes.NewReader(ping))
+	if err != nil {
+		t.Fatalf("http.NewRequest() error = %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Mcp-Session-Id", sessionA)
+	response, err := httpServer.Client().Do(request)
+	if err != nil {
+		t.Fatalf("ping request error = %v", err)
+	}
+	body, readErr := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if readErr != nil {
+		t.Fatalf("read ping response: %v", readErr)
+	}
+	if response.StatusCode != http.StatusOK || !bytes.Contains(body, []byte(ratelimit.ErrExceeded.Error())) {
+		t.Fatalf("rate-limited response = (%d, %s)", response.StatusCode, body)
+	}
+
+	sessionB := initialize()
+	if sessionB == sessionA {
+		t.Fatalf("independent session reused ID %q", sessionA)
 	}
 }
 

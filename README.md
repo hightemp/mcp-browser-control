@@ -408,6 +408,8 @@ acknowledged credential revocation exchange. Browser commands use
   pairing code.
 - Pairing codes are rate-limited, expire after ten minutes by default, and are
   rotated after use to prevent replay.
+- MCP requests are rate-limited per client session, and inbound extension
+  messages are rate-limited independently per browser connection.
 - Only credential hashes are persisted by the server; the extension stores the
   raw credential locally.
 - Website access is optional and user-granted.

@@ -399,6 +399,7 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 		WithReadTimeout(2*time.Second),
 		WithPingInterval(time.Second),
 		WithSendQueueSize(8),
+		WithMessageRateLimit(10, 20),
 		WithMaxMessageBytes(1024),
 		WithOriginAllowlist([]string{"chrome-extension://allowed"}),
 	)
@@ -413,6 +414,9 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 	}
 	if transport.sendQueueSize != 8 {
 		t.Errorf("sendQueueSize = %d, want 8", transport.sendQueueSize)
+	}
+	if transport.messageRate != 10 || transport.messageBurst != 20 {
+		t.Errorf("message rate limit = (%d, %d), want (10, 20)", transport.messageRate, transport.messageBurst)
 	}
 	if transport.maxMessageBytes != 1024 {
 		t.Errorf("maxMessageBytes = %d", transport.maxMessageBytes)

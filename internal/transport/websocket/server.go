@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	gorilla "github.com/gorilla/websocket"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/ratelimit"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
 )
@@ -28,6 +29,8 @@ const (
 	defaultReadTimeout   = 60 * time.Second
 	defaultPingInterval  = 20 * time.Second
 	defaultSendQueueSize = 64
+	defaultMessageRate   = 1_000
+	defaultMessageBurst  = 2_000
 )
 
 // Option configures a Server.
@@ -110,6 +113,17 @@ func WithSendQueueSize(size int) Option {
 	}
 }
 
+// WithMessageRateLimit changes the sustained and burst inbound message limits
+// applied independently to each browser connection.
+func WithMessageRateLimit(messagesPerSecond, burst int) Option {
+	return func(server *Server) {
+		if messagesPerSecond > 0 && burst > 0 {
+			server.messageRate = messagesPerSecond
+			server.messageBurst = burst
+		}
+	}
+}
+
 // WithAuthenticator configures the browser pairing authenticator.
 func WithAuthenticator(authenticator Authenticator) Option {
 	return func(server *Server) {
@@ -132,6 +146,8 @@ type Server struct {
 	pingInterval     time.Duration
 	sendQueueSize    int
 	maxMessageBytes  int64
+	messageRate      int
+	messageBurst     int
 	originAllowlist  []string
 	upgrader         gorilla.Upgrader
 
@@ -163,6 +179,8 @@ func NewServer(
 		pingInterval:     defaultPingInterval,
 		sendQueueSize:    defaultSendQueueSize,
 		maxMessageBytes:  4 << 20,
+		messageRate:      defaultMessageRate,
+		messageBurst:     defaultMessageBurst,
 		connections:      make(map[string]activeConnection),
 		upgrader: gorilla.Upgrader{
 			ReadBufferSize:  4096,
@@ -328,6 +346,12 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	s.logger.Printf("browser connected: browserId=%s connectionId=%s", browserID, connection.ID())
+	messageLimiter, err := ratelimit.New(s.messageRate, s.messageBurst)
+	if err != nil {
+		disconnectReason = "invalid message rate limit"
+		s.logger.Printf("failed to initialize browser message rate limit: %v", err)
+		return
+	}
 	for {
 		var message protocol.Message
 		if err := socket.ReadJSON(&message); err != nil {
@@ -342,6 +366,16 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 					err,
 				)
 			}
+			return
+		}
+		if !messageLimiter.Allow() {
+			disconnectReason = "browser message rate limit exceeded"
+			s.logger.Printf(
+				"browser message rate limit exceeded: browserId=%s connectionId=%s",
+				browserID,
+				connection.ID(),
+			)
+			_ = connection.CloseWithCode(gorilla.ClosePolicyViolation, disconnectReason)
 			return
 		}
 		if err := message.Validate(); err != nil {

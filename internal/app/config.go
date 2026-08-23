@@ -21,66 +21,74 @@ const environmentPrefix = "MCP_BROWSER_"
 
 // Config contains process-level server configuration.
 type Config struct {
-	ConfigFile                string
-	Transport                 string
-	MCPHost                   string
-	MCPPort                   string
-	WebSocketHost             string
-	WebSocketPort             string
-	CommandTimeout            time.Duration
-	WebSocketHandshakeTimeout time.Duration
-	WebSocketWriteTimeout     time.Duration
-	WebSocketReadTimeout      time.Duration
-	WebSocketPingInterval     time.Duration
-	WebSocketSendQueueSize    int
-	ShutdownTimeout           time.Duration
-	WebSocketMaxMessageBytes  int64
-	MCPMaxRequestBytes        int64
-	MCPTokenFile              string
-	CredentialFile            string
-	PairingTTL                time.Duration
-	PairingMaxAttempts        int
-	PairingAttemptWindow      time.Duration
-	OriginAllowlist           []string
-	PermissionProfile         string
-	ToolProfile               string
-	ArtifactDirectory         string
-	ArtifactTTL               time.Duration
-	ArtifactMaxBytes          int64
-	LogLevel                  string
-	RedactLogs                bool
-	LegacySSEEnabled          bool
+	ConfigFile                 string
+	Transport                  string
+	MCPHost                    string
+	MCPPort                    string
+	WebSocketHost              string
+	WebSocketPort              string
+	CommandTimeout             time.Duration
+	WebSocketHandshakeTimeout  time.Duration
+	WebSocketWriteTimeout      time.Duration
+	WebSocketReadTimeout       time.Duration
+	WebSocketPingInterval      time.Duration
+	WebSocketSendQueueSize     int
+	ShutdownTimeout            time.Duration
+	WebSocketMaxMessageBytes   int64
+	MCPMaxRequestBytes         int64
+	MCPRequestsPerSecond       int
+	MCPRequestBurst            int
+	WebSocketMessagesPerSecond int
+	WebSocketMessageBurst      int
+	MCPTokenFile               string
+	CredentialFile             string
+	PairingTTL                 time.Duration
+	PairingMaxAttempts         int
+	PairingAttemptWindow       time.Duration
+	OriginAllowlist            []string
+	PermissionProfile          string
+	ToolProfile                string
+	ArtifactDirectory          string
+	ArtifactTTL                time.Duration
+	ArtifactMaxBytes           int64
+	LogLevel                   string
+	RedactLogs                 bool
+	LegacySSEEnabled           bool
 }
 
 type fileConfig struct {
-	Transport                 *string   `json:"transport"`
-	MCPHost                   *string   `json:"mcpHost"`
-	MCPPort                   *string   `json:"mcpPort"`
-	WebSocketHost             *string   `json:"webSocketHost"`
-	WebSocketPort             *string   `json:"webSocketPort"`
-	CommandTimeout            *string   `json:"commandTimeout"`
-	WebSocketHandshakeTimeout *string   `json:"webSocketHandshakeTimeout"`
-	WebSocketWriteTimeout     *string   `json:"webSocketWriteTimeout"`
-	WebSocketReadTimeout      *string   `json:"webSocketReadTimeout"`
-	WebSocketPingInterval     *string   `json:"webSocketPingInterval"`
-	WebSocketSendQueueSize    *int      `json:"webSocketSendQueueSize"`
-	ShutdownTimeout           *string   `json:"shutdownTimeout"`
-	WebSocketMaxMessageBytes  *int64    `json:"webSocketMaxMessageBytes"`
-	MCPMaxRequestBytes        *int64    `json:"mcpMaxRequestBytes"`
-	MCPTokenFile              *string   `json:"mcpTokenFile"`
-	CredentialFile            *string   `json:"credentialFile"`
-	PairingTTL                *string   `json:"pairingTTL"`
-	PairingMaxAttempts        *int      `json:"pairingMaxAttempts"`
-	PairingAttemptWindow      *string   `json:"pairingAttemptWindow"`
-	OriginAllowlist           *[]string `json:"originAllowlist"`
-	PermissionProfile         *string   `json:"permissionProfile"`
-	ToolProfile               *string   `json:"toolProfile"`
-	ArtifactDirectory         *string   `json:"artifactDirectory"`
-	ArtifactTTL               *string   `json:"artifactTTL"`
-	ArtifactMaxBytes          *int64    `json:"artifactMaxBytes"`
-	LogLevel                  *string   `json:"logLevel"`
-	RedactLogs                *bool     `json:"redactLogs"`
-	LegacySSEEnabled          *bool     `json:"legacySSEEnabled"`
+	Transport                  *string   `json:"transport"`
+	MCPHost                    *string   `json:"mcpHost"`
+	MCPPort                    *string   `json:"mcpPort"`
+	WebSocketHost              *string   `json:"webSocketHost"`
+	WebSocketPort              *string   `json:"webSocketPort"`
+	CommandTimeout             *string   `json:"commandTimeout"`
+	WebSocketHandshakeTimeout  *string   `json:"webSocketHandshakeTimeout"`
+	WebSocketWriteTimeout      *string   `json:"webSocketWriteTimeout"`
+	WebSocketReadTimeout       *string   `json:"webSocketReadTimeout"`
+	WebSocketPingInterval      *string   `json:"webSocketPingInterval"`
+	WebSocketSendQueueSize     *int      `json:"webSocketSendQueueSize"`
+	ShutdownTimeout            *string   `json:"shutdownTimeout"`
+	WebSocketMaxMessageBytes   *int64    `json:"webSocketMaxMessageBytes"`
+	MCPMaxRequestBytes         *int64    `json:"mcpMaxRequestBytes"`
+	MCPRequestsPerSecond       *int      `json:"mcpRequestsPerSecond"`
+	MCPRequestBurst            *int      `json:"mcpRequestBurst"`
+	WebSocketMessagesPerSecond *int      `json:"webSocketMessagesPerSecond"`
+	WebSocketMessageBurst      *int      `json:"webSocketMessageBurst"`
+	MCPTokenFile               *string   `json:"mcpTokenFile"`
+	CredentialFile             *string   `json:"credentialFile"`
+	PairingTTL                 *string   `json:"pairingTTL"`
+	PairingMaxAttempts         *int      `json:"pairingMaxAttempts"`
+	PairingAttemptWindow       *string   `json:"pairingAttemptWindow"`
+	OriginAllowlist            *[]string `json:"originAllowlist"`
+	PermissionProfile          *string   `json:"permissionProfile"`
+	ToolProfile                *string   `json:"toolProfile"`
+	ArtifactDirectory          *string   `json:"artifactDirectory"`
+	ArtifactTTL                *string   `json:"artifactTTL"`
+	ArtifactMaxBytes           *int64    `json:"artifactMaxBytes"`
+	LogLevel                   *string   `json:"logLevel"`
+	RedactLogs                 *bool     `json:"redactLogs"`
+	LegacySSEEnabled           *bool     `json:"legacySSEEnabled"`
 }
 
 func parseConfig(args []string, stderr io.Writer) (Config, error) {
@@ -113,32 +121,36 @@ func parseConfigWithEnvironment(
 
 func defaultConfig() Config {
 	return Config{
-		Transport:                 "streamable-http",
-		MCPHost:                   "127.0.0.1",
-		MCPPort:                   "8896",
-		WebSocketHost:             "127.0.0.1",
-		WebSocketPort:             "8090",
-		CommandTimeout:            15 * time.Second,
-		WebSocketHandshakeTimeout: 5 * time.Second,
-		WebSocketWriteTimeout:     5 * time.Second,
-		WebSocketReadTimeout:      60 * time.Second,
-		WebSocketPingInterval:     20 * time.Second,
-		WebSocketSendQueueSize:    64,
-		ShutdownTimeout:           5 * time.Second,
-		WebSocketMaxMessageBytes:  4 << 20,
-		MCPMaxRequestBytes:        4 << 20,
-		MCPTokenFile:              defaultMCPTokenFile(),
-		CredentialFile:            defaultCredentialFile(),
-		PairingTTL:                10 * time.Minute,
-		PairingMaxAttempts:        5,
-		PairingAttemptWindow:      time.Minute,
-		PermissionProfile:         "minimal",
-		ToolProfile:               "standard",
-		ArtifactDirectory:         defaultArtifactDirectory(),
-		ArtifactTTL:               24 * time.Hour,
-		ArtifactMaxBytes:          512 << 20,
-		LogLevel:                  "info",
-		RedactLogs:                true,
+		Transport:                  "streamable-http",
+		MCPHost:                    "127.0.0.1",
+		MCPPort:                    "8896",
+		WebSocketHost:              "127.0.0.1",
+		WebSocketPort:              "8090",
+		CommandTimeout:             15 * time.Second,
+		WebSocketHandshakeTimeout:  5 * time.Second,
+		WebSocketWriteTimeout:      5 * time.Second,
+		WebSocketReadTimeout:       60 * time.Second,
+		WebSocketPingInterval:      20 * time.Second,
+		WebSocketSendQueueSize:     64,
+		ShutdownTimeout:            5 * time.Second,
+		WebSocketMaxMessageBytes:   4 << 20,
+		MCPMaxRequestBytes:         4 << 20,
+		MCPRequestsPerSecond:       100,
+		MCPRequestBurst:            200,
+		WebSocketMessagesPerSecond: 1_000,
+		WebSocketMessageBurst:      2_000,
+		MCPTokenFile:               defaultMCPTokenFile(),
+		CredentialFile:             defaultCredentialFile(),
+		PairingTTL:                 10 * time.Minute,
+		PairingMaxAttempts:         5,
+		PairingAttemptWindow:       time.Minute,
+		PermissionProfile:          "minimal",
+		ToolProfile:                "standard",
+		ArtifactDirectory:          defaultArtifactDirectory(),
+		ArtifactTTL:                24 * time.Hour,
+		ArtifactMaxBytes:           512 << 20,
+		LogLevel:                   "info",
+		RedactLogs:                 true,
 	}
 }
 
@@ -183,6 +195,16 @@ func (c Config) Validate() error {
 	}
 	if c.WebSocketMaxMessageBytes > 64<<20 || c.MCPMaxRequestBytes > 64<<20 {
 		return errors.New("payload limits must not exceed 67108864 bytes")
+	}
+	for name, value := range map[string]int{
+		"mcp_requests_per_second": c.MCPRequestsPerSecond,
+		"mcp_request_burst":       c.MCPRequestBurst,
+		"ws_messages_per_second":  c.WebSocketMessagesPerSecond,
+		"ws_message_burst":        c.WebSocketMessageBurst,
+	} {
+		if value <= 0 || value > 1_000_000 {
+			return fmt.Errorf("%s must be between 1 and 1000000", name)
+		}
 	}
 	if c.PairingMaxAttempts <= 0 {
 		return errors.New("pairing_max_attempts must be positive")
@@ -240,6 +262,10 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags.DurationVar(&config.ShutdownTimeout, "shutdown_timeout", config.ShutdownTimeout, "Graceful shutdown timeout")
 	flags.Int64Var(&config.WebSocketMaxMessageBytes, "ws_max_message_bytes", config.WebSocketMaxMessageBytes, "Maximum browser message size")
 	flags.Int64Var(&config.MCPMaxRequestBytes, "mcp_max_request_bytes", config.MCPMaxRequestBytes, "Maximum MCP HTTP request size")
+	flags.IntVar(&config.MCPRequestsPerSecond, "mcp_requests_per_second", config.MCPRequestsPerSecond, "Per-session MCP requests per second")
+	flags.IntVar(&config.MCPRequestBurst, "mcp_request_burst", config.MCPRequestBurst, "Per-session MCP request burst")
+	flags.IntVar(&config.WebSocketMessagesPerSecond, "ws_messages_per_second", config.WebSocketMessagesPerSecond, "Per-browser messages per second")
+	flags.IntVar(&config.WebSocketMessageBurst, "ws_message_burst", config.WebSocketMessageBurst, "Per-browser message burst")
 	flags.StringVar(&config.MCPTokenFile, "mcp_token_file", config.MCPTokenFile, "Owner-only MCP HTTP bearer token file")
 	flags.StringVar(&config.CredentialFile, "credential_file", config.CredentialFile, "Persistent credential store; empty uses memory only")
 	flags.DurationVar(&config.PairingTTL, "pairing_ttl", config.PairingTTL, "One-time pairing code lifetime")
@@ -293,6 +319,10 @@ func (f fileConfig) apply(config *Config) error {
 	assignString(&config.LogLevel, f.LogLevel)
 	assignInt64(&config.WebSocketMaxMessageBytes, f.WebSocketMaxMessageBytes)
 	assignInt64(&config.MCPMaxRequestBytes, f.MCPMaxRequestBytes)
+	assignInt(&config.MCPRequestsPerSecond, f.MCPRequestsPerSecond)
+	assignInt(&config.MCPRequestBurst, f.MCPRequestBurst)
+	assignInt(&config.WebSocketMessagesPerSecond, f.WebSocketMessagesPerSecond)
+	assignInt(&config.WebSocketMessageBurst, f.WebSocketMessageBurst)
 	assignInt64(&config.ArtifactMaxBytes, f.ArtifactMaxBytes)
 	assignInt(&config.PairingMaxAttempts, f.PairingMaxAttempts)
 	assignInt(&config.WebSocketSendQueueSize, f.WebSocketSendQueueSize)
@@ -366,6 +396,16 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 	}
 	if err := assignEnvInt64(lookupEnv, "MCP_MAX_REQUEST_BYTES", &config.MCPMaxRequestBytes); err != nil {
 		return err
+	}
+	for name, destination := range map[string]*int{
+		"MCP_REQUESTS_PER_SECOND": &config.MCPRequestsPerSecond,
+		"MCP_REQUEST_BURST":       &config.MCPRequestBurst,
+		"WS_MESSAGES_PER_SECOND":  &config.WebSocketMessagesPerSecond,
+		"WS_MESSAGE_BURST":        &config.WebSocketMessageBurst,
+	} {
+		if err := assignEnvInt(lookupEnv, name, destination); err != nil {
+			return err
+		}
 	}
 	if err := assignEnvInt64(lookupEnv, "ARTIFACT_MAX_BYTES", &config.ArtifactMaxBytes); err != nil {
 		return err

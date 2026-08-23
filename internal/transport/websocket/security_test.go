@@ -72,10 +72,13 @@ func TestServerClosesConnectionForOversizedBrowserMessage(t *testing.T) {
 	waitForRegistryCount(t, browserRegistry, 0)
 }
 
-func TestServerDiscardsEventFloodWithoutPendingState(t *testing.T) {
+func TestServerDiscardsBoundedEventFloodWithoutPendingState(t *testing.T) {
 	t.Parallel()
 
-	socket, browserRegistry, requestRouter := pairedSecuritySocket(t)
+	socket, browserRegistry, requestRouter := pairedSecuritySocket(
+		t,
+		WithMessageRateLimit(20_000, 20_000),
+	)
 	browser := browserRegistry.List()[0]
 	event := protocol.NewMessage(protocol.TypeEvent)
 	event.BrowserID = browser.BrowserID
@@ -107,6 +110,31 @@ func TestServerDiscardsEventFloodWithoutPendingState(t *testing.T) {
 	if got := browserRegistry.Count(); got != 1 {
 		t.Fatalf("registry count after event flood = %d, want 1", got)
 	}
+}
+
+func TestServerClosesBrowserThatExceedsMessageRate(t *testing.T) {
+	t.Parallel()
+
+	socket, browserRegistry, _ := pairedSecuritySocket(t, WithMessageRateLimit(1, 2))
+	browserID := browserRegistry.List()[0].BrowserID
+	event := protocol.NewMessage(protocol.TypeEvent)
+	event.BrowserID = browserID
+	event.Params = json.RawMessage(`{"name":"console.entry","sequence":1}`)
+
+	for range 3 {
+		if err := socket.WriteJSON(event); err != nil {
+			t.Fatalf("WriteJSON(event) error = %v", err)
+		}
+	}
+	if err := socket.SetReadDeadline(time.Now().Add(time.Second)); err != nil {
+		t.Fatalf("SetReadDeadline() error = %v", err)
+	}
+	_, _, err := socket.ReadMessage()
+	var closeError *gorilla.CloseError
+	if !errors.As(err, &closeError) || closeError.Code != gorilla.ClosePolicyViolation {
+		t.Fatalf("ReadMessage() error = %v, want close code %d", err, gorilla.ClosePolicyViolation)
+	}
+	waitForRegistryCount(t, browserRegistry, 0)
 }
 
 func pairedSecuritySocket(

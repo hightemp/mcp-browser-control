@@ -18,6 +18,7 @@ func TestConfigPrecedence(t *testing.T) {
 	payload := []byte(`{
   "commandTimeout": "20s",
   "mcpPort": "9000",
+  "mcpRequestsPerSecond": 50,
   "originAllowlist": ["http://localhost:3000"],
   "toolProfile": "minimal"
 }`)
@@ -25,8 +26,9 @@ func TestConfigPrecedence(t *testing.T) {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	environment := map[string]string{
-		environmentPrefix + "COMMAND_TIMEOUT": "10s",
-		environmentPrefix + "LOG_LEVEL":       "debug",
+		environmentPrefix + "COMMAND_TIMEOUT":        "10s",
+		environmentPrefix + "LOG_LEVEL":              "debug",
+		environmentPrefix + "WS_MESSAGES_PER_SECOND": "750",
 	}
 	lookup := func(name string) (string, bool) {
 		value, ok := environment[name]
@@ -34,7 +36,12 @@ func TestConfigPrecedence(t *testing.T) {
 	}
 
 	config, err := parseConfigWithEnvironment(
-		[]string{"-config", path, "-command_timeout", "3s", "-tool_profile", "full"},
+		[]string{
+			"-config", path,
+			"-command_timeout", "3s",
+			"-mcp_request_burst", "125",
+			"-tool_profile", "full",
+		},
 		io.Discard,
 		lookup,
 	)
@@ -42,7 +49,9 @@ func TestConfigPrecedence(t *testing.T) {
 		t.Fatalf("parseConfigWithEnvironment() error = %v", err)
 	}
 	if config.ConfigFile != path || config.CommandTimeout != 3*time.Second ||
-		config.MCPPort != "9000" || config.ToolProfile != "full" || config.LogLevel != "debug" {
+		config.MCPPort != "9000" || config.ToolProfile != "full" || config.LogLevel != "debug" ||
+		config.MCPRequestsPerSecond != 50 || config.MCPRequestBurst != 125 ||
+		config.WebSocketMessagesPerSecond != 750 {
 		t.Fatalf("config precedence result = %#v", config)
 	}
 	if !reflect.DeepEqual(config.OriginAllowlist, []string{"http://localhost:3000"}) {
@@ -85,6 +94,8 @@ func TestConfigRejectsInvalidSources(t *testing.T) {
 		{name: "invalid file duration", fileContent: `{"pairingTTL":"later"}`, wantError: "parse pairingTTL"},
 		{name: "unsafe MCP host", environment: map[string]string{environmentPrefix + "MCP_HOST": "0.0.0.0"}, wantError: "loopback"},
 		{name: "invalid environment integer", environment: map[string]string{environmentPrefix + "PAIRING_MAX_ATTEMPTS": "many"}, wantError: "PAIRING_MAX_ATTEMPTS"},
+		{name: "invalid MCP rate", environment: map[string]string{environmentPrefix + "MCP_REQUESTS_PER_SECOND": "0"}, wantError: "mcp_requests_per_second"},
+		{name: "invalid browser burst", environment: map[string]string{environmentPrefix + "WS_MESSAGE_BURST": "1000001"}, wantError: "ws_message_burst"},
 		{name: "invalid artifact quota", environment: map[string]string{environmentPrefix + "ARTIFACT_MAX_BYTES": "0"}, wantError: "artifact_max_bytes"},
 		{name: "unsafe origin", environment: map[string]string{environmentPrefix + "ORIGIN_ALLOWLIST": "https://example.com"}, wantError: "allowed origin"},
 		{name: "ping not below read timeout", environment: map[string]string{environmentPrefix + "WS_READ_TIMEOUT": "10s", environmentPrefix + "WS_PING_INTERVAL": "10s"}, wantError: "shorter"},

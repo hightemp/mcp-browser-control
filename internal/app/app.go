@@ -15,6 +15,7 @@ import (
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/netguard"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/ratelimit"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/security/pairing"
@@ -26,8 +27,10 @@ import (
 )
 
 const (
-	serverName    = "go_mcp_browser_ext_tool"
-	serverVersion = "0.3.0"
+	serverName                    = "go_mcp_browser_ext_tool"
+	serverVersion                 = "0.3.0"
+	maxTrackedMCPRateLimitBuckets = 4_096
+	mcpRateLimitBucketIdleTTL     = 30 * time.Minute
 )
 
 // Run parses args, assembles the application, and blocks until shutdown.
@@ -98,11 +101,25 @@ func run(
 		router.WithLogger(log.New(logger.Writer(), "[Router] ", log.LstdFlags)),
 	)
 	selections := selection.NewStore()
+	mcpRequestLimits, err := ratelimit.NewKeyed(
+		config.MCPRequestsPerSecond,
+		config.MCPRequestBurst,
+		maxTrackedMCPRateLimitBuckets,
+		mcpRateLimitBucketIdleTTL,
+	)
+	if err != nil {
+		return fmt.Errorf("initialize MCP request rate limits: %w", err)
+	}
+	cleanupMCPSession := func(sessionID string) {
+		selections.Delete(sessionID)
+		mcpRequestLimits.Delete(sessionID)
+	}
 
 	hooks := &server.Hooks{}
 	hooks.AddOnUnregisterSession(func(_ context.Context, session server.ClientSession) {
-		selections.Delete(session.SessionID())
+		cleanupMCPSession(session.SessionID())
 	})
+	addMCPRequestRateLimitHook(hooks, mcpRequestLimits)
 	mcpServer := server.NewMCPServer(
 		serverName,
 		serverVersion,
@@ -129,6 +146,10 @@ func run(
 		websockettransport.WithPingInterval(config.WebSocketPingInterval),
 		websockettransport.WithSendQueueSize(config.WebSocketSendQueueSize),
 		websockettransport.WithMaxMessageBytes(config.WebSocketMaxMessageBytes),
+		websockettransport.WithMessageRateLimit(
+			config.WebSocketMessagesPerSecond,
+			config.WebSocketMessageBurst,
+		),
 		websockettransport.WithOriginAllowlist(config.OriginAllowlist),
 	)
 	websocketMux := http.NewServeMux()
@@ -173,7 +194,7 @@ func run(
 		})
 	case "streamable-http", "http":
 		sessionManager, managerErr := mcpsession.NewManager(
-			mcpsession.WithTerminationObserver(selections.Delete),
+			mcpsession.WithTerminationObserver(cleanupMCPSession),
 		)
 		if managerErr != nil {
 			closeServer(websocketHTTP, logger)
@@ -270,6 +291,19 @@ func guardedMCPHandler(config Config, bearerToken string, handler http.Handler) 
 	authenticated := netguard.BearerToken(handler, bearerToken)
 	local := netguard.LocalOnlyWithOrigins(authenticated, config.OriginAllowlist)
 	return http.MaxBytesHandler(local, config.MCPMaxRequestBytes)
+}
+
+func addMCPRequestRateLimitHook(hooks *server.Hooks, limits *ratelimit.KeyedLimiter) {
+	hooks.AddOnRequestInitialization(func(ctx context.Context, _ any, _ any) error {
+		sessionID := "unscoped"
+		if session := server.ClientSessionFromContext(ctx); session != nil {
+			sessionID = session.SessionID()
+		}
+		if !limits.Allow(sessionID) {
+			return ratelimit.ErrExceeded
+		}
+		return nil
+	})
 }
 
 func normalizeServerError(err error) error {

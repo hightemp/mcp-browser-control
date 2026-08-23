@@ -36,6 +36,28 @@ test("shared invalid protocol fixtures fail Ajv validation", async (t) => {
   }
 });
 
+test("shared runtime-invalid fixtures pass schema and fail extension validation", async (t) => {
+  for (const fixture of await fixtureNames("runtime-invalid")) {
+    await t.test(fixture, async () => {
+      const message = await readFixture("runtime-invalid", fixture);
+      assert.equal(validate(message), true, ajv.errorsText(validate.errors));
+      assert.throws(
+        () => validateIncomingMessage(message, message.browserId),
+        (error) => error?.code === "INVALID_MESSAGE",
+      );
+    });
+  }
+});
+
+test("shared malformed fixtures fail JSON parsing", async (t) => {
+  for (const fixture of await fixtureNames("malformed")) {
+    await t.test(fixture, async () => {
+      const payload = await readFile(new URL(`malformed/${fixture}`, fixturesURL), "utf8");
+      assert.throws(() => JSON.parse(payload), SyntaxError);
+    });
+  }
+});
+
 async function fixtureNames(group) {
   const entries = await readdir(new URL(`${group}/`, fixturesURL), {
     withFileTypes: true,

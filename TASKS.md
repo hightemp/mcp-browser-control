@@ -999,7 +999,7 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 
 Покрыть registry, duplicate connection, router, selection, pending requests, timeout, cancellation, disconnect cleanup, error mapping, redaction и config.
 
-Реализовано; суммарное statement coverage `internal/...` в atomic-режиме — 82,3%. Redaction дополнительно проверяется extension protocol tests.
+Реализовано; суммарное statement coverage `internal/...` в atomic-режиме — 82,4%. Redaction дополнительно проверяется extension protocol tests.
 
 ### T-091 — Race и stress tests
 
@@ -1028,9 +1028,15 @@ stress test маршрутизирует 10 000 команд через четы
 
 - Приоритет: P0
 - Зависимости: T-012, T-045
-- Статус: `[~]`
+- Статус: `[x]`
 
 Один набор JSON fixtures проверяется Go и extension тестами. Добавить malformed, wrong version, unknown field, oversized и invalid target cases.
+
+Общий fixture corpus разделён на `valid`, schema-`invalid`,
+`runtime-invalid` и `malformed` и одинаково исполняется Go и JavaScript
+тестами. Он покрывает forward-compatible unknown envelope field, неизвестное
+поле locator, неверную protocol version, malformed JSON, oversized display
+name, отрицательный tab, frame без tab и несовпадение browserId envelope/target.
 
 ### T-093 — Integration tests с fake extensions
 

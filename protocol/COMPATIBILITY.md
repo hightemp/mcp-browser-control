@@ -18,6 +18,14 @@ shape requires a new major schema and a new `protocolVersion`. Every schema
 change must update shared fixtures and pass both Go and JavaScript contract
 tests.
 
+The shared fixture groups have distinct purposes:
+
+- `valid` documents pass the schema and both runtime validators;
+- `invalid` documents are well-formed JSON rejected by the schema;
+- `runtime-invalid` documents pass structural schema validation but violate a
+  runtime invariant such as matching browser identities;
+- `malformed` documents are rejected by JSON parsing before schema validation.
+
 Pairing is part of the authenticated `hello` exchange in v1: the first hello
 contains `pairingCode`, and subsequent hellos contain `credential`. A separate
 `pair` message is intentionally not part of the v1 state machine.

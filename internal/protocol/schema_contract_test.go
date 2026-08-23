@@ -50,6 +50,46 @@ func TestProtocolV1SharedFixtures(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("runtime-invalid", func(t *testing.T) {
+		paths := fixturePaths(t, filepath.Join(fixtureRoot, "runtime-invalid"))
+		for _, path := range paths {
+			path := path
+			t.Run(filepath.Base(path), func(t *testing.T) {
+				document, payload := readJSONDocument(t, path)
+				if err := compiled.Validate(document); err != nil {
+					t.Fatalf("fixture must be structurally valid: %v", err)
+				}
+				var message Message
+				if err := json.Unmarshal(payload, &message); err != nil {
+					t.Fatalf("unmarshal Message: %v", err)
+				}
+				if err := message.Validate(); err == nil {
+					t.Fatal("Message.Validate() error = nil")
+				}
+			})
+		}
+	})
+
+	t.Run("malformed", func(t *testing.T) {
+		paths := fixturePaths(t, filepath.Join(fixtureRoot, "malformed"))
+		for _, path := range paths {
+			path := path
+			t.Run(filepath.Base(path), func(t *testing.T) {
+				payload, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("ReadFile(%s) error = %v", path, err)
+				}
+				if json.Valid(payload) {
+					t.Fatal("malformed fixture is valid JSON")
+				}
+				var document any
+				if err := json.Unmarshal(payload, &document); err == nil {
+					t.Fatal("json.Unmarshal() error = nil")
+				}
+			})
+		}
+	})
 }
 
 func compileProtocolSchema(t *testing.T, path string) *jsonschema.Schema {

@@ -64,7 +64,7 @@
 
 - Приоритет: P0
 - Зависимости: T-001
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Результат:
 
@@ -86,6 +86,8 @@
 - какой warning видит пользователь;
 - какие tools становятся доступны;
 - какие данные необходимо редактировать.
+
+Матрица профилей зафиксирована в разделе 10 PRD: install-time Core, optional Observe (`http://*/*`, `https://*/*`), Debug (`debugger`) и Personal data (`bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`). Для каждого профиля указаны системные предупреждения, связанные tool domains, redaction и зависимость Personal data от Observe для origin-scoped данных. Permission events применяются без reload/reconnect.
 
 ## 6. Этап 1 — структура проекта и контракт
 

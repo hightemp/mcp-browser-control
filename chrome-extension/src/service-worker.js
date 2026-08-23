@@ -16,11 +16,15 @@ import {
   resetStoredIdentity,
 } from "./identity.js";
 import { badgeForStatus, permissionProfilesFor } from "./status.js";
+import { detectCapabilities } from "./capabilities.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   endpoint: "ws://127.0.0.1:8090/ws",
   displayName: "",
   autoConnect: true,
+  featureFlags: Object.freeze({
+    pageAutomation: true,
+  }),
 });
 const RECONNECT_ALARM = "mcp-browser-control-reconnect";
 const KEEPALIVE_INTERVAL_MS = 20_000;
@@ -76,10 +80,15 @@ async function handleRuntimeMessage(message) {
       return { success: true, data: await getStatus() };
     case "SAVE_SETTINGS": {
       const endpoint = validateServerEndpoint(message.settings?.endpoint);
+      const currentSettings = await getSettings();
       const settings = {
         endpoint,
         displayName: String(message.settings?.displayName || "").trim(),
         autoConnect: Boolean(message.settings?.autoConnect),
+        featureFlags: {
+          pageAutomation: message.settings?.featureFlags?.pageAutomation
+            ?? currentSettings.featureFlags.pageAutomation,
+        },
       };
       await chrome.storage.local.set({ settings });
       await disconnect(false);
@@ -149,7 +158,14 @@ async function getIdentity() {
 async function getSettings() {
   await initializeSettings();
   const { settings } = await chrome.storage.local.get("settings");
-  return { ...DEFAULT_SETTINGS, ...settings };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    featureFlags: {
+      ...DEFAULT_SETTINGS.featureFlags,
+      ...(settings?.featureFlags || {}),
+    },
+  };
 }
 
 async function connect() {
@@ -246,7 +262,7 @@ async function sendHello(currentSocket) {
         os: platform.os,
         arch: platform.arch,
       },
-      capabilities: capabilitiesFor(permissions),
+      capabilities: capabilitiesFor(permissions, settings.featureFlags),
       permissions: [...(permissions.permissions || []), ...(permissions.origins || [])],
       incognito: false,
     },
@@ -563,28 +579,28 @@ async function sendCapabilitiesChanged() {
     return;
   }
   const browserId = await getIdentity();
+  const settings = await getSettings();
   const permissions = await chrome.permissions.getAll();
   sendMessage(createMessage(MessageType.CAPABILITIES_CHANGED, {
     browserId,
     connectionId,
     params: {
-      capabilities: capabilitiesFor(permissions),
+      capabilities: capabilitiesFor(permissions, settings.featureFlags),
       permissions: [...(permissions.permissions || []), ...(permissions.origins || [])],
     },
   }));
 }
 
-function capabilitiesFor(permissions) {
-  const capabilities = ["browser.ping", "tabs.list"];
-  if ((permissions.origins || []).length > 0) {
-    capabilities.push(
-      "page.getHTML",
-      "page.getHTMLBySelector",
-      "page.click",
-      "page.fill",
-    );
-  }
-  return capabilities;
+function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFlags) {
+  return detectCapabilities({
+    browserVersion: getBrowserVersion(),
+    apis: {
+      tabs: Boolean(chrome.tabs),
+      scripting: Boolean(chrome.scripting),
+    },
+    permissions,
+    featureFlags,
+  });
 }
 
 function startKeepalive() {
@@ -678,7 +694,7 @@ async function getStatus() {
     browserVersion: getBrowserVersion(),
     settings,
     paired: Boolean(credential),
-    capabilities: capabilitiesFor(permissions),
+    capabilities: capabilitiesFor(permissions, settings.featureFlags),
     permissions,
     permissionProfiles: permissionProfilesFor(permissions),
     lastConnectedAt: connectionDiagnostics.lastConnectedAt || "",

@@ -4,6 +4,7 @@ const elements = {
   displayName: document.querySelector("#display-name"),
   endpoint: document.querySelector("#endpoint"),
   autoConnect: document.querySelector("#auto-connect"),
+  pageAutomation: document.querySelector("#page-automation"),
   retry: document.querySelector("#retry"),
   refresh: document.querySelector("#refresh"),
   browserRuntime: document.querySelector("#browser-runtime"),
@@ -27,6 +28,9 @@ elements.form.addEventListener("submit", (event) => {
         displayName: elements.displayName.value,
         endpoint: elements.endpoint.value,
         autoConnect: elements.autoConnect.checked,
+        featureFlags: {
+          pageAutomation: elements.pageAutomation.checked,
+        },
       },
     }));
   });
@@ -72,6 +76,7 @@ async function renderResponse(response) {
   elements.displayName.value = data.settings?.displayName || "";
   elements.endpoint.value = data.settings?.endpoint || "";
   elements.autoConnect.checked = Boolean(data.settings?.autoConnect);
+  elements.pageAutomation.checked = data.settings?.featureFlags?.pageAutomation !== false;
   elements.browserRuntime.textContent = [data.browserName, data.browserVersion]
     .filter(Boolean)
     .join(" ") || "Chromium";

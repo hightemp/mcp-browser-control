@@ -30,6 +30,8 @@ The popup reports the runtime browser, stable browser and current connection
 IDs, measured heartbeat latency, last successful connection, and granted
 permission profiles. Use **Open settings and diagnostics** for the full
 capability and permission lists or to edit the endpoint and browser name.
+Page inspection and interaction can be disabled independently in settings;
+the extension immediately omits those commands from its advertised capabilities.
 
 Each installed browser profile generates its own stable browser ID. Install the
 extension in another profile or Chromium browser to connect a second browser.

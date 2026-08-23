@@ -513,7 +513,7 @@ Popup покрывает pairing/revoke, connect/disconnect/retry через Con
 
 - Приоритет: P0
 - Зависимости: T-003, T-043
-- Статус: `[~]`
+- Статус: `[x]`
 
 Capabilities формируются из:
 
@@ -524,6 +524,8 @@ Capabilities формируются из:
 - feature flags.
 
 При изменении permissions отправляется `capabilities_changed`.
+
+Чистый capability detector учитывает minimum Chrome version, фактическое наличие `tabs`/`scripting` APIs, API- и host-permissions и локальные feature flags. Тот же deterministic список используется в `hello`, popup/options diagnostics и `capabilities_changed`; permission add/remove listeners обновляют server registry без reconnect.
 
 ### T-045 — Реализовать extension command router
 

@@ -462,13 +462,15 @@ chrome-extension/
 
 - Приоритет: P0
 - Зависимости: T-040
-- Статус: `[~]`
+- Статус: `[x]`
 
 - Сгенерировать UUID при первом запуске.
 - Хранить его в `chrome.storage.local`, не в sync storage.
 - Хранить display name, server endpoint и credential.
 - Предусмотреть reset identity с явным предупреждением.
 - Не использовать tab/window IDs как identity браузера.
+
+Identity вынесена в тестируемый модуль: UUID создаётся один раз и хранится только в `chrome.storage.local` вместе с settings и credential. Popup предоставляет отдельный destructive reset с явным подтверждением и предупреждением о server-side credential; reset сохраняет display name/endpoint, удаляет local credential, создаёт новый UUID и требует повторного pairing.
 
 ### T-042 — Реализовать pairing/status UI
 

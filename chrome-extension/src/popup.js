@@ -4,15 +4,16 @@ const elements = {
   displayName: document.querySelector("#display-name"),
   endpoint: document.querySelector("#endpoint"),
   autoConnect: document.querySelector("#auto-connect"),
-	pairingCode: document.querySelector("#pairing-code"),
-	paired: document.querySelector("#paired"),
+  pairingCode: document.querySelector("#pairing-code"),
+  paired: document.querySelector("#paired"),
   error: document.querySelector("#error"),
   save: document.querySelector("#save"),
   connect: document.querySelector("#connect"),
   disconnect: document.querySelector("#disconnect"),
   grantAccess: document.querySelector("#grant-access"),
-	pair: document.querySelector("#pair"),
-	revokePairing: document.querySelector("#revoke-pairing"),
+  pair: document.querySelector("#pair"),
+  revokePairing: document.querySelector("#revoke-pairing"),
+  resetIdentity: document.querySelector("#reset-identity"),
 };
 
 elements.save.addEventListener("click", () => {
@@ -38,22 +39,34 @@ elements.disconnect.addEventListener("click", () => {
 });
 
 elements.pair.addEventListener("click", () => {
-	void run(async () => {
-		const response = await chrome.runtime.sendMessage({
-			type: "PAIR",
-			pairingCode: elements.pairingCode.value,
-		});
-		renderResponse(response);
-		if (response?.success) {
-			elements.pairingCode.value = "";
-		}
-	});
+  void run(async () => {
+    const response = await chrome.runtime.sendMessage({
+      type: "PAIR",
+      pairingCode: elements.pairingCode.value,
+    });
+    renderResponse(response);
+    if (response?.success) {
+      elements.pairingCode.value = "";
+    }
+  });
 });
 
 elements.revokePairing.addEventListener("click", () => {
-	void run(async () => {
-		renderResponse(await chrome.runtime.sendMessage({ type: "REVOKE_PAIRING" }));
-	});
+  void run(async () => {
+    renderResponse(await chrome.runtime.sendMessage({ type: "REVOKE_PAIRING" }));
+  });
+});
+
+elements.resetIdentity.addEventListener("click", () => {
+  const confirmed = window.confirm(
+    "Reset browser identity? This deletes the local pairing credential and requires pairing again. Revoke the current pairing first if you want to remove its server-side credential.",
+  );
+  if (!confirmed) {
+    return;
+  }
+  void run(async () => {
+    renderResponse(await chrome.runtime.sendMessage({ type: "RESET_IDENTITY", confirm: true }));
+  });
 });
 
 elements.grantAccess.addEventListener("click", () => {
@@ -72,7 +85,7 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === "CONNECTION_STATUS_CHANGED") {
     renderStatus(message.data.status);
     showError(message.data.error || "");
-	void refresh();
+    void refresh();
   }
 });
 
@@ -103,8 +116,8 @@ function renderResponse(response) {
   elements.displayName.value = data.settings?.displayName || "";
   elements.endpoint.value = data.settings?.endpoint || "";
   elements.autoConnect.checked = Boolean(data.settings?.autoConnect);
-	elements.paired.textContent = data.paired ? "Yes" : "No";
-	elements.revokePairing.disabled = !data.paired;
+  elements.paired.textContent = data.paired ? "Yes" : "No";
+  elements.revokePairing.disabled = !data.paired;
 }
 
 function renderStatus(status) {

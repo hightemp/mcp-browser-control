@@ -10,6 +10,11 @@ import {
   validateIncomingMessage,
   validateServerEndpoint,
 } from "./protocol.js";
+import {
+  getStoredIdentity,
+  initializeStoredState,
+  resetStoredIdentity,
+} from "./identity.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   endpoint: "ws://127.0.0.1:8090/ws",
@@ -93,48 +98,49 @@ async function handleRuntimeMessage(message) {
       });
       await disconnect(true);
       return { success: true, data: await getStatus() };
-	case "PAIR": {
-	  pendingPairingCode = normalizePairingCode(message.pairingCode);
-	  authenticationBlocked = false;
-	  await chrome.storage.local.remove("credential");
-	  await chrome.storage.local.set({
-	    settings: { ...(await getSettings()), autoConnect: true },
-	  });
-	  await disconnect(false);
-	  await connect();
-	  return { success: true, data: await getStatus() };
-	}
-	case "REVOKE_PAIRING": {
-	  await requestPairingRevocation();
-	  await chrome.storage.local.remove("credential");
-	  pendingPairingCode = "";
-	  authenticationBlocked = true;
-	  await disconnect(true, "pairing_required");
-	  return { success: true, data: await getStatus() };
-	}
+    case "PAIR": {
+      pendingPairingCode = normalizePairingCode(message.pairingCode);
+      authenticationBlocked = false;
+      await chrome.storage.local.remove("credential");
+      await chrome.storage.local.set({
+        settings: { ...(await getSettings()), autoConnect: true },
+      });
+      await disconnect(false);
+      await connect();
+      return { success: true, data: await getStatus() };
+    }
+    case "REVOKE_PAIRING": {
+      await requestPairingRevocation();
+      await chrome.storage.local.remove("credential");
+      pendingPairingCode = "";
+      authenticationBlocked = true;
+      await disconnect(true, "pairing_required");
+      return { success: true, data: await getStatus() };
+    }
+    case "RESET_IDENTITY": {
+      if (message.confirm !== true) {
+        throw protocolError(
+          ErrorCode.CONFIRMATION_REQUIRED,
+          "Resetting browser identity requires explicit confirmation",
+        );
+      }
+      await disconnect(true, "pairing_required");
+      pendingPairingCode = "";
+      authenticationBlocked = true;
+      await resetStoredIdentity(chrome.storage.local, true);
+      return { success: true, data: await getStatus() };
+    }
     default:
       throw protocolError(ErrorCode.INVALID_COMMAND, "Unknown extension UI command");
   }
 }
 
 async function initializeSettings() {
-  const stored = await chrome.storage.local.get(["browserId", "settings"]);
-  const updates = {};
-  if (!stored.browserId) {
-    updates.browserId = crypto.randomUUID();
-  }
-  if (!stored.settings) {
-    updates.settings = DEFAULT_SETTINGS;
-  }
-  if (Object.keys(updates).length > 0) {
-    await chrome.storage.local.set(updates);
-  }
+  await initializeStoredState(chrome.storage.local, DEFAULT_SETTINGS);
 }
 
 async function getIdentity() {
-  await initializeSettings();
-  const { browserId } = await chrome.storage.local.get("browserId");
-  return browserId;
+  return getStoredIdentity(chrome.storage.local, DEFAULT_SETTINGS);
 }
 
 async function getSettings() {

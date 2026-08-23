@@ -40,6 +40,11 @@ To revoke a credential, connect the browser and click **Revoke pairing**. The
 extension deletes its local credential only after the server confirms the
 revocation.
 
+Use **Reset identity** only when this installation must appear as a new browser.
+The popup asks for explicit confirmation, creates a new UUID in local storage,
+deletes the local credential, and requires pairing again. Revoke the current
+pairing first when possible so its server-side credential is also removed.
+
 ## Security
 
 - The first release accepts loopback WebSocket endpoints only.

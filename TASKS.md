@@ -1098,9 +1098,15 @@ README на английском должен содержать:
 
 - Приоритет: P0
 - Зависимости: T-040–T-047
-- Статус: `[~]`
+- Статус: `[x]`
 
 На английском: unpacked installation для Chrome/Edge, permissions, pairing, update, revoke, diagnostics и uninstall.
+
+`chrome-extension/INSTALL.md` описывает production build и source-development
+варианты, отдельные Chrome/Edge flows, точную матрицу Core/Observe/Debug/Personal
+data permissions, pairing одного и нескольких профилей, update/reload,
+revocation и identity reset, поля diagnostics, безопасный uninstall и подробные
+ошибки подключения, capability, permission и content bridge.
 
 ### T-102 — Сгенерировать Tool Reference
 

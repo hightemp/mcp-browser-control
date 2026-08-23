@@ -8,7 +8,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
   assert.deepEqual(
     detectCapabilities({
       browserVersion: "116.0.0.0",
-      apis: { tabs: true, scripting: true },
+      apis: { tabs: true, scripting: true, windows: true },
       permissions: { permissions: ["tabs", "scripting"], origins: ["https://example.com/*"] },
       featureFlags: { pageAutomation: true },
     }),

@@ -12,6 +12,17 @@ export function detectCapabilities({
     return capabilities;
   }
 
+  if (apis.windows) {
+    capabilities.push(
+      "windows.list",
+      "windows.get",
+      "windows.create",
+      "windows.update",
+      "windows.focus",
+      "windows.close",
+    );
+  }
+
   const grantedPermissions = new Set(permissions.permissions || []);
   if (apis.tabs && grantedPermissions.has("tabs")) {
     capabilities.push("tabs.list");

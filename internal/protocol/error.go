@@ -16,6 +16,7 @@ const (
 	CodeAmbiguousBrowser           ErrorCode = "AMBIGUOUS_BROWSER"
 	CodeBrowserNotFound            ErrorCode = "BROWSER_NOT_FOUND"
 	CodeBrowserDisconnected        ErrorCode = "BROWSER_DISCONNECTED"
+	CodeWindowNotFound             ErrorCode = "WINDOW_NOT_FOUND"
 	CodeTabNotFound                ErrorCode = "TAB_NOT_FOUND"
 	CodeFrameNotFound              ErrorCode = "FRAME_NOT_FOUND"
 	CodeStaleTarget                ErrorCode = "STALE_TARGET"

@@ -4,6 +4,24 @@ const (
 	// CommandBrowserPing checks extension responsiveness.
 	CommandBrowserPing = "browser.ping"
 
+	// CommandWindowsList returns browser windows.
+	CommandWindowsList = "windows.list"
+
+	// CommandWindowsGet returns one browser window.
+	CommandWindowsGet = "windows.get"
+
+	// CommandWindowsCreate creates a browser window.
+	CommandWindowsCreate = "windows.create"
+
+	// CommandWindowsUpdate changes window bounds or state.
+	CommandWindowsUpdate = "windows.update"
+
+	// CommandWindowsFocus focuses a browser window.
+	CommandWindowsFocus = "windows.focus"
+
+	// CommandWindowsClose closes a browser window.
+	CommandWindowsClose = "windows.close"
+
 	// CommandTabsList returns tabs in the selected browser.
 	CommandTabsList = "tabs.list"
 

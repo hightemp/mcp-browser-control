@@ -198,6 +198,7 @@ func (s *Service) registerDiscoveryTools(mcpServer *server.MCPServer) {
 }
 
 func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
+	s.registerWindowTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -648,7 +649,19 @@ func (s *Service) resolveTarget(
 }
 
 func commandUsesTab(command string) bool {
-	return command != protocol.CommandBrowserPing && command != protocol.CommandTabsList
+	switch command {
+	case protocol.CommandBrowserPing,
+		protocol.CommandWindowsList,
+		protocol.CommandWindowsGet,
+		protocol.CommandWindowsCreate,
+		protocol.CommandWindowsUpdate,
+		protocol.CommandWindowsFocus,
+		protocol.CommandWindowsClose,
+		protocol.CommandTabsList:
+		return false
+	default:
+		return true
+	}
 }
 
 func (s *Service) resolveBrowser(ctx context.Context, explicitBrowserID string) (string, error) {

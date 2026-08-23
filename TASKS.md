@@ -582,9 +582,11 @@ Service worker обращается к frame/document через отдельн�
 
 - Приоритет: P0
 - Зависимости: T-031, T-045
-- Статус: `[ ]`
+- Статус: `[x]`
 
 List, get, create, update, focus и close. Покрыть normal, popup, minimized, maximized и fullscreen, если API позволяет.
+
+Добавлены шесть MCP tools и protocol commands для полного window lifecycle. Extension handler работает с normal/popup окнами, поддерживает focused/incognito, bounds, drawAttention и состояния normal/minimized/maximized/fullscreen; несовместимые state+bounds отклоняются до Chrome API. Window target не смешивается с выбранным tab, capability зависит от наличия `chrome.windows`, а закрытые окна возвращают отдельный `WINDOW_NOT_FOUND`.
 
 ### T-051 — Реализовать tab tools
 

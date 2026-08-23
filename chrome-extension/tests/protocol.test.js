@@ -84,6 +84,7 @@ test("normalizeError adds request diagnostics without exposing stacks", () => {
 
 test("mapChromeError returns safe stable product errors", () => {
   const cases = [
+    ["No window with id: 4", ErrorCode.WINDOW_NOT_FOUND, true],
     ["No tab with id: 42", ErrorCode.TAB_NOT_FOUND, true],
     ["Cannot access a chrome:// URL", ErrorCode.RESTRICTED_URL, false],
     ["Missing host permission for the tab", ErrorCode.PERMISSION_REQUIRED, false],

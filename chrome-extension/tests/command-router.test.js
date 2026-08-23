@@ -15,6 +15,14 @@ test("router dispatches every allowlisted command to its domain handler", async 
   const router = createRouter({
     handlers: {
       browser: { ping: handler },
+      windows: {
+        list: handler,
+        get: handler,
+        create: handler,
+        update: handler,
+        focus: handler,
+        close: handler,
+      },
       tabs: { list: handler },
       page: {
         getHTML: handler,
@@ -26,6 +34,18 @@ test("router dispatches every allowlisted command to its domain handler", async 
   });
   const paramsByCommand = {
     "browser.ping": {},
+    "windows.list": {},
+    "windows.get": {},
+    "windows.create": {
+      urls: ["https://example.com"],
+      type: "popup",
+      state: "normal",
+      width: 900,
+      height: 700,
+    },
+    "windows.update": { state: "normal", left: -100, width: 1_000 },
+    "windows.focus": {},
+    "windows.close": {},
     "tabs.list": {},
     "page.getHTML": {},
     "page.getHTMLBySelector": { selector: "main" },
@@ -35,8 +55,12 @@ test("router dispatches every allowlisted command to its domain handler", async 
 
   for (const [index, command] of COMMAND_NAMES.entries()) {
     const outcomes = [];
+    const request = createRequest(command, paramsByCommand[command], `request-${index}`);
+    if (["windows.get", "windows.update", "windows.focus", "windows.close"].includes(command)) {
+      request.target = { browserId, windowId: 3 };
+    }
     const accepted = await router.execute(
-      createRequest(command, paramsByCommand[command], `request-${index}`),
+      request,
       (outcome) => outcomes.push(outcome),
     );
     assert.equal(accepted, true);
@@ -63,6 +87,14 @@ test("router validates target and command params before invoking handlers", asyn
   const router = createRouter({
     handlers: {
       browser: { ping: () => { calls += 1; } },
+      windows: {
+        list: () => { calls += 1; },
+        get: () => { calls += 1; },
+        create: () => { calls += 1; },
+        update: () => { calls += 1; },
+        focus: () => { calls += 1; },
+        close: () => { calls += 1; },
+      },
       tabs: { list: () => { calls += 1; } },
       page: {
         getHTML: () => { calls += 1; },
@@ -79,6 +111,16 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.click", { coordinates: { x: -1, y: 2 } }),
     createRequest("page.fill", { selector: "input" }),
     createRequest("page.fill", { selector: "input", value: "x", clear: "yes" }),
+    createRequest("windows.get", {}),
+    createRequest("windows.create", { urls: [] }),
+    {
+      ...createRequest("windows.update", { state: "fullscreen", width: 800 }),
+      target: { browserId, windowId: 3 },
+    },
+    {
+      ...createRequest("windows.update", {}),
+      target: { browserId, windowId: 3 },
+    },
     {
       ...createRequest("page.getHTML", {}),
       target: { browserId: "22222222-2222-4222-8222-222222222222", tabId: 1 },
@@ -101,6 +143,7 @@ test("router emits one cancellation response and suppresses duplicate request ID
       browser: {
         ping: () => new Promise((resolve) => { resolveHandler = resolve; }),
       },
+      windows: {},
       tabs: {},
       page: {},
     },
@@ -153,6 +196,14 @@ function createRouter({ handlers = defaultHandlers(), capabilities = COMMAND_NAM
 function defaultHandlers() {
   return {
     browser: { ping: () => ({ pong: true }) },
+    windows: {
+      list: () => ({ windows: [] }),
+      get: () => ({ window: {} }),
+      create: () => ({ window: {} }),
+      update: () => ({ window: {} }),
+      focus: () => ({ window: {} }),
+      close: () => ({ closed: true }),
+    },
     tabs: { list: () => ({ tabs: [] }) },
     page: {
       getHTML: () => ({ html: "" }),

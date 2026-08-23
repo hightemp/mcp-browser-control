@@ -22,6 +22,7 @@ export const ErrorCode = Object.freeze({
   AMBIGUOUS_BROWSER: "AMBIGUOUS_BROWSER",
   BROWSER_NOT_FOUND: "BROWSER_NOT_FOUND",
   BROWSER_DISCONNECTED: "BROWSER_DISCONNECTED",
+  WINDOW_NOT_FOUND: "WINDOW_NOT_FOUND",
   TAB_NOT_FOUND: "TAB_NOT_FOUND",
   FRAME_NOT_FOUND: "FRAME_NOT_FOUND",
   STALE_TARGET: "STALE_TARGET",
@@ -105,6 +106,13 @@ export function normalizeError(error, context = {}) {
 
 export function mapChromeError(error) {
   const message = String(error?.message || error || "").toLowerCase();
+  if (message.includes("no window with id") || message.includes("invalid window id")) {
+    return protocolError(
+      ErrorCode.WINDOW_NOT_FOUND,
+      "The target window is no longer available",
+      true,
+    );
+  }
   if (message.includes("no frame with id") || message.includes("frame was removed")) {
     return protocolError(ErrorCode.FRAME_NOT_FOUND, "The target frame is no longer available", true);
   }

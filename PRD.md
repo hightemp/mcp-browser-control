@@ -511,6 +511,7 @@ Core устанавливается с минимальным набором о�
 - `AMBIGUOUS_BROWSER`
 - `BROWSER_NOT_FOUND`
 - `BROWSER_DISCONNECTED`
+- `WINDOW_NOT_FOUND`
 - `TAB_NOT_FOUND`
 - `FRAME_NOT_FOUND`
 - `STALE_TARGET`

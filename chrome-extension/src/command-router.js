@@ -8,6 +8,32 @@ import {
 
 const COMMANDS = Object.freeze({
   "browser.ping": Object.freeze({ domain: "browser", handler: "ping", validate: validateEmpty }),
+  "windows.list": Object.freeze({ domain: "windows", handler: "list", validate: validateEmpty }),
+  "windows.get": Object.freeze({
+    domain: "windows",
+    handler: "get",
+    validate: validateWindowTarget,
+  }),
+  "windows.create": Object.freeze({
+    domain: "windows",
+    handler: "create",
+    validate: validateWindowCreate,
+  }),
+  "windows.update": Object.freeze({
+    domain: "windows",
+    handler: "update",
+    validate: validateWindowUpdate,
+  }),
+  "windows.focus": Object.freeze({
+    domain: "windows",
+    handler: "focus",
+    validate: validateWindowTarget,
+  }),
+  "windows.close": Object.freeze({
+    domain: "windows",
+    handler: "close",
+    validate: validateWindowTarget,
+  }),
   "tabs.list": Object.freeze({ domain: "tabs", handler: "list", validate: validateEmpty }),
   "page.getHTML": Object.freeze({ domain: "page", handler: "getHTML", validate: validateEmpty }),
   "page.getHTMLBySelector": Object.freeze({
@@ -113,6 +139,67 @@ function validateSelector(params) {
   assertNonEmptyString(params.selector, "params.selector");
 }
 
+function validateWindowTarget(params, target) {
+  validateEmpty(params);
+  requireWindowTarget(target);
+}
+
+function validateWindowCreate(params) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "urls",
+    "type",
+    "state",
+    "focused",
+    "incognito",
+    "left",
+    "top",
+    "width",
+    "height",
+  ]);
+  if (params.urls !== undefined) {
+    if (
+      !Array.isArray(params.urls)
+      || params.urls.length === 0
+      || params.urls.length > 50
+      || params.urls.some((url) => typeof url !== "string" || url.trim() === "")
+    ) {
+      throw protocolError(
+        ErrorCode.INVALID_MESSAGE,
+        "params.urls must contain between 1 and 50 non-empty URLs",
+      );
+    }
+  }
+  validateEnum(params.type, "params.type", ["normal", "popup"]);
+  validateWindowState(params.state);
+  validateOptionalBoolean(params.focused, "params.focused");
+  validateOptionalBoolean(params.incognito, "params.incognito");
+  validateWindowBounds(params);
+  assertStateAndBoundsCompatible(params);
+}
+
+function validateWindowUpdate(params, target) {
+  validateParamsObject(params);
+  assertAllowedProperties(params, [
+    "state",
+    "focused",
+    "drawAttention",
+    "left",
+    "top",
+    "width",
+    "height",
+  ]);
+  if (Object.keys(params).length === 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "At least one window update is required");
+  }
+  requireWindowTarget(target);
+  validateWindowState(params.state);
+  validateOptionalBoolean(params.focused, "params.focused");
+  validateOptionalBoolean(params.drawAttention, "params.drawAttention");
+  validateWindowBounds(params);
+  assertStateAndBoundsCompatible(params);
+}
+
 function validateAction(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, ["selector", "coordinates", "locator", "index"]);
@@ -182,6 +269,65 @@ function assertNonEmptyString(value, path) {
 function validateIndex(index) {
   if (index !== undefined && (!Number.isInteger(index) || index < 0)) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.index must be a non-negative integer");
+  }
+}
+
+function requireWindowTarget(target) {
+  if (!Number.isInteger(target?.windowId) || target.windowId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.windowId is required");
+  }
+  if (target.tabId !== undefined || target.frameId !== undefined || target.documentId !== undefined) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Window commands require a window-only target");
+  }
+}
+
+function validateWindowState(state) {
+  validateEnum(
+    state,
+    "params.state",
+    ["normal", "minimized", "maximized", "fullscreen"],
+  );
+}
+
+function validateEnum(value, path, allowed) {
+  if (value !== undefined && !allowed.includes(value)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `${path} must be one of ${allowed.join(", ")}`,
+    );
+  }
+}
+
+function validateOptionalBoolean(value, path) {
+  if (value !== undefined && typeof value !== "boolean") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be a boolean`);
+  }
+}
+
+function validateWindowBounds(params) {
+  for (const property of ["left", "top"]) {
+    if (params[property] !== undefined && !Number.isInteger(params[property])) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${property} must be an integer`);
+    }
+  }
+  for (const property of ["width", "height"]) {
+    if (
+      params[property] !== undefined
+      && (!Number.isInteger(params[property]) || params[property] < 1)
+    ) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${property} must be a positive integer`);
+    }
+  }
+}
+
+function assertStateAndBoundsCompatible(params) {
+  const hasBounds = ["left", "top", "width", "height"]
+    .some((property) => params[property] !== undefined);
+  if (hasBounds && params.state !== undefined && params.state !== "normal") {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Window bounds can only be combined with the normal state",
+    );
   }
 }
 

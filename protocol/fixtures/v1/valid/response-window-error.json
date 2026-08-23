@@ -1,0 +1,17 @@
+{
+  "protocolVersion": "1.0",
+  "type": "response",
+  "requestId": "01900000-0000-7000-8000-000000000020",
+  "browserId": "11111111-1111-4111-8111-111111111111",
+  "target": {
+    "browserId": "11111111-1111-4111-8111-111111111111",
+    "windowId": 42
+  },
+  "success": false,
+  "error": {
+    "code": "WINDOW_NOT_FOUND",
+    "message": "The target window is no longer available",
+    "retryable": true
+  },
+  "timestamp": "2026-01-01T00:00:00Z"
+}

@@ -19,6 +19,7 @@ import { CommandRouter } from "./command-router.js";
 import { createBrowserHandlers } from "./handlers/browser.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
+import { createWindowHandlers } from "./handlers/windows.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   endpoint: "ws://127.0.0.1:8090/ws",
@@ -50,6 +51,7 @@ const commandRouter = new CommandRouter({
     browser: createBrowserHandlers(),
     page: createPageHandlers(chrome),
     tabs: createTabHandlers(chrome),
+    windows: createWindowHandlers(chrome),
   },
 });
 
@@ -449,6 +451,7 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
     apis: {
       tabs: Boolean(chrome.tabs),
       scripting: Boolean(chrome.scripting),
+      windows: Boolean(chrome.windows),
     },
     permissions,
     featureFlags,

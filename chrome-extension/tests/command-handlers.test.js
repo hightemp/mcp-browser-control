@@ -4,6 +4,7 @@ import test from "node:test";
 import { createBrowserHandlers } from "../src/handlers/browser.js";
 import { createPageHandlers } from "../src/handlers/page.js";
 import { createTabHandlers } from "../src/handlers/tabs.js";
+import { createWindowHandlers } from "../src/handlers/windows.js";
 import { ErrorCode } from "../src/protocol.js";
 
 test("browser and tab handlers return stable domain results", async () => {
@@ -31,6 +32,51 @@ test("browser and tab handlers return stable domain results", async () => {
   assert.equal(result.totalCount, 1);
   assert.equal(result.tabs[0].id, 7);
   assert.equal(result.tabs[0].muted, true);
+});
+
+test("window handlers support list, get, create, update, focus, and close", async () => {
+  const calls = [];
+  const window = {
+    id: 4,
+    focused: true,
+    top: 10,
+    left: 20,
+    width: 900,
+    height: 700,
+    incognito: false,
+    type: "normal",
+    state: "maximized",
+    alwaysOnTop: false,
+  };
+  const handlers = createWindowHandlers({
+    windows: {
+      getAll: async (options) => { calls.push(["list", options]); return [window]; },
+      get: async (id, options) => { calls.push(["get", id, options]); return window; },
+      create: async (params) => { calls.push(["create", params]); return window; },
+      update: async (id, params) => { calls.push(["update", id, params]); return window; },
+      remove: async (id) => { calls.push(["close", id]); },
+    },
+  });
+
+  assert.equal((await handlers.list()).totalCount, 1);
+  assert.equal((await handlers.get({ target: { windowId: 4 } })).window.id, 4);
+  await handlers.create({
+    params: { urls: ["https://example.com"], type: "popup", focused: false },
+  });
+  await handlers.update({ target: { windowId: 4 }, params: { state: "minimized" } });
+  await handlers.focus({ target: { windowId: 4 } });
+  assert.deepEqual(await handlers.close({ target: { windowId: 4 } }), {
+    windowId: 4,
+    closed: true,
+  });
+  assert.deepEqual(calls, [
+    ["list", { populate: false, windowTypes: ["normal", "popup"] }],
+    ["get", 4, { populate: false }],
+    ["create", { url: ["https://example.com"], type: "popup", focused: false }],
+    ["update", 4, { state: "minimized" }],
+    ["update", 4, { focused: true }],
+    ["close", 4],
+  ]);
 });
 
 test("page handlers preserve addressing and structured content errors", async () => {

@@ -180,6 +180,12 @@ server returns `AMBIGUOUS_BROWSER` rather than broadcasting the command.
 
 ### Implemented extension commands
 
+- `browser_get_windows`
+- `browser_get_window`
+- `browser_create_window`
+- `browser_update_window`
+- `browser_focus_window`
+- `browser_close_window`
 - `browser_get_tabs`
 - `browser_get_html`
 - `browser_get_html_by_selector`

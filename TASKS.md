@@ -291,7 +291,7 @@ Router получает ровно один route из Registry, различа�
 
 - Приоритет: P0
 - Зависимости: T-023
-- Статус: `[~]`
+- Статус: `[x]`
 
 Требования:
 
@@ -302,6 +302,8 @@ Router получает ровно один route из Registry, различа�
 - duplicate/late/wrong-browser responses игнорируются;
 - 100+ параллельных запросов без races;
 - никакого удержания registry lock во время сетевого I/O.
+
+Pending lifecycle закрыт для response, timeout, client cancel, disconnect и idempotent shutdown. Ошибки получают request/target diagnostics, cancel отправляется расширению, closed router отклоняет новые запросы; race-тест покрывает 128 параллельных requests и duplicate responses.
 
 ### T-025 — Реализовать selection state для MCP-сессий
 

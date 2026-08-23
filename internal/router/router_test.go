@@ -28,7 +28,7 @@ type fakeConnection struct {
 func newFakeConnection(id string) *fakeConnection {
 	return &fakeConnection{
 		id:       id,
-		messages: make(chan protocol.Message, 16),
+		messages: make(chan protocol.Message, 256),
 	}
 }
 
@@ -208,8 +208,10 @@ func TestRouterCancellationRemovesPendingRequest(t *testing.T) {
 
 	request := receiveMessage(t, connection.messages)
 	cancel()
-	if err := <-result; err != context.Canceled {
-		t.Fatalf("Send() error = %v, want context.Canceled", err)
+	cancelErr := <-result
+	assertProtocolErrorCode(t, cancelErr, protocol.CodeCancelled)
+	if protocol.ErrorFrom(cancelErr).RequestID != request.RequestID {
+		t.Fatalf("cancel error = %#v, want requestId %q", cancelErr, request.RequestID)
 	}
 	cancelMessage := receiveMessage(t, connection.messages)
 	if cancelMessage.Type != protocol.TypeCancel || cancelMessage.RequestID != request.RequestID {
@@ -217,6 +219,93 @@ func TestRouterCancellationRemovesPendingRequest(t *testing.T) {
 	}
 	if got := requestRouter.PendingCount(); got != 0 {
 		t.Errorf("PendingCount() = %d, want 0", got)
+	}
+	lateResponse, err := protocol.NewResponse(request.RequestID, "browser-a", map[string]bool{"ok": true}, nil)
+	if err != nil {
+		t.Fatalf("NewResponse() error = %v", err)
+	}
+	if requestRouter.HandleResponse("browser-a", connection.ID(), lateResponse) {
+		t.Fatal("late response was accepted")
+	}
+}
+
+func TestRouterTimeoutReturnsStructuredErrorAndCancel(t *testing.T) {
+	t.Parallel()
+
+	browserRegistry := registry.New()
+	connection := newFakeConnection("connection-a")
+	registerTestBrowser(t, browserRegistry, "browser-a", connection)
+	requestRouter := New(
+		browserRegistry,
+		WithDefaultTimeout(25*time.Millisecond),
+		WithIDGenerator(func() string { return "request-timeout" }),
+		WithLogger(log.New(io.Discard, "", 0)),
+	)
+	result := make(chan error, 1)
+	go func() {
+		_, err := requestRouter.Send(context.Background(), "browser-a", "tabs.list", nil, nil)
+		result <- err
+	}()
+	request := receiveMessage(t, connection.messages)
+	timeoutErr := <-result
+	assertProtocolErrorCode(t, timeoutErr, protocol.CodeTimeout)
+	if protocol.ErrorFrom(timeoutErr).RequestID != request.RequestID {
+		t.Fatalf("timeout error = %#v", timeoutErr)
+	}
+	cancel := receiveMessage(t, connection.messages)
+	if cancel.Type != protocol.TypeCancel || cancel.RequestID != request.RequestID {
+		t.Fatalf("cancel message = %#v", cancel)
+	}
+}
+
+func TestRouterHandlesManyConcurrentPendingRequests(t *testing.T) {
+	t.Parallel()
+
+	const requestCount = 128
+	browserRegistry := registry.New()
+	connection := newFakeConnection("connection-a")
+	registerTestBrowser(t, browserRegistry, "browser-a", connection)
+	var counter atomic.Int64
+	requestRouter := New(
+		browserRegistry,
+		WithDefaultTimeout(2*time.Second),
+		WithIDGenerator(func() string { return fmt.Sprintf("request-%d", counter.Add(1)) }),
+		WithLogger(log.New(io.Discard, "", 0)),
+	)
+	results := make(chan error, requestCount)
+	for range requestCount {
+		go func() {
+			_, err := requestRouter.Send(context.Background(), "browser-a", "tabs.list", nil, nil)
+			results <- err
+		}()
+	}
+
+	requests := make([]protocol.Message, 0, requestCount)
+	for range requestCount {
+		requests = append(requests, receiveMessage(t, connection.messages))
+	}
+	if got := requestRouter.PendingCount(); got != requestCount {
+		t.Fatalf("PendingCount() = %d, want %d", got, requestCount)
+	}
+	for _, request := range requests {
+		response, err := protocol.NewResponse(request.RequestID, "browser-a", map[string]bool{"ok": true}, nil)
+		if err != nil {
+			t.Fatalf("NewResponse() error = %v", err)
+		}
+		if !requestRouter.HandleResponse("browser-a", connection.ID(), response) {
+			t.Fatalf("HandleResponse(%s) = false", request.RequestID)
+		}
+		if requestRouter.HandleResponse("browser-a", connection.ID(), response) {
+			t.Fatalf("duplicate response %s was accepted", request.RequestID)
+		}
+	}
+	for range requestCount {
+		if err := <-results; err != nil {
+			t.Fatalf("Send() error = %v", err)
+		}
+	}
+	if got := requestRouter.PendingCount(); got != 0 {
+		t.Fatalf("PendingCount() = %d, want 0", got)
 	}
 }
 
@@ -242,7 +331,7 @@ func TestRouterRejectsInvalidAndDisconnectedTargets(t *testing.T) {
 	}
 
 	broken := newFakeConnection("connection-broken")
-	broken.sendErr = context.Canceled
+	broken.sendErr = errors.New("write failed")
 	registerTestBrowser(t, browserRegistry, "browser-broken", broken)
 	_, err := requestRouter.Send(context.Background(), "browser-broken", "tabs.list", nil, nil)
 	assertProtocolErrorCode(t, err, protocol.CodeBrowserDisconnected)
@@ -350,12 +439,17 @@ func TestRouterCloseFailsPendingRequest(t *testing.T) {
 	if closed := requestRouter.Close(); closed != 1 {
 		t.Fatalf("Close() = %d, want 1", closed)
 	}
+	if closed := requestRouter.Close(); closed != 0 {
+		t.Fatalf("second Close() = %d, want 0", closed)
+	}
 	select {
 	case err := <-result:
 		assertProtocolErrorCode(t, err, protocol.CodeCancelled)
 	case <-time.After(time.Second):
 		t.Fatal("Send() did not return after Close()")
 	}
+	_, err := requestRouter.Send(context.Background(), "browser-a", "tabs.list", nil, nil)
+	assertProtocolErrorCode(t, err, protocol.CodeCancelled)
 }
 
 func TestRouterEnrichesBrowserErrorsWithRequestContext(t *testing.T) {
@@ -391,7 +485,6 @@ func TestRouterEnrichesBrowserErrorsWithRequestContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewResponse() error = %v", err)
 	}
-	response.Target = request.Target
 	if !requestRouter.HandleResponse("browser-a", connection.ID(), response) {
 		t.Fatal("HandleResponse() = false")
 	}

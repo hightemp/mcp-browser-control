@@ -309,7 +309,7 @@ Pending lifecycle закрыт для response, timeout, client cancel, disconne
 
 - Приоритет: P0
 - Зависимости: T-020
-- Статус: `[~]`
+- Статус: `[x]`
 
 Хранить отдельно:
 
@@ -318,6 +318,8 @@ Pending lifecycle закрыт для response, timeout, client cancel, disconne
 - timestamps последнего использования.
 
 Правила должны соответствовать FR-2. Добавить очистку состояния завершённых MCP-сессий и тесты двух одновременных клиентов.
+
+Store изолирует browser и per-browser tab selection по MCP session, сохраняет updated/last-used timestamps, клонирует snapshots и удаляется session hook. Добавлен `browser_select_tab`; tab-scoped tools используют сохранённый tab только своего browser, а explicit tab имеет приоритет без изменения selection.
 
 ### T-026 — Реализовать graceful shutdown
 

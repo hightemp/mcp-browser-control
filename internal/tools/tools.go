@@ -57,6 +57,11 @@ type browserSelectArgs struct {
 	BrowserID string `json:"browserId"`
 }
 
+type browserSelectTabArgs struct {
+	BrowserID string `json:"browserId,omitempty"`
+	TabID     int    `json:"tabId"`
+}
+
 type browserRenameArgs struct {
 	BrowserID   string `json:"browserId"`
 	DisplayName string `json:"displayName"`
@@ -149,6 +154,15 @@ func (s *Service) registerDiscoveryTools(mcpServer *server.MCPServer) {
 			mcp.WithDescription("Get the browser selected for the current MCP session"),
 		),
 		mcp.NewTypedToolHandler(s.browserGetSelectedHandler),
+	)
+	mcpServer.AddTool(
+		mcp.NewTool(
+			"browser_select_tab",
+			mcp.WithDescription("Select the default tab for one browser in the current MCP session"),
+			optionalBrowserID(),
+			mcp.WithNumber("tabId", mcp.Required(), mcp.Description("Browser tab ID")),
+		),
+		mcp.NewTypedToolHandler(s.browserSelectTabHandler),
 	)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -346,7 +360,13 @@ func (s *Service) browserGetSelectedHandler(
 	_ emptyArgs,
 ) (*mcp.CallToolResult, error) {
 	selected, ok := s.selections.Get(sessionID(ctx))
-	if !ok {
+	if !ok || selected.BrowserID == "" {
+		if ok {
+			return successResult("", map[string]any{
+				"selected":  false,
+				"selection": selected,
+			})
+		}
 		return successResult("", map[string]any{"selected": false})
 	}
 	browser, known := s.registry.Get(selected.BrowserID)
@@ -356,6 +376,25 @@ func (s *Service) browserGetSelectedHandler(
 		"connected": connected,
 		"selection": selected,
 		"browser":   browser,
+	})
+}
+
+func (s *Service) browserSelectTabHandler(
+	ctx context.Context,
+	_ mcp.CallToolRequest,
+	args browserSelectTabArgs,
+) (*mcp.CallToolResult, error) {
+	browserID, err := s.resolveBrowser(ctx, args.BrowserID)
+	if err != nil {
+		return errorResult(err)
+	}
+	if err := s.selections.SetTab(sessionID(ctx), browserID, args.TabID); err != nil {
+		return errorResult(err)
+	}
+	selection, _ := s.selections.GetTab(sessionID(ctx), browserID)
+	return successResult(browserID, map[string]any{
+		"selected": true,
+		"tab":      selection,
 	})
 }
 
@@ -553,6 +592,12 @@ func (s *Service) send(
 	if err != nil {
 		return errorResult(err)
 	}
+	if commandUsesTab(command) {
+		target, err = s.resolveTarget(ctx, browserID, target)
+		if err != nil {
+			return errorResult(err)
+		}
+	}
 	requestCtx, cancel, err := toolContext(ctx, timeoutMS)
 	if err != nil {
 		return errorResult(err)
@@ -567,6 +612,37 @@ func (s *Service) send(
 		result = json.RawMessage("null")
 	}
 	return successResult(browserID, result)
+}
+
+func (s *Service) resolveTarget(
+	ctx context.Context,
+	browserID string,
+	target *protocol.Target,
+) (*protocol.Target, error) {
+	resolved, err := protocol.ResolveTarget(browserID, target)
+	if err != nil {
+		return nil, err
+	}
+	var explicitTabID *int
+	if resolved != nil {
+		explicitTabID = resolved.TabID
+	}
+	tabID, err := s.selections.ResolveTab(sessionID(ctx), browserID, explicitTabID)
+	if err != nil {
+		return nil, err
+	}
+	if tabID == nil {
+		return resolved, nil
+	}
+	if resolved == nil {
+		return &protocol.Target{BrowserID: browserID, TabID: tabID}, nil
+	}
+	resolved.TabID = tabID
+	return resolved, nil
+}
+
+func commandUsesTab(command string) bool {
+	return command != protocol.CommandBrowserPing && command != protocol.CommandTabsList
 }
 
 func (s *Service) resolveBrowser(ctx context.Context, explicitBrowserID string) (string, error) {

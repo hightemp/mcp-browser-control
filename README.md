@@ -163,6 +163,7 @@ server returns `AMBIGUOUS_BROWSER` rather than broadcasting the command.
 - `browser_get`
 - `browser_select`
 - `browser_get_selected`
+- `browser_select_tab`
 - `browser_rename`
 - `browser_get_capabilities`
 - `browser_ping`

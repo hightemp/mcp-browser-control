@@ -134,6 +134,69 @@ func TestServiceRoutesThroughSelectedBrowser(t *testing.T) {
 	}
 }
 
+func TestServiceUsesBrowserScopedSelectedTab(t *testing.T) {
+	t.Parallel()
+
+	service, connectionA, _ := newTestService(t)
+	selected, err := service.browserSelectTabHandler(
+		context.Background(),
+		mcp.CallToolRequest{},
+		browserSelectTabArgs{BrowserID: "browser-a", TabID: 17},
+	)
+	if err != nil || selected.IsError {
+		t.Fatalf("browserSelectTabHandler() = (%v, %v)", selected, err)
+	}
+
+	result := make(chan *mcp.CallToolResult, 1)
+	go func() {
+		callResult, _ := service.browserGetHTMLHandler(
+			context.Background(),
+			mcp.CallToolRequest{},
+			targetedArgs{BrowserID: "browser-a"},
+		)
+		result <- callResult
+	}()
+	request := receiveToolMessage(t, connectionA.messages)
+	if request.Target == nil || request.Target.TabID == nil || *request.Target.TabID != 17 {
+		t.Fatalf("selected target = %#v, want tab 17", request.Target)
+	}
+	response, err := protocol.NewResponse(request.RequestID, "browser-a", map[string]bool{"ok": true}, nil)
+	if err != nil {
+		t.Fatalf("NewResponse() error = %v", err)
+	}
+	if !service.router.HandleResponse("browser-a", connectionA.ID(), response) {
+		t.Fatal("HandleResponse() = false")
+	}
+	if callResult := <-result; callResult == nil || callResult.IsError {
+		t.Fatalf("browserGetHTMLHandler() result = %#v", callResult)
+	}
+
+	explicitTabID := 23
+	result = make(chan *mcp.CallToolResult, 1)
+	go func() {
+		callResult, _ := service.browserGetHTMLHandler(
+			context.Background(),
+			mcp.CallToolRequest{},
+			targetedArgs{BrowserID: "browser-a", TabID: &explicitTabID},
+		)
+		result <- callResult
+	}()
+	request = receiveToolMessage(t, connectionA.messages)
+	if request.Target == nil || request.Target.TabID == nil || *request.Target.TabID != explicitTabID {
+		t.Fatalf("explicit target = %#v, want tab %d", request.Target, explicitTabID)
+	}
+	response, err = protocol.NewResponse(request.RequestID, "browser-a", map[string]bool{"ok": true}, nil)
+	if err != nil {
+		t.Fatalf("NewResponse() error = %v", err)
+	}
+	service.router.HandleResponse("browser-a", connectionA.ID(), response)
+	<-result
+	stored, ok := service.selections.GetTab(directSessionID, "browser-a")
+	if !ok || stored.TabID != 17 {
+		t.Fatalf("explicit tab replaced selection: %#v", stored)
+	}
+}
+
 func TestDiscoveryHandlers(t *testing.T) {
 	t.Parallel()
 

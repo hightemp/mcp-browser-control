@@ -111,15 +111,18 @@ func TestTwoMCPSessionsRouteToDifferentBrowsers(t *testing.T) {
 
 	selectBrowser(t, clientA, browserA.id)
 	selectBrowser(t, clientB, browserB.id)
+	selectTab(t, clientA, browserA.id, 101)
+	selectTab(t, clientB, browserB.id, 202)
 
 	responseErrors := make(chan error, 2)
 	var responderWG sync.WaitGroup
-	for _, browser := range []*fakeBrowser{browserA, browserB} {
+	for browser, tabID := range map[*fakeBrowser]int{browserA: 101, browserB: 202} {
 		browser := browser
+		tabID := tabID
 		responderWG.Add(1)
 		go func() {
 			defer responderWG.Done()
-			responseErrors <- browser.respondToOneTabsRequest()
+			responseErrors <- browser.respondToOneRequest(protocol.CommandPageGetHTML, tabID)
 		}()
 	}
 
@@ -142,7 +145,7 @@ func TestTwoMCPSessionsRouteToDifferentBrowsers(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			request := mcp.CallToolRequest{}
-			request.Params.Name = "browser_get_tabs"
+			request.Params.Name = "browser_get_html"
 			request.Params.Arguments = map[string]any{}
 			result, callErr := mcpClient.CallTool(ctx, request)
 			results <- toolCallResult{
@@ -214,7 +217,11 @@ func connectFakeBrowser(t *testing.T, serverURL, displayName, pairingCode string
 		ExtensionVersion: "0.1.0-test",
 		PairingCode:      pairingCode,
 		Browser:          protocol.BrowserMetadata{Name: "Fake Chromium", Version: "116"},
-		Capabilities:     []string{protocol.CommandBrowserPing, protocol.CommandTabsList},
+		Capabilities: []string{
+			protocol.CommandBrowserPing,
+			protocol.CommandPageGetHTML,
+			protocol.CommandTabsList,
+		},
 	})
 	if err != nil {
 		t.Fatalf("marshal fake browser hello: %v", err)
@@ -251,7 +258,7 @@ func mustPairingManager(t *testing.T) *pairing.Manager {
 	return manager
 }
 
-func (b *fakeBrowser) respondToOneTabsRequest() error {
+func (b *fakeBrowser) respondToOneRequest(command string, tabID int) error {
 	if err := b.socket.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		return fmt.Errorf("set read deadline: %w", err)
 	}
@@ -268,11 +275,14 @@ func (b *fakeBrowser) respondToOneTabsRequest() error {
 			}
 			continue
 		}
-		if request.Type != protocol.TypeRequest || request.Command != protocol.CommandTabsList {
+		if request.Type != protocol.TypeRequest || request.Command != command {
 			return fmt.Errorf("unexpected request: %#v", request)
 		}
 		if request.BrowserID != b.id {
 			return fmt.Errorf("request targeted browser %s, want %s", request.BrowserID, b.id)
+		}
+		if request.Target == nil || request.Target.TabID == nil || *request.Target.TabID != tabID {
+			return fmt.Errorf("request target = %#v, want tab %d", request.Target, tabID)
 		}
 
 		owner := strings.TrimPrefix(b.displayName, "Browser ")
@@ -319,6 +329,17 @@ func selectBrowser(t *testing.T, mcpClient *client.Client, browserID string) {
 	result := callTool(t, mcpClient, "browser_select", map[string]any{"browserId": browserID})
 	if result.IsError {
 		t.Fatalf("browser_select(%s) error: %s", browserID, toolResultText(t, result))
+	}
+}
+
+func selectTab(t *testing.T, mcpClient *client.Client, browserID string, tabID int) {
+	t.Helper()
+	result := callTool(t, mcpClient, "browser_select_tab", map[string]any{
+		"browserId": browserID,
+		"tabId":     tabID,
+	})
+	if result.IsError {
+		t.Fatalf("browser_select_tab(%s, %d) error: %s", browserID, tabID, toolResultText(t, result))
 	}
 }
 

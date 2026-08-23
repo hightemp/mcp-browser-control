@@ -5,10 +5,12 @@ export function createTabHandlers(chromeAPI) {
     if (Number.isInteger(request.target?.tabId)) {
       return callChrome(() => chromeAPI.tabs.get(request.target.tabId));
     }
-    const tabs = await callChrome(() => chromeAPI.tabs.query({
-      active: true,
-      lastFocusedWindow: true,
-    }));
+    const tabs = await callChrome(() =>
+      chromeAPI.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      }),
+    );
     if (!tabs[0]) {
       throw protocolError(ErrorCode.TAB_NOT_FOUND, "No active tab was found");
     }
@@ -52,28 +54,36 @@ export function createTabHandlers(chromeAPI) {
 
     async reload(request) {
       return {
-        tab: await afterNavigation(request, (tabId) => chromeAPI.tabs.reload(tabId, {
-          bypassCache: Boolean(request.params.bypassCache),
-        })),
+        tab: await afterNavigation(request, (tabId) =>
+          chromeAPI.tabs.reload(tabId, {
+            bypassCache: Boolean(request.params.bypassCache),
+          }),
+        ),
       };
     },
 
     async stop(request) {
       const tab = await resolveTab(request);
       await assertPageAccess(chromeAPI, tab);
-      await callChrome(() => chromeAPI.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: () => window.stop(),
-      }));
+      await callChrome(() =>
+        chromeAPI.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => window.stop(),
+        }),
+      );
       return { tabId: tab.id, stopped: true };
     },
 
     async back(request) {
-      return { tab: await afterNavigation(request, (tabId) => chromeAPI.tabs.goBack(tabId)) };
+      return {
+        tab: await afterNavigation(request, (tabId) => chromeAPI.tabs.goBack(tabId)),
+      };
     },
 
     async forward(request) {
-      return { tab: await afterNavigation(request, (tabId) => chromeAPI.tabs.goForward(tabId)) };
+      return {
+        tab: await afterNavigation(request, (tabId) => chromeAPI.tabs.goForward(tabId)),
+      };
     },
 
     async move(request) {
@@ -96,11 +106,15 @@ export function createTabHandlers(chromeAPI) {
     },
 
     async pin(request) {
-      return { tab: await updatedTab(request, { pinned: request.params.pinned }) };
+      return {
+        tab: await updatedTab(request, { pinned: request.params.pinned }),
+      };
     },
 
     async mute(request) {
-      return { tab: await updatedTab(request, { muted: request.params.muted }) };
+      return {
+        tab: await updatedTab(request, { muted: request.params.muted }),
+      };
     },
 
     async getZoom(request) {

@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  getStoredIdentity,
-  initializeStoredState,
-  resetStoredIdentity,
-} from "../src/identity.js";
+import { getStoredIdentity, initializeStoredState, resetStoredIdentity } from "../src/identity.js";
 import { ErrorCode } from "../src/protocol.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
@@ -29,7 +25,10 @@ test("identity reset requires confirmation and preserves settings", async () => 
   const storage = fakeStorage({
     browserId: "browser-old",
     credential: "secret-credential",
-    connectionDiagnostics: { lastConnectedAt: "2026-08-23T19:00:00Z", latencyMS: 5 },
+    connectionDiagnostics: {
+      lastConnectedAt: "2026-08-23T19:00:00Z",
+      latencyMS: 5,
+    },
     settings: { ...DEFAULT_SETTINGS, displayName: "Work Chrome" },
   });
 
@@ -52,7 +51,9 @@ function fakeStorage(initial = {}) {
   return {
     values,
     async get(keys) {
-      return Object.fromEntries(keys.filter((key) => key in values).map((key) => [key, values[key]]));
+      return Object.fromEntries(
+        keys.filter((key) => key in values).map((key) => [key, values[key]]),
+      );
     },
     async set(updates) {
       Object.assign(values, updates);

@@ -99,9 +99,7 @@ export function normalizeError(error, context = {}) {
     ...(error?.requestId || context.requestId
       ? { requestId: error?.requestId || context.requestId }
       : {}),
-    ...(error?.target || context.target
-      ? { target: error?.target || context.target }
-      : {}),
+    ...(error?.target || context.target ? { target: error?.target || context.target } : {}),
     ...(error?.details ? { details: error.details } : {}),
   };
 }
@@ -116,7 +114,11 @@ export function mapChromeError(error) {
     );
   }
   if (message.includes("no frame with id") || message.includes("frame was removed")) {
-    return protocolError(ErrorCode.FRAME_NOT_FOUND, "The target frame is no longer available", true);
+    return protocolError(
+      ErrorCode.FRAME_NOT_FOUND,
+      "The target frame is no longer available",
+      true,
+    );
   }
   if (
     message.includes("no tab with id") ||
@@ -133,8 +135,8 @@ export function mapChromeError(error) {
     );
   }
   if (
-    message.includes("session")
-    && (message.includes("not found") || message.includes("could not restore"))
+    message.includes("session") &&
+    (message.includes("not found") || message.includes("could not restore"))
   ) {
     return protocolError(
       ErrorCode.SESSION_NOT_FOUND,
@@ -184,7 +186,9 @@ export function validateIncomingMessage(message, browserId) {
   }
   if (
     message.timeoutMs !== undefined &&
-    (!Number.isInteger(message.timeoutMs) || message.timeoutMs < 1 || message.timeoutMs > MAX_TIMEOUT_MS)
+    (!Number.isInteger(message.timeoutMs) ||
+      message.timeoutMs < 1 ||
+      message.timeoutMs > MAX_TIMEOUT_MS)
   ) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
@@ -221,10 +225,7 @@ export function validateTarget(target, browserId) {
     target.tabId === undefined &&
     (target.frameId !== undefined || target.documentId !== undefined)
   ) {
-    throw protocolError(
-      ErrorCode.INVALID_MESSAGE,
-      "target.frameId and documentId require tabId",
-    );
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.frameId and documentId require tabId");
   }
   if (target.documentId !== undefined && !isNonEmptyString(target.documentId)) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "target.documentId must not be empty");
@@ -294,14 +295,8 @@ export function validateLocator(locator, target = undefined) {
   if (locator.strict !== undefined && typeof locator.strict !== "boolean") {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "locator.strict must be a boolean");
   }
-  if (
-    locator.includeShadowDOM !== undefined
-    && typeof locator.includeShadowDOM !== "boolean"
-  ) {
-    throw protocolError(
-      ErrorCode.INVALID_MESSAGE,
-      "locator.includeShadowDOM must be a boolean",
-    );
+  if (locator.includeShadowDOM !== undefined && typeof locator.includeShadowDOM !== "boolean") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "locator.includeShadowDOM must be a boolean");
   }
   if (locator.coordinates !== undefined) {
     validateCoordinates(locator.coordinates);

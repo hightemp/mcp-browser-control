@@ -7,8 +7,16 @@ import {
 } from "./protocol.js";
 
 const COMMANDS = Object.freeze({
-  "browser.ping": Object.freeze({ domain: "browser", handler: "ping", validate: validateEmpty }),
-  "windows.list": Object.freeze({ domain: "windows", handler: "list", validate: validateEmpty }),
+  "browser.ping": Object.freeze({
+    domain: "browser",
+    handler: "ping",
+    validate: validateEmpty,
+  }),
+  "windows.list": Object.freeze({
+    domain: "windows",
+    handler: "list",
+    validate: validateEmpty,
+  }),
   "windows.get": Object.freeze({
     domain: "windows",
     handler: "get",
@@ -34,8 +42,16 @@ const COMMANDS = Object.freeze({
     handler: "close",
     validate: validateWindowTarget,
   }),
-  "tabs.list": Object.freeze({ domain: "tabs", handler: "list", validate: validateEmpty }),
-  "tabs.get": Object.freeze({ domain: "tabs", handler: "get", validate: validateTabEmpty }),
+  "tabs.list": Object.freeze({
+    domain: "tabs",
+    handler: "list",
+    validate: validateEmpty,
+  }),
+  "tabs.get": Object.freeze({
+    domain: "tabs",
+    handler: "get",
+    validate: validateTabEmpty,
+  }),
   "tabs.create": Object.freeze({
     domain: "tabs",
     handler: "create",
@@ -56,22 +72,46 @@ const COMMANDS = Object.freeze({
     handler: "reload",
     validate: validateTabReload,
   }),
-  "tabs.stop": Object.freeze({ domain: "tabs", handler: "stop", validate: validateTabEmpty }),
-  "tabs.back": Object.freeze({ domain: "tabs", handler: "back", validate: validateTabEmpty }),
+  "tabs.stop": Object.freeze({
+    domain: "tabs",
+    handler: "stop",
+    validate: validateTabEmpty,
+  }),
+  "tabs.back": Object.freeze({
+    domain: "tabs",
+    handler: "back",
+    validate: validateTabEmpty,
+  }),
   "tabs.forward": Object.freeze({
     domain: "tabs",
     handler: "forward",
     validate: validateTabEmpty,
   }),
-  "tabs.move": Object.freeze({ domain: "tabs", handler: "move", validate: validateTabMove }),
+  "tabs.move": Object.freeze({
+    domain: "tabs",
+    handler: "move",
+    validate: validateTabMove,
+  }),
   "tabs.duplicate": Object.freeze({
     domain: "tabs",
     handler: "duplicate",
     validate: validateTabEmpty,
   }),
-  "tabs.close": Object.freeze({ domain: "tabs", handler: "close", validate: validateTabEmpty }),
-  "tabs.pin": Object.freeze({ domain: "tabs", handler: "pin", validate: validateTabPin }),
-  "tabs.mute": Object.freeze({ domain: "tabs", handler: "mute", validate: validateTabMute }),
+  "tabs.close": Object.freeze({
+    domain: "tabs",
+    handler: "close",
+    validate: validateTabEmpty,
+  }),
+  "tabs.pin": Object.freeze({
+    domain: "tabs",
+    handler: "pin",
+    validate: validateTabPin,
+  }),
+  "tabs.mute": Object.freeze({
+    domain: "tabs",
+    handler: "mute",
+    validate: validateTabMute,
+  }),
   "tabs.getZoom": Object.freeze({
     domain: "tabs",
     handler: "getZoom",
@@ -107,15 +147,31 @@ const COMMANDS = Object.freeze({
     handler: "restore",
     validate: validateSessionRestore,
   }),
-  "page.info": Object.freeze({ domain: "page", handler: "info", validate: validateEmpty }),
-  "page.getHTML": Object.freeze({ domain: "page", handler: "getHTML", validate: validateGetHTML }),
+  "page.info": Object.freeze({
+    domain: "page",
+    handler: "info",
+    validate: validateEmpty,
+  }),
+  "page.getHTML": Object.freeze({
+    domain: "page",
+    handler: "getHTML",
+    validate: validateGetHTML,
+  }),
   "page.getHTMLBySelector": Object.freeze({
     domain: "page",
     handler: "getHTMLBySelector",
     validate: validateSelector,
   }),
-  "page.getText": Object.freeze({ domain: "page", handler: "getText", validate: validateGetText }),
-  "page.query": Object.freeze({ domain: "page", handler: "query", validate: validateQuery }),
+  "page.getText": Object.freeze({
+    domain: "page",
+    handler: "getText",
+    validate: validateGetText,
+  }),
+  "page.query": Object.freeze({
+    domain: "page",
+    handler: "query",
+    validate: validateQuery,
+  }),
   "page.getElement": Object.freeze({
     domain: "page",
     handler: "getElement",
@@ -126,29 +182,81 @@ const COMMANDS = Object.freeze({
     handler: "snapshot",
     validate: validateSnapshot,
   }),
-  "page.click": Object.freeze({ domain: "page", handler: "click", validate: validateAction }),
-  "page.fill": Object.freeze({ domain: "page", handler: "fill", validate: validateFill }),
-  "page.hover": Object.freeze({ domain: "page", handler: "hover", validate: validateSimpleAction }),
-  "page.focus": Object.freeze({ domain: "page", handler: "focus", validate: validateSimpleAction }),
-  "page.blur": Object.freeze({ domain: "page", handler: "blur", validate: validateSimpleAction }),
-  "page.type": Object.freeze({ domain: "page", handler: "type", validate: validateType }),
-  "page.clear": Object.freeze({ domain: "page", handler: "clear", validate: validateSimpleAction }),
-  "page.press": Object.freeze({ domain: "page", handler: "press", validate: validatePress }),
-  "page.select": Object.freeze({ domain: "page", handler: "select", validate: validateSelect }),
+  "page.click": Object.freeze({
+    domain: "page",
+    handler: "click",
+    validate: validateAction,
+  }),
+  "page.fill": Object.freeze({
+    domain: "page",
+    handler: "fill",
+    validate: validateFill,
+  }),
+  "page.hover": Object.freeze({
+    domain: "page",
+    handler: "hover",
+    validate: validateSimpleAction,
+  }),
+  "page.focus": Object.freeze({
+    domain: "page",
+    handler: "focus",
+    validate: validateSimpleAction,
+  }),
+  "page.blur": Object.freeze({
+    domain: "page",
+    handler: "blur",
+    validate: validateSimpleAction,
+  }),
+  "page.type": Object.freeze({
+    domain: "page",
+    handler: "type",
+    validate: validateType,
+  }),
+  "page.clear": Object.freeze({
+    domain: "page",
+    handler: "clear",
+    validate: validateSimpleAction,
+  }),
+  "page.press": Object.freeze({
+    domain: "page",
+    handler: "press",
+    validate: validatePress,
+  }),
+  "page.select": Object.freeze({
+    domain: "page",
+    handler: "select",
+    validate: validateSelect,
+  }),
   "page.setChecked": Object.freeze({
     domain: "page",
     handler: "setChecked",
     validate: validateSetChecked,
   }),
-  "page.scroll": Object.freeze({ domain: "page", handler: "scroll", validate: validateScroll }),
-  "page.drag": Object.freeze({ domain: "page", handler: "drag", validate: validateDrag }),
+  "page.scroll": Object.freeze({
+    domain: "page",
+    handler: "scroll",
+    validate: validateScroll,
+  }),
+  "page.drag": Object.freeze({
+    domain: "page",
+    handler: "drag",
+    validate: validateDrag,
+  }),
   "page.dispatch": Object.freeze({
     domain: "page",
     handler: "dispatch",
     validate: validateDispatch,
   }),
-  "page.submit": Object.freeze({ domain: "page", handler: "submit", validate: validateSimpleAction }),
-  "page.wait": Object.freeze({ domain: "page", handler: "wait", validate: validateWait }),
+  "page.submit": Object.freeze({
+    domain: "page",
+    handler: "submit",
+    validate: validateSimpleAction,
+  }),
+  "page.wait": Object.freeze({
+    domain: "page",
+    handler: "wait",
+    validate: validateWait,
+  }),
   "page.screenshot": Object.freeze({
     domain: "page",
     handler: "screenshot",
@@ -317,9 +425,9 @@ function validateSelectors(selectors, path) {
     return;
   }
   if (
-    !Array.isArray(selectors)
-    || selectors.length > 50
-    || selectors.some((selector) => typeof selector !== "string" || selector.trim() === "")
+    !Array.isArray(selectors) ||
+    selectors.length > 50 ||
+    selectors.some((selector) => typeof selector !== "string" || selector.trim() === "")
   ) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
@@ -330,12 +438,8 @@ function validateSelectors(selectors, path) {
 
 function validateCursor(cursor) {
   if (
-    cursor !== undefined
-    && (
-      typeof cursor !== "string"
-      || !/^\d+$/.test(cursor)
-      || Number.parseInt(cursor, 10) > 1_000_000
-    )
+    cursor !== undefined &&
+    (typeof cursor !== "string" || !/^\d+$/.test(cursor) || Number.parseInt(cursor, 10) > 1_000_000)
   ) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
@@ -373,10 +477,10 @@ function validateWindowCreate(params) {
   ]);
   if (params.urls !== undefined) {
     if (
-      !Array.isArray(params.urls)
-      || params.urls.length === 0
-      || params.urls.length > 50
-      || params.urls.some((url) => typeof url !== "string" || url.trim() === "")
+      !Array.isArray(params.urls) ||
+      params.urls.length === 0 ||
+      params.urls.length > 50 ||
+      params.urls.some((url) => typeof url !== "string" || url.trim() === "")
     ) {
       throw protocolError(
         ErrorCode.INVALID_MESSAGE,
@@ -450,7 +554,10 @@ function validateTabMove(params, target) {
   assertAllowedProperties(params, ["windowId", "index"]);
   validateOptionalIdentifier(params.windowId, "params.windowId");
   if (!Number.isInteger(params.index) || params.index < -1) {
-    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.index must be an integer of at least -1");
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.index must be an integer of at least -1",
+    );
   }
   validateOptionalTabTarget(target);
 }
@@ -514,11 +621,17 @@ function validateTabGroupUpdate(params) {
   if (params.title !== undefined && typeof params.title !== "string") {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.title must be a string");
   }
-  validateEnum(
-    params.color,
-    "params.color",
-    ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"],
-  );
+  validateEnum(params.color, "params.color", [
+    "grey",
+    "blue",
+    "red",
+    "yellow",
+    "green",
+    "pink",
+    "purple",
+    "cyan",
+    "orange",
+  ]);
   validateOptionalBoolean(params.collapsed, "params.collapsed");
 }
 
@@ -526,8 +639,8 @@ function validateRecentlyClosed(params) {
   validateParamsObject(params);
   assertAllowedProperties(params, ["maxResults"]);
   if (
-    params.maxResults !== undefined
-    && (!Number.isInteger(params.maxResults) || params.maxResults < 1 || params.maxResults > 25)
+    params.maxResults !== undefined &&
+    (!Number.isInteger(params.maxResults) || params.maxResults < 1 || params.maxResults > 25)
   ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.maxResults must be between 1 and 25");
   }
@@ -543,11 +656,11 @@ function validateSessionRestore(params) {
 
 function validateTabIDs(tabIds) {
   if (
-    !Array.isArray(tabIds)
-    || tabIds.length === 0
-    || tabIds.length > 100
-    || tabIds.some((tabId) => !Number.isInteger(tabId) || tabId < 0)
-    || new Set(tabIds).size !== tabIds.length
+    !Array.isArray(tabIds) ||
+    tabIds.length === 0 ||
+    tabIds.length > 100 ||
+    tabIds.some((tabId) => !Number.isInteger(tabId) || tabId < 0) ||
+    new Set(tabIds).size !== tabIds.length
   ) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
@@ -559,8 +672,14 @@ function validateTabIDs(tabIds) {
 function validateAction(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "button", "clickCount",
-    "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "button",
+    "clickCount",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
@@ -595,7 +714,12 @@ function validateFill(params, target) {
 function validateSimpleAction(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
@@ -605,8 +729,14 @@ function validateSimpleAction(params, target) {
 function validateType(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "text", "delayMs",
-    "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "text",
+    "delayMs",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
@@ -618,21 +748,24 @@ function validateType(params, target) {
 function validatePress(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "key", "modifiers",
-    "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "key",
+    "modifiers",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
   assertNonEmptyString(params.key, "params.key");
   if (
-    params.modifiers !== undefined
-    && (
-      !Array.isArray(params.modifiers)
-      || params.modifiers.length > 4
-      || new Set(params.modifiers).size !== params.modifiers.length
-      || params.modifiers.some((modifier) =>
-        !["Alt", "Control", "Meta", "Shift"].includes(modifier))
-    )
+    params.modifiers !== undefined &&
+    (!Array.isArray(params.modifiers) ||
+      params.modifiers.length > 4 ||
+      new Set(params.modifiers).size !== params.modifiers.length ||
+      params.modifiers.some((modifier) => !["Alt", "Control", "Meta", "Shift"].includes(modifier)))
   ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.modifiers contains invalid keys");
   }
@@ -642,16 +775,21 @@ function validatePress(params, target) {
 function validateSelect(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "values",
-    "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "values",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
   if (
-    !Array.isArray(params.values)
-    || params.values.length === 0
-    || params.values.length > 100
-    || params.values.some((value) => typeof value !== "string")
+    !Array.isArray(params.values) ||
+    params.values.length === 0 ||
+    params.values.length > 100 ||
+    params.values.some((value) => typeof value !== "string")
   ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.values must contain 1 to 100 strings");
   }
@@ -661,8 +799,13 @@ function validateSelect(params, target) {
 function validateSetChecked(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "checked",
-    "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "checked",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
@@ -673,15 +816,22 @@ function validateSetChecked(params, target) {
 function validateScroll(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "deltaX", "deltaY", "behavior",
-    "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "deltaX",
+    "deltaY",
+    "behavior",
+    "backend",
+    "waitForNavigation",
   ]);
   validateOptionalElementAddress(params, target);
   validateIndex(params.index);
   for (const property of ["deltaX", "deltaY"]) {
     if (
-      params[property] !== undefined
-      && (!Number.isFinite(params[property]) || Math.abs(params[property]) > 1_000_000)
+      params[property] !== undefined &&
+      (!Number.isFinite(params[property]) || Math.abs(params[property]) > 1_000_000)
     ) {
       throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${property} is out of range`);
     }
@@ -696,11 +846,16 @@ function validateScroll(params, target) {
 function validateDrag(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "source", "targetLocator", "targetCoordinates", "backend", "waitForNavigation",
+    "source",
+    "targetLocator",
+    "targetCoordinates",
+    "backend",
+    "waitForNavigation",
   ]);
   validateLocator(params.source, target);
-  const targets = [params.targetLocator, params.targetCoordinates]
-    .filter((value) => value !== undefined);
+  const targets = [params.targetLocator, params.targetCoordinates].filter(
+    (value) => value !== undefined,
+  );
   if (targets.length !== 1) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
@@ -717,17 +872,26 @@ function validateDrag(params, target) {
 function validateDispatch(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "selector", "coordinates", "locator", "index", "eventType", "detail",
-    "backend", "waitForNavigation",
+    "selector",
+    "coordinates",
+    "locator",
+    "index",
+    "eventType",
+    "detail",
+    "backend",
+    "waitForNavigation",
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
-  if (typeof params.eventType !== "string" || !/^[A-Za-z][A-Za-z0-9:_-]{0,99}$/.test(params.eventType)) {
+  if (
+    typeof params.eventType !== "string" ||
+    !/^[A-Za-z][A-Za-z0-9:_-]{0,99}$/.test(params.eventType)
+  ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.eventType is invalid");
   }
   if (
-    params.detail !== undefined
-    && (!params.detail || typeof params.detail !== "object" || Array.isArray(params.detail))
+    params.detail !== undefined &&
+    (!params.detail || typeof params.detail !== "object" || Array.isArray(params.detail))
   ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.detail must be an object");
   }
@@ -743,8 +907,16 @@ function validateWait(params, target) {
   validateParamsObject(params);
   const common = ["condition", "mode", "pollIntervalMs"];
   validateEnum(params.condition, "params.condition", [
-    "delay", "loadState", "url", "element", "text", "value", "count",
-    "navigation", "networkIdle", "attribute",
+    "delay",
+    "loadState",
+    "url",
+    "element",
+    "text",
+    "value",
+    "count",
+    "navigation",
+    "networkIdle",
+    "attribute",
   ]);
   if (typeof params.condition !== "string") {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.condition is required");
@@ -780,7 +952,12 @@ function validateWait(params, target) {
       assertAllowedProperties(params, [...common, "locator", "elementState"]);
       validateLocator(params.locator, target);
       validateEnum(params.elementState, "params.elementState", [
-        "attached", "detached", "visible", "hidden", "enabled", "disabled",
+        "attached",
+        "detached",
+        "visible",
+        "hidden",
+        "enabled",
+        "disabled",
       ]);
       if (params.elementState === undefined) {
         throw protocolError(ErrorCode.INVALID_MESSAGE, "params.elementState is required");
@@ -788,14 +965,22 @@ function validateWait(params, target) {
       break;
     case "text":
       assertAllowedProperties(params, [
-        ...common, "locator", "expected", "matchOperator", "caseSensitive",
+        ...common,
+        "locator",
+        "expected",
+        "matchOperator",
+        "caseSensitive",
       ]);
       if (params.locator !== undefined) validateLocator(params.locator, target);
       validateStringWait(params);
       break;
     case "value":
       assertAllowedProperties(params, [
-        ...common, "locator", "expected", "matchOperator", "caseSensitive",
+        ...common,
+        "locator",
+        "expected",
+        "matchOperator",
+        "caseSensitive",
       ]);
       validateLocator(params.locator, target);
       validateStringWait(params);
@@ -815,17 +1000,32 @@ function validateWait(params, target) {
       break;
     case "attribute":
       assertAllowedProperties(params, [
-        ...common, "locator", "attribute", "attributeState", "expected", "caseSensitive",
+        ...common,
+        "locator",
+        "attribute",
+        "attributeState",
+        "expected",
+        "caseSensitive",
       ]);
       validateLocator(params.locator, target);
-      if (typeof params.attribute !== "string" || !/^[A-Za-z0-9:_-]{1,200}$/.test(params.attribute)) {
+      if (
+        typeof params.attribute !== "string" ||
+        !/^[A-Za-z0-9:_-]{1,200}$/.test(params.attribute)
+      ) {
         throw protocolError(ErrorCode.INVALID_MESSAGE, "params.attribute is invalid");
       }
-      if (/(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(params.attribute)) {
+      if (
+        /(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(
+          params.attribute,
+        )
+      ) {
         throw protocolError(ErrorCode.INVALID_MESSAGE, "params.attribute is sensitive");
       }
       validateEnum(params.attributeState, "params.attributeState", [
-        "present", "absent", "equals", "contains",
+        "present",
+        "absent",
+        "equals",
+        "contains",
       ]);
       if (params.attributeState === undefined) {
         throw protocolError(ErrorCode.INVALID_MESSAGE, "params.attributeState is required");
@@ -848,7 +1048,12 @@ function validateWait(params, target) {
 function validateScreenshot(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
-    "capture", "format", "quality", "maxWidth", "maxHeight", "maxBytes",
+    "capture",
+    "format",
+    "quality",
+    "maxWidth",
+    "maxHeight",
+    "maxBytes",
   ]);
   validateOptionalTabTarget(target);
   validateEnum(params.capture, "params.capture", ["viewport"]);
@@ -885,17 +1090,18 @@ function validateConsoleRead(params, target) {
   assertAllowedProperties(params, ["levels", "kinds", "cursor", "limit", "since"]);
   validateEnumArray(params.levels, "params.levels", ["debug", "log", "info", "warn", "error"]);
   validateEnumArray(params.kinds, "params.kinds", [
-    "console", "exception", "unhandledRejection", "resourceError",
+    "console",
+    "exception",
+    "unhandledRejection",
+    "resourceError",
   ]);
   validateConsoleCursor(params.cursor);
   validateIntegerRange(params.limit, "params.limit", 1, 200);
   if (
-    params.since !== undefined
-    && (
-      typeof params.since !== "string"
-      || params.since.length > 100
-      || !Number.isFinite(Date.parse(params.since))
-    )
+    params.since !== undefined &&
+    (typeof params.since !== "string" ||
+      params.since.length > 100 ||
+      !Number.isFinite(Date.parse(params.since)))
   ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.since must be an RFC 3339 timestamp");
   }
@@ -909,16 +1115,23 @@ function validateConsoleTarget(target) {
 
 function validateConsoleCursor(cursor) {
   if (cursor === undefined) return;
-  if (typeof cursor !== "string" || !/^\d+$/.test(cursor)
-    || !Number.isSafeInteger(Number.parseInt(cursor, 10))) {
+  if (
+    typeof cursor !== "string" ||
+    !/^\d+$/.test(cursor) ||
+    !Number.isSafeInteger(Number.parseInt(cursor, 10))
+  ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is out of range");
   }
 }
 
 function validateEnumArray(values, path, allowed) {
   if (values === undefined) return;
-  if (!Array.isArray(values) || values.length > allowed.length
-    || values.some((value) => !allowed.includes(value)) || new Set(values).size !== values.length) {
+  if (
+    !Array.isArray(values) ||
+    values.length > allowed.length ||
+    values.some((value) => !allowed.includes(value)) ||
+    new Set(values).size !== values.length
+  ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} contains invalid values`);
   }
 }
@@ -931,16 +1144,15 @@ function validateStringWait(params) {
 
 function requireIntegerRange(value, path, minimum, maximum) {
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
-    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be between ${minimum} and ${maximum}`);
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `${path} must be between ${minimum} and ${maximum}`,
+    );
   }
 }
 
 function assertBoundedString(value, path, maximum, allowEmpty = false) {
-  if (
-    typeof value !== "string"
-    || value.length > maximum
-    || (!allowEmpty && value.trim() === "")
-  ) {
+  if (typeof value !== "string" || value.length > maximum || (!allowEmpty && value.trim() === "")) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
       `${path} must be a${allowEmpty ? "" : " non-empty"} string no longer than ${maximum}`,
@@ -949,14 +1161,16 @@ function assertBoundedString(value, path, maximum, allowEmpty = false) {
 }
 
 function validateOptionalElementAddress(params, target) {
-  const hasAddress = [params.selector, params.coordinates, params.locator]
-    .some((value) => value !== undefined);
+  const hasAddress = [params.selector, params.coordinates, params.locator].some(
+    (value) => value !== undefined,
+  );
   if (hasAddress) validateElementAddress(params, target);
 }
 
 function validateElementAddress(params, target) {
-  const addresses = [params.selector, params.coordinates, params.locator]
-    .filter((value) => value !== undefined);
+  const addresses = [params.selector, params.coordinates, params.locator].filter(
+    (value) => value !== undefined,
+  );
   if (addresses.length !== 1) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
@@ -1009,25 +1223,22 @@ function requireWindowTarget(target) {
   if (!Number.isInteger(target?.windowId) || target.windowId < 0) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "target.windowId is required");
   }
-  if (target.tabId !== undefined || target.frameId !== undefined || target.documentId !== undefined) {
+  if (
+    target.tabId !== undefined ||
+    target.frameId !== undefined ||
+    target.documentId !== undefined
+  ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "Window commands require a window-only target");
   }
 }
 
 function validateWindowState(state) {
-  validateEnum(
-    state,
-    "params.state",
-    ["normal", "minimized", "maximized", "fullscreen"],
-  );
+  validateEnum(state, "params.state", ["normal", "minimized", "maximized", "fullscreen"]);
 }
 
 function validateEnum(value, path, allowed) {
   if (value !== undefined && !allowed.includes(value)) {
-    throw protocolError(
-      ErrorCode.INVALID_MESSAGE,
-      `${path} must be one of ${allowed.join(", ")}`,
-    );
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be one of ${allowed.join(", ")}`);
   }
 }
 
@@ -1063,17 +1274,21 @@ function validateWindowBounds(params) {
   }
   for (const property of ["width", "height"]) {
     if (
-      params[property] !== undefined
-      && (!Number.isInteger(params[property]) || params[property] < 1)
+      params[property] !== undefined &&
+      (!Number.isInteger(params[property]) || params[property] < 1)
     ) {
-      throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${property} must be a positive integer`);
+      throw protocolError(
+        ErrorCode.INVALID_MESSAGE,
+        `params.${property} must be a positive integer`,
+      );
     }
   }
 }
 
 function assertStateAndBoundsCompatible(params) {
-  const hasBounds = ["left", "top", "width", "height"]
-    .some((property) => params[property] !== undefined);
+  const hasBounds = ["left", "top", "width", "height"].some(
+    (property) => params[property] !== undefined,
+  );
   if (hasBounds && params.state !== undefined && params.state !== "normal") {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,

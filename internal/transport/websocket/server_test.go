@@ -61,7 +61,7 @@ func TestServerRegistersAndRoutesBrowser(t *testing.T) {
 		}
 		t.Fatalf("Dial() error = %v", err)
 	}
-	defer socket.Close()
+	t.Cleanup(func() { _ = socket.Close() })
 
 	browserID := uuid.NewString()
 	hello := protocol.NewMessage(protocol.TypeHello)
@@ -168,7 +168,7 @@ func TestServerRegistersAndRoutesBrowser(t *testing.T) {
 		}
 		t.Fatalf("reconnect Dial() error = %v", err)
 	}
-	defer reconnected.Close()
+	t.Cleanup(func() { _ = reconnected.Close() })
 	hello.Params, err = json.Marshal(protocol.HelloParams{
 		ExtensionVersion: "0.1.0",
 		Credential:       welcomeResult.Credential,
@@ -342,7 +342,7 @@ func TestServerReturnsStructuredPairingError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Dial() error = %v", err)
 	}
-	defer socket.Close()
+	t.Cleanup(func() { _ = socket.Close() })
 
 	hello := protocol.NewMessage(protocol.TypeHello)
 	hello.BrowserID = uuid.NewString()

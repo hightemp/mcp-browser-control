@@ -47,7 +47,11 @@ test("network activity observer cancels without retaining subscribers", async ()
   assert.equal(observer.start(), true);
   before.emit({ tabId: 4, requestId: "request-1", type: "fetch" });
   const controller = new AbortController();
-  const waiting = observer.waitForIdle({ tabId: 4, idleMs: 100, signal: controller.signal });
+  const waiting = observer.waitForIdle({
+    tabId: 4,
+    idleMs: 100,
+    signal: controller.signal,
+  });
   controller.abort();
 
   await assert.rejects(waiting, (error) => error.code === ErrorCode.CANCELLED);
@@ -58,7 +62,9 @@ test("network activity observer cancels without retaining subscribers", async ()
 function fakeChromeEvent() {
   const listeners = new Set();
   return {
-    addListener(listener) { listeners.add(listener); },
+    addListener(listener) {
+      listeners.add(listener);
+    },
     emit(details) {
       for (const listener of [...listeners]) listener(details);
     },

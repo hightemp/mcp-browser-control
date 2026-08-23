@@ -18,9 +18,14 @@ const PROFILE_DEFINITIONS = Object.freeze([
     origins: Object.freeze(["http://*/*", "https://*/*"]),
     dependencies: Object.freeze([]),
     tools: Object.freeze([
-      "page inspection", "page actions", "page waits", "tab stop", "console metadata",
+      "page inspection",
+      "page actions",
+      "page waits",
+      "tab stop",
+      "console metadata",
     ]),
-    warning: "Chrome will ask to read and change data on visited websites and observe network activity.",
+    warning:
+      "Chrome will ask to read and change data on visited websites and observe network activity.",
     optional: true,
   }),
   Object.freeze({
@@ -52,9 +57,16 @@ const PROFILE_DEFINITIONS = Object.freeze([
     origins: Object.freeze([]),
     dependencies: Object.freeze(["observe"]),
     tools: Object.freeze([
-      "cookies", "downloads", "sessions", "tab groups", "bookmarks", "history", "clipboard",
+      "cookies",
+      "downloads",
+      "sessions",
+      "tab groups",
+      "bookmarks",
+      "history",
+      "clipboard",
     ]),
-    warning: "Chrome will list each personal-data category and tab-group access. Bulk deletion still requires confirmation.",
+    warning:
+      "Chrome will list each personal-data category and tab-group access. Bulk deletion still requires confirmation.",
     optional: true,
   }),
 ]);
@@ -71,12 +83,11 @@ export function permissionProfileStates(grants = {}) {
   const states = new Map();
 
   for (const profile of PROFILE_DEFINITIONS) {
-    const grantedProfilePermissions = profile.permissions.filter(
-      (permission) => grantedPermissions.has(permission),
+    const grantedProfilePermissions = profile.permissions.filter((permission) =>
+      grantedPermissions.has(permission),
     );
-    const grantedProfileOrigins = profile.origins.length > 0
-      ? [...grantedOrigins].filter(isWebsiteOrigin)
-      : [];
+    const grantedProfileOrigins =
+      profile.origins.length > 0 ? [...grantedOrigins].filter(isWebsiteOrigin) : [];
     const exactOriginsGranted = profile.origins.filter((origin) => grantedOrigins.has(origin));
     const itemCount = profile.permissions.length + profile.origins.length;
     const grantedCount = grantedProfilePermissions.length + exactOriginsGranted.length;
@@ -145,9 +156,7 @@ function collectWithDependencies(profile, collected = new Map()) {
 }
 
 function compactRequest(request) {
-  return Object.fromEntries(
-    Object.entries(request).filter(([, values]) => values.length > 0),
-  );
+  return Object.fromEntries(Object.entries(request).filter(([, values]) => values.length > 0));
 }
 
 function unique(values) {
@@ -155,6 +164,7 @@ function unique(values) {
 }
 
 function isWebsiteOrigin(origin) {
-  return typeof origin === "string"
-    && (origin.startsWith("http://") || origin.startsWith("https://"));
+  return (
+    typeof origin === "string" && (origin.startsWith("http://") || origin.startsWith("https://"))
+  );
 }

@@ -31,8 +31,12 @@
   });
 
   window.addEventListener("message", (event) => {
-    if (event.source !== window || event.data?.type !== CONTROL_TYPE
-      || event.data?.bridgeVersion !== BRIDGE_VERSION) return;
+    if (
+      event.source !== window ||
+      event.data?.type !== CONTROL_TYPE ||
+      event.data?.bridgeVersion !== BRIDGE_VERSION
+    )
+      return;
     if (event.data.action === "start") {
       state.active = true;
       state.captureConsole = event.data.captureConsole !== false;
@@ -58,38 +62,46 @@
       return result;
     };
     try {
-      Object.defineProperty(wrapped, "name", { value: original.name || method });
+      Object.defineProperty(wrapped, "name", {
+        value: original.name || method,
+      });
       console[method] = wrapped;
     } catch {
       // Some pages freeze console methods. Error capture remains available.
     }
   }
 
-  window.addEventListener("error", (event) => {
-    if (!state.active || !state.captureErrors) return;
-    if (event.target && event.target !== window) {
+  window.addEventListener(
+    "error",
+    (event) => {
+      if (!state.active || !state.captureErrors) return;
+      if (event.target && event.target !== window) {
+        emit({
+          kind: "resourceError",
+          level: "error",
+          method: "resource",
+          args: safeSerialize([
+            {
+              tagName: String(event.target.tagName || "").slice(0, 100),
+              url: resourceURL(event.target),
+            },
+          ]),
+        });
+        return;
+      }
       emit({
-        kind: "resourceError",
+        kind: "exception",
         level: "error",
-        method: "resource",
-        args: safeSerialize([{
-          tagName: String(event.target.tagName || "").slice(0, 100),
-          url: resourceURL(event.target),
-        }]),
+        method: "error",
+        args: safeSerialize([event.error || event.message || "Uncaught error"]),
+        stack: redactString(event.error?.stack || ""),
+        source: redactString(event.filename || ""),
+        line: boundedInteger(event.lineno),
+        column: boundedInteger(event.colno),
       });
-      return;
-    }
-    emit({
-      kind: "exception",
-      level: "error",
-      method: "error",
-      args: safeSerialize([event.error || event.message || "Uncaught error"]),
-      stack: redactString(event.error?.stack || ""),
-      source: redactString(event.filename || ""),
-      line: boundedInteger(event.lineno),
-      column: boundedInteger(event.colno),
-    });
-  }, true);
+    },
+    true,
+  );
 
   window.addEventListener("unhandledrejection", (event) => {
     if (!state.active || !state.captureErrors) return;
@@ -104,12 +116,15 @@
 
   function emit(entry) {
     try {
-      window.postMessage({
-        type: EVENT_TYPE,
-        bridgeVersion: BRIDGE_VERSION,
-        timestamp: new Date().toISOString(),
-        entry,
-      }, "*");
+      window.postMessage(
+        {
+          type: EVENT_TYPE,
+          bridgeVersion: BRIDGE_VERSION,
+          timestamp: new Date().toISOString(),
+          entry,
+        },
+        "*",
+      );
     } catch {
       // Capturing must never change page behavior.
     }
@@ -129,7 +144,8 @@
     if (typeof value === "number") return Number.isFinite(value) ? value : String(value);
     if (typeof value === "bigint") return `${value}n`;
     if (typeof value === "symbol") return String(value).slice(0, 2_000);
-    if (typeof value === "function") return `[Function ${String(value.name || "anonymous").slice(0, 200)}]`;
+    if (typeof value === "function")
+      return `[Function ${String(value.name || "anonymous").slice(0, 200)}]`;
     if (depth >= 4) return `[${objectType(value)}]`;
     if (seen.has(value)) return "[Circular]";
     seen.add(value);
@@ -165,9 +181,10 @@
         continue;
       }
       const descriptor = descriptors[key];
-      output[key] = "value" in descriptor
-        ? serializeValue(descriptor.value, depth + 1, budget, seen)
-        : "[Accessor]";
+      output[key] =
+        "value" in descriptor
+          ? serializeValue(descriptor.value, depth + 1, budget, seen)
+          : "[Accessor]";
     }
     return output;
   }
@@ -190,8 +207,14 @@
       .slice(0, 4_000)
       .replace(/(https?:\/\/)[^/@\s:]+:[^/@\s]+@/gi, "$1[REDACTED]@")
       .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
-      .replace(/([?&#](?:password|secret|token|credential|authorization|cookie|api[-_]?key)=)[^&#\s]*/gi, "$1[REDACTED]")
-      .replace(/((?:password|secret|token|credential|authorization|cookie|api[-_]?key)\s*[:=]\s*)[^,;\s&]+/gi, "$1[REDACTED]");
+      .replace(
+        /([?&#](?:password|secret|token|credential|authorization|cookie|api[-_]?key)=)[^&#\s]*/gi,
+        "$1[REDACTED]",
+      )
+      .replace(
+        /((?:password|secret|token|credential|authorization|cookie|api[-_]?key)\s*[:=]\s*)[^,;\s&]+/gi,
+        "$1[REDACTED]",
+      );
   }
 
   function sensitiveName(name) {

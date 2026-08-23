@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MCP Browser Control Settings</title>
-    <link rel="stylesheet" href="options.css">
+    <link rel="stylesheet" href="options.css" />
   </head>
   <body>
     <main>
@@ -21,18 +21,18 @@
         <form id="settings-form">
           <label>
             Browser name
-            <input id="display-name" type="text" maxlength="80" autocomplete="off">
+            <input id="display-name" type="text" maxlength="80" autocomplete="off" />
           </label>
           <label>
             Server endpoint
-            <input id="endpoint" type="url" spellcheck="false">
+            <input id="endpoint" type="url" spellcheck="false" />
           </label>
           <label class="checkbox">
-            <input id="auto-connect" type="checkbox">
+            <input id="auto-connect" type="checkbox" />
             Connect automatically
           </label>
           <label class="checkbox">
-            <input id="page-automation" type="checkbox">
+            <input id="page-automation" type="checkbox" />
             Enable page inspection and interaction
           </label>
           <div class="actions">
@@ -58,15 +58,24 @@
           <button id="refresh" type="button" class="secondary">Refresh</button>
         </div>
         <dl>
-          <dt>Browser</dt><dd id="browser-runtime">—</dd>
-          <dt>Browser ID</dt><dd id="browser-id">—</dd>
-          <dt>Connection ID</dt><dd id="connection-id">—</dd>
-          <dt>Endpoint</dt><dd id="diagnostic-endpoint">—</dd>
-          <dt>Last connected</dt><dd id="last-connected">Never</dd>
-          <dt>Latency</dt><dd id="latency">—</dd>
-          <dt>Permission profiles</dt><dd id="permission-profiles">Core</dd>
-          <dt>Capabilities</dt><dd id="capabilities">—</dd>
-          <dt>Permissions</dt><dd id="permissions">—</dd>
+          <dt>Browser</dt>
+          <dd id="browser-runtime">—</dd>
+          <dt>Browser ID</dt>
+          <dd id="browser-id">—</dd>
+          <dt>Connection ID</dt>
+          <dd id="connection-id">—</dd>
+          <dt>Endpoint</dt>
+          <dd id="diagnostic-endpoint">—</dd>
+          <dt>Last connected</dt>
+          <dd id="last-connected">Never</dd>
+          <dt>Latency</dt>
+          <dd id="latency">—</dd>
+          <dt>Permission profiles</dt>
+          <dd id="permission-profiles">Core</dd>
+          <dt>Capabilities</dt>
+          <dd id="capabilities">—</dd>
+          <dt>Permissions</dt>
+          <dd id="permissions">—</dd>
         </dl>
         <p id="error" class="error" hidden></p>
       </section>

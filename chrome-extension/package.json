@@ -3,10 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
+    "build": "node scripts/build.mjs",
+    "format": "prettier --write \"src/**/*.{js,css,html}\" \"tests/**/*.js\" \"scripts/**/*.mjs\" \"../.github/workflows/*.yml\" eslint.config.js manifest.json package.json .prettierrc.json",
+    "format:check": "prettier --check \"src/**/*.{js,css,html}\" \"tests/**/*.js\" \"scripts/**/*.mjs\" \"../.github/workflows/*.yml\" eslint.config.js manifest.json package.json .prettierrc.json",
+    "license:check": "node scripts/check-licenses.mjs",
+    "lint": "eslint src tests scripts eslint.config.js",
     "test": "node --test tests/*.test.js"
   },
   "devDependencies": {
-    "ajv": "^8.20.0"
+    "@eslint/js": "10.0.1",
+    "ajv": "^8.20.0",
+    "eslint": "10.9.0",
+    "globals": "17.11.0",
+    "prettier": "3.9.6"
   }
 }

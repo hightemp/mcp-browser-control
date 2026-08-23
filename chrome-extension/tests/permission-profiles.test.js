@@ -28,17 +28,23 @@ test("profile state distinguishes disabled, partial, and enabled grants", () => 
     permissions: [...corePermissions, "debugger", "bookmarks", "cookies"],
     origins: [],
   });
-  assert.deepEqual(states.map(({ id, state }) => [id, state]), [
-    ["core", "enabled"],
-    ["observe", "disabled"],
-    ["debug", "enabled"],
-    ["personal", "partial"],
-  ]);
+  assert.deepEqual(
+    states.map(({ id, state }) => [id, state]),
+    [
+      ["core", "enabled"],
+      ["observe", "disabled"],
+      ["debug", "enabled"],
+      ["personal", "partial"],
+    ],
+  );
 
-  assert.equal(permissionProfileStates({
-    permissions: corePermissions,
-    origins: ["https://example.com/*"],
-  })[1].state, "partial");
+  assert.equal(
+    permissionProfileStates({
+      permissions: corePermissions,
+      origins: ["https://example.com/*"],
+    })[1].state,
+    "partial",
+  );
 
   assert.deepEqual(
     enabledPermissionProfileNames({

@@ -115,7 +115,7 @@ func TestRunRejectsOccupiedWebSocketAddress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("net.Listen() error = %v", err)
 	}
-	defer listener.Close()
+	t.Cleanup(func() { _ = listener.Close() })
 	host, port, err := net.SplitHostPort(listener.Addr().String())
 	if err != nil {
 		t.Fatalf("SplitHostPort() error = %v", err)

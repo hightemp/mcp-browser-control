@@ -12,23 +12,28 @@ import { ErrorCode } from "../src/protocol.js";
 
 test("browser and tab handlers return stable domain results", async () => {
   const browser = createBrowserHandlers(() => new Date("2026-01-02T03:04:05.000Z"));
-  assert.deepEqual(browser.ping(), { pong: true, time: "2026-01-02T03:04:05.000Z" });
+  assert.deepEqual(browser.ping(), {
+    pong: true,
+    time: "2026-01-02T03:04:05.000Z",
+  });
 
   const tabs = createTabHandlers({
     tabs: {
-      query: async () => [{
-        id: 7,
-        windowId: 3,
-        index: 1,
-        active: true,
-        pinned: false,
-        mutedInfo: { muted: true },
-        status: "complete",
-        title: "Example",
-        url: "https://example.com/",
-        favIconUrl: "https://example.com/favicon.ico",
-        incognito: false,
-      }],
+      query: async () => [
+        {
+          id: 7,
+          windowId: 3,
+          index: 1,
+          active: true,
+          pinned: false,
+          mutedInfo: { muted: true },
+          status: "complete",
+          title: "Example",
+          url: "https://example.com/",
+          favIconUrl: "https://example.com/favicon.ico",
+          incognito: false,
+        },
+      ],
     },
   });
   const result = await tabs.list();
@@ -50,22 +55,55 @@ test("tab handlers keep every operation scoped to the addressed tab", async () =
   };
   const chromeAPI = {
     tabs: {
-      query: async () => { calls.push(["query"]); return []; },
-      get: async (id) => { calls.push(["get", id]); return { ...tab, id }; },
-      create: async (params) => { calls.push(["create", params]); return { ...tab, id: 50 }; },
-      update: async (id, params) => { calls.push(["update", id, params]); return { ...tab, id, ...params }; },
-      reload: async (id, params) => { calls.push(["reload", id, params]); },
-      goBack: async (id) => { calls.push(["back", id]); },
-      goForward: async (id) => { calls.push(["forward", id]); },
-      move: async (id, params) => { calls.push(["move", id, params]); return { ...tab, id, ...params }; },
-      duplicate: async (id) => { calls.push(["duplicate", id]); return { ...tab, id: 51 }; },
-      remove: async (id) => { calls.push(["close", id]); },
-      getZoom: async (id) => { calls.push(["getZoom", id]); return 1.25; },
-      setZoom: async (id, factor) => { calls.push(["setZoom", id, factor]); },
+      query: async () => {
+        calls.push(["query"]);
+        return [];
+      },
+      get: async (id) => {
+        calls.push(["get", id]);
+        return { ...tab, id };
+      },
+      create: async (params) => {
+        calls.push(["create", params]);
+        return { ...tab, id: 50 };
+      },
+      update: async (id, params) => {
+        calls.push(["update", id, params]);
+        return { ...tab, id, ...params };
+      },
+      reload: async (id, params) => {
+        calls.push(["reload", id, params]);
+      },
+      goBack: async (id) => {
+        calls.push(["back", id]);
+      },
+      goForward: async (id) => {
+        calls.push(["forward", id]);
+      },
+      move: async (id, params) => {
+        calls.push(["move", id, params]);
+        return { ...tab, id, ...params };
+      },
+      duplicate: async (id) => {
+        calls.push(["duplicate", id]);
+        return { ...tab, id: 51 };
+      },
+      remove: async (id) => {
+        calls.push(["close", id]);
+      },
+      getZoom: async (id) => {
+        calls.push(["getZoom", id]);
+        return 1.25;
+      },
+      setZoom: async (id, factor) => {
+        calls.push(["setZoom", id, factor]);
+      },
     },
     permissions: { contains: async () => true },
     scripting: {
-      executeScript: async (params) => { calls.push(["stop", params.target.tabId]); },
+      executeScript: async (params) => {
+        calls.push(["stop", params.target.tabId]);
+      },
     },
   };
   const handlers = createTabHandlers(chromeAPI);
@@ -81,19 +119,37 @@ test("tab handlers keep every operation scoped to the addressed tab", async () =
   await handlers.forward(targeted());
   await handlers.move(targeted({ windowId: 4, index: -1 }));
   assert.equal((await handlers.duplicate(targeted())).tab.id, 51);
-  assert.deepEqual(await handlers.close(targeted()), { tabId: 42, closed: true });
+  assert.deepEqual(await handlers.close(targeted()), {
+    tabId: 42,
+    closed: true,
+  });
   await handlers.pin(targeted({ pinned: true }));
   await handlers.mute(targeted({ muted: true }));
-  assert.deepEqual(await handlers.getZoom(targeted()), { tabId: 42, factor: 1.25 });
+  assert.deepEqual(await handlers.getZoom(targeted()), {
+    tabId: 42,
+    factor: 1.25,
+  });
   assert.deepEqual(await handlers.setZoom(targeted({ factor: 1.5 })), {
     tabId: 42,
     factor: 1.5,
   });
 
-  assert.equal(calls.some(([operation]) => operation === "query"), false);
+  assert.equal(
+    calls.some(([operation]) => operation === "query"),
+    false,
+  );
   for (const operation of [
-    "get", "update", "reload", "stop", "back", "forward", "move", "duplicate",
-    "close", "getZoom", "setZoom",
+    "get",
+    "update",
+    "reload",
+    "stop",
+    "back",
+    "forward",
+    "move",
+    "duplicate",
+    "close",
+    "getZoom",
+    "setZoom",
   ]) {
     assert.equal(
       calls.some((call) => call[0] === operation && call[1] === 42),
@@ -119,11 +175,25 @@ test("window handlers support list, get, create, update, focus, and close", asyn
   };
   const handlers = createWindowHandlers({
     windows: {
-      getAll: async (options) => { calls.push(["list", options]); return [window]; },
-      get: async (id, options) => { calls.push(["get", id, options]); return window; },
-      create: async (params) => { calls.push(["create", params]); return window; },
-      update: async (id, params) => { calls.push(["update", id, params]); return window; },
-      remove: async (id) => { calls.push(["close", id]); },
+      getAll: async (options) => {
+        calls.push(["list", options]);
+        return [window];
+      },
+      get: async (id, options) => {
+        calls.push(["get", id, options]);
+        return window;
+      },
+      create: async (params) => {
+        calls.push(["create", params]);
+        return window;
+      },
+      update: async (id, params) => {
+        calls.push(["update", id, params]);
+        return window;
+      },
+      remove: async (id) => {
+        calls.push(["close", id]);
+      },
     },
   });
 
@@ -132,7 +202,10 @@ test("window handlers support list, get, create, update, focus, and close", asyn
   await handlers.create({
     params: { urls: ["https://example.com"], type: "popup", focused: false },
   });
-  await handlers.update({ target: { windowId: 4 }, params: { state: "minimized" } });
+  await handlers.update({
+    target: { windowId: 4 },
+    params: { state: "minimized" },
+  });
   await handlers.focus({ target: { windowId: 4 } });
   assert.deepEqual(await handlers.close({ target: { windowId: 4 } }), {
     windowId: 4,
@@ -152,22 +225,40 @@ test("tab group and session handlers normalize Chrome API results", async () => 
   const calls = [];
   const chromeAPI = {
     tabs: {
-      group: async (options) => { calls.push(["group", options]); return 8; },
-      ungroup: async (tabIds) => { calls.push(["ungroup", tabIds]); },
+      group: async (options) => {
+        calls.push(["group", options]);
+        return 8;
+      },
+      ungroup: async (tabIds) => {
+        calls.push(["ungroup", tabIds]);
+      },
     },
     tabGroups: {
       update: async (groupId, update) => {
         calls.push(["update", groupId, update]);
-        return { id: groupId, windowId: 4, title: update.title, color: "blue", collapsed: false };
+        return {
+          id: groupId,
+          windowId: 4,
+          title: update.title,
+          color: "blue",
+          collapsed: false,
+        };
       },
     },
     sessions: {
       getRecentlyClosed: async (filter) => {
         calls.push(["recentlyClosed", filter]);
-        return [{
-          lastModified: 1_700_000_000,
-          tab: { sessionId: "tab-session", id: 7, windowId: 4, title: "Example" },
-        }];
+        return [
+          {
+            lastModified: 1_700_000_000,
+            tab: {
+              sessionId: "tab-session",
+              id: 7,
+              windowId: 4,
+              title: "Example",
+            },
+          },
+        ];
       },
       restore: async (sessionId) => {
         calls.push(["restore", sessionId]);
@@ -186,22 +277,21 @@ test("tab group and session handlers normalize Chrome API results", async () => 
   const groups = createTabGroupHandlers(chromeAPI);
   const sessions = createSessionHandlers(chromeAPI);
 
-  assert.deepEqual(
-    await groups.group({ params: { tabIds: [2, 3], windowId: 4 } }),
-    { groupId: 8, tabIds: [2, 3] },
-  );
-  assert.deepEqual(
-    await groups.ungroup({ params: { tabIds: [2, 3] } }),
-    { tabIds: [2, 3], ungrouped: true },
-  );
-  assert.equal(
-    (await groups.update({ params: { groupId: 8, title: "Research" } })).group.id,
-    8,
-  );
+  assert.deepEqual(await groups.group({ params: { tabIds: [2, 3], windowId: 4 } }), {
+    groupId: 8,
+    tabIds: [2, 3],
+  });
+  assert.deepEqual(await groups.ungroup({ params: { tabIds: [2, 3] } }), {
+    tabIds: [2, 3],
+    ungrouped: true,
+  });
+  assert.equal((await groups.update({ params: { groupId: 8, title: "Research" } })).group.id, 8);
   const recent = await sessions.recentlyClosed({ params: { maxResults: 5 } });
   assert.equal(recent.totalCount, 1);
   assert.equal(recent.sessions[0].tab.sessionId, "tab-session");
-  const restored = await sessions.restore({ params: { sessionId: "window-session" } });
+  const restored = await sessions.restore({
+    params: { sessionId: "window-session" },
+  });
   assert.equal(restored.session.window.tabs[0].sessionId, "restored-tab");
   assert.deepEqual(calls, [
     ["group", { tabIds: [2, 3], createProperties: { windowId: 4 } }],
@@ -239,12 +329,14 @@ test("page handlers preserve addressing and structured content errors", async ()
     scripting: { executeScript: async () => undefined },
     webNavigation: {
       getFrame: async () => ({ documentId: "document-1" }),
-      getAllFrames: async () => [{
-        frameId: 0,
-        parentFrameId: -1,
-        documentId: "document-1",
-        url: "https://example.com/page",
-      }],
+      getAllFrames: async () => [
+        {
+          frameId: 0,
+          parentFrameId: -1,
+          documentId: "document-1",
+          url: "https://example.com/page",
+        },
+      ],
     },
   };
   const page = createPageHandlers(chromeAPI);
@@ -256,8 +348,7 @@ test("page handlers preserve addressing and structured content errors", async ()
 
   await assert.rejects(
     page.click(request, new AbortController().signal),
-    (error) => error.code === ErrorCode.ELEMENT_NOT_FOUND
-      && error.details.matches === 0,
+    (error) => error.code === ErrorCode.ELEMENT_NOT_FOUND && error.details.matches === 0,
   );
   assert.equal(sent.length, 2);
   assert.equal(sent[1][0], 7);
@@ -305,12 +396,14 @@ test("page interaction optionally waits for the addressed frame navigation", asy
         if (message.type === "MCP_BROWSER_BRIDGE_READY") {
           return { ready: true, bridgeVersion: "1.5" };
         }
-        queueMicrotask(() => completed.emit({
-          tabId: 7,
-          frameId: 2,
-          documentId: "document-2",
-          url: "https://example.com/next",
-        }));
+        queueMicrotask(() =>
+          completed.emit({
+            tabId: 7,
+            frameId: 2,
+            documentId: "document-2",
+            url: "https://example.com/next",
+          }),
+        );
         return { success: true, result: { backend: "content" } };
       },
     },
@@ -326,11 +419,14 @@ test("page interaction optionally waits for the addressed frame navigation", asy
   };
   const page = createPageHandlers(chromeAPI);
 
-  const result = await page.click({
-    command: "page.click",
-    target: { tabId: 7, frameId: 2, documentId: "document-1" },
-    params: { locator: { css: "a" }, waitForNavigation: true },
-  }, new AbortController().signal);
+  const result = await page.click(
+    {
+      command: "page.click",
+      target: { tabId: 7, frameId: 2, documentId: "document-1" },
+      params: { locator: { css: "a" }, waitForNavigation: true },
+    },
+    new AbortController().signal,
+  );
 
   assert.deepEqual(result.navigation, {
     tabId: 7,
@@ -363,13 +459,16 @@ test("page navigation wait resolves on same-document history updates", async () 
     },
   };
   const page = createPageHandlers(chromeAPI);
-  const waiting = page.wait({
-    requestId: "wait-navigation",
-    command: "page.wait",
-    target: { tabId: 7, frameId: 0, documentId: "document-1" },
-    params: { condition: "navigation" },
-    timeoutMs: 100,
-  }, new AbortController().signal);
+  const waiting = page.wait(
+    {
+      requestId: "wait-navigation",
+      command: "page.wait",
+      target: { tabId: 7, frameId: 0, documentId: "document-1" },
+      params: { condition: "navigation" },
+      timeoutMs: 100,
+    },
+    new AbortController().signal,
+  );
   await waitForCondition(() => history.listenerCount() === 1);
   history.emit({
     tabId: 7,
@@ -404,17 +503,20 @@ test("page URL wait survives a cross-document navigation", async () => {
     },
   };
   const page = createPageHandlers(chromeAPI);
-  const waiting = page.wait({
-    requestId: "wait-url",
-    command: "page.wait",
-    target: { tabId: 7 },
-    params: {
-      condition: "url",
-      urlPattern: "https://example.com/result/*",
-      mode: "event",
+  const waiting = page.wait(
+    {
+      requestId: "wait-url",
+      command: "page.wait",
+      target: { tabId: 7 },
+      params: {
+        condition: "url",
+        urlPattern: "https://example.com/result/*",
+        mode: "event",
+      },
+      timeoutMs: 100,
     },
-    timeoutMs: 100,
-  }, new AbortController().signal);
+    new AbortController().signal,
+  );
   await waitForCondition(() => committed.listenerCount() === 1);
   committed.emit({
     tabId: 7,
@@ -442,12 +544,15 @@ test("page delay wait is cancelled by the shared command signal", async () => {
   };
   const page = createPageHandlers(chromeAPI);
   const controller = new AbortController();
-  const waiting = page.wait({
-    requestId: "wait-delay",
-    command: "page.wait",
-    target: { tabId: 7 },
-    params: { condition: "delay", delayMs: 1_000 },
-  }, controller.signal);
+  const waiting = page.wait(
+    {
+      requestId: "wait-delay",
+      command: "page.wait",
+      target: { tabId: 7 },
+      params: { condition: "delay", delayMs: 1_000 },
+    },
+    controller.signal,
+  );
   await new Promise((resolve) => setTimeout(resolve, 0));
   controller.abort();
 
@@ -466,16 +571,23 @@ test("page network-idle wait requires and uses the activity observer", async () 
       available: true,
       waitForIdle: async (options) => {
         observed = options;
-        return { condition: "networkIdle", matched: true, idleMs: options.idleMs };
+        return {
+          condition: "networkIdle",
+          matched: true,
+          idleMs: options.idleMs,
+        };
       },
     },
   });
-  const result = await page.wait({
-    requestId: "wait-network",
-    command: "page.wait",
-    target: { tabId: 7 },
-    params: { condition: "networkIdle", idleMs: 500 },
-  }, new AbortController().signal);
+  const result = await page.wait(
+    {
+      requestId: "wait-network",
+      command: "page.wait",
+      target: { tabId: 7 },
+      params: { condition: "networkIdle", idleMs: 500 },
+    },
+    new AbortController().signal,
+  );
 
   assert.equal(result.matched, true);
   assert.equal(observed.tabId, 7);
@@ -487,7 +599,8 @@ test("page viewport screenshot captures and restores the addressed tab", async (
   let activeTabId = 9;
   const updates = [];
   const captures = [];
-  const pngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
   const chromeAPI = {
     tabs: {
       get: async (tabId) => ({
@@ -514,40 +627,47 @@ test("page viewport screenshot captures and restores the addressed tab", async (
     permissions: { contains: async () => true },
   };
   const page = createPageHandlers(chromeAPI);
-  const result = await page.screenshot({
-    command: "page.screenshot",
-    target: { tabId: 7 },
-    params: {
-      capture: "viewport",
-      format: "png",
-      maxWidth: 100,
-      maxHeight: 100,
-      maxBytes: 10_000,
+  const result = await page.screenshot(
+    {
+      command: "page.screenshot",
+      target: { tabId: 7 },
+      params: {
+        capture: "viewport",
+        format: "png",
+        maxWidth: 100,
+        maxHeight: 100,
+        maxBytes: 10_000,
+      },
     },
-  }, new AbortController().signal);
+    new AbortController().signal,
+  );
 
   assert.equal(result.width, 1);
   assert.equal(result.height, 1);
   assert.equal(result.byteLength, 68);
   assert.equal(result.dataBase64, pngBase64);
   assert.deepEqual(captures, [[3, { format: "png" }, 7]]);
-  assert.deepEqual(updates, [[7, { active: true }], [9, { active: true }]]);
+  assert.deepEqual(updates, [
+    [7, { active: true }],
+    [9, { active: true }],
+  ]);
   assert.equal(activeTabId, 9);
 });
 
 test("page JPEG screenshot applies quality and rejects bounded payloads", async () => {
   const jpegBytes = Uint8Array.from([
-    0xff, 0xd8,
-    0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x03,
-    0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
-    0xff, 0xd9,
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x03, 0x03, 0x01, 0x11, 0x00, 0x02,
+    0x11, 0x00, 0x03, 0x11, 0x00, 0xff, 0xd9,
   ]);
   const jpegBase64 = btoa(String.fromCharCode(...jpegBytes));
   let captureOptions;
   const chromeAPI = {
     tabs: {
       get: async () => ({
-        id: 7, windowId: 3, active: true, url: "https://example.com/page",
+        id: 7,
+        windowId: 3,
+        active: true,
+        url: "https://example.com/page",
       }),
       query: async () => [{ id: 7, windowId: 3, active: true }],
       update: async () => assert.fail("the already active tab must not be updated"),
@@ -585,7 +705,11 @@ test("console handlers inject packaged bridges and preserve document targeting",
   const commands = [];
   const chromeAPI = {
     tabs: {
-      get: async () => ({ id: 7, windowId: 3, url: "https://example.com/page" }),
+      get: async () => ({
+        id: 7,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
       sendMessage: async (_tabId, message, options) => {
         if (message.type === "MCP_BROWSER_CONSOLE_READY") {
           if (!contentReady) throw new Error("Receiving end does not exist");
@@ -594,9 +718,10 @@ test("console handlers inject packaged bridges and preserve document targeting",
         commands.push([message.command, message.params, options]);
         return {
           success: true,
-          result: message.command === "console.read"
-            ? { active: true, entries: [], nextCursor: "0" }
-            : { active: message.command === "console.start" },
+          result:
+            message.command === "console.read"
+              ? { active: true, entries: [], nextCursor: "0" }
+              : { active: message.command === "console.start" },
         };
       },
     },
@@ -608,27 +733,36 @@ test("console handlers inject packaged bridges and preserve document targeting",
       },
     },
     webNavigation: {
-      getFrame: async () => ({ documentId: "document-1", url: "https://example.com/page" }),
+      getFrame: async () => ({
+        documentId: "document-1",
+        url: "https://example.com/page",
+      }),
     },
   };
   const handlers = createConsoleHandlers(chromeAPI);
   const signal = new AbortController().signal;
   const target = { tabId: 7, frameId: 2, documentId: "document-1" };
 
-  const started = await handlers.start({
-    requestId: "console-start",
-    command: "console.start",
-    target,
-    params: { bufferSize: 250 },
-  }, signal);
+  const started = await handlers.start(
+    {
+      requestId: "console-start",
+      command: "console.start",
+      target,
+      params: { bufferSize: 250 },
+    },
+    signal,
+  );
   assert.equal(started.active, true);
   assert.equal(started.documentId, "document-1");
-  const read = await handlers.read({
-    requestId: "console-read",
-    command: "console.read",
-    target,
-    params: { levels: ["error"], limit: 10 },
-  }, signal);
+  const read = await handlers.read(
+    {
+      requestId: "console-read",
+      command: "console.read",
+      target,
+      params: { levels: ["error"], limit: 10 },
+    },
+    signal,
+  );
   assert.deepEqual(read.entries, []);
 
   assert.deepEqual(injections, [
@@ -643,19 +777,28 @@ test("console handlers inject packaged bridges and preserve document targeting",
       world: "MAIN",
     },
   ]);
-  assert.deepEqual(commands.map(([command]) => command), ["console.start", "console.read"]);
+  assert.deepEqual(
+    commands.map(([command]) => command),
+    ["console.start", "console.read"],
+  );
   assert.deepEqual(commands[0][2], { frameId: 2, documentId: "document-1" });
 });
 
 function fakeChromeEvent() {
   const listeners = new Set();
   return {
-    addListener(listener) { listeners.add(listener); },
-    removeListener(listener) { listeners.delete(listener); },
+    addListener(listener) {
+      listeners.add(listener);
+    },
+    removeListener(listener) {
+      listeners.delete(listener);
+    },
     emit(details) {
       for (const listener of [...listeners]) listener(details);
     },
-    listenerCount() { return listeners.size; },
+    listenerCount() {
+      return listeners.size;
+    },
   };
 }
 

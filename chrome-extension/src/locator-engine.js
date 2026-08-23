@@ -86,7 +86,11 @@
             { ...diagnostics, nth: locator.nth },
           );
         }
-        return { element: result.matches[locator.nth], count, strategy: result.strategy };
+        return {
+          element: result.matches[locator.nth],
+          count,
+          strategy: result.strategy,
+        };
       }
 
       if (strict && count !== 1) {
@@ -161,12 +165,14 @@
         enabled: isEnabled(element),
         reference,
         attributes: Object.fromEntries(
-          attributes.slice(0, 100).map((attribute) => [
-            attribute.name.slice(0, 200),
-            shouldRedactAttribute(element, attribute)
-              ? "[REDACTED]"
-              : attribute.value.slice(0, 2_000),
-          ]),
+          attributes
+            .slice(0, 100)
+            .map((attribute) => [
+              attribute.name.slice(0, 200),
+              shouldRedactAttribute(element, attribute)
+                ? "[REDACTED]"
+                : attribute.value.slice(0, 2_000),
+            ]),
         ),
         attributesTruncated: attributes.length > 100,
         boundingBox: {
@@ -210,10 +216,10 @@
       }
       const stored = references.get(reference.elementId);
       if (
-        !stored
-        || stored.documentId !== documentId
-        || stored.expiresAt <= now()
-        || stored.element.isConnected === false
+        !stored ||
+        stored.documentId !== documentId ||
+        stored.expiresAt <= now() ||
+        stored.element.isConnected === false
       ) {
         references.delete(reference.elementId);
         throw commandError("STALE_TARGET", "The element reference expired or became detached", {
@@ -294,9 +300,10 @@
         if (normalizedText(label.textContent).toLowerCase() !== expected) {
           continue;
         }
-        const control = label.control
-          || (label.htmlFor ? rootDocument.getElementById(label.htmlFor) : null)
-          || label.querySelector?.("button,input,meter,output,progress,select,textarea");
+        const control =
+          label.control ||
+          (label.htmlFor ? rootDocument.getElementById(label.htmlFor) : null) ||
+          label.querySelector?.("button,input,meter,output,progress,select,textarea");
         if (control) {
           controls.push(control);
         }
@@ -314,7 +321,8 @@
       return collectElements(includeShadowDOM).filter((element) =>
         ["data-testid", "data-test-id", "data-test"].some(
           (name) => element.getAttribute?.(name) === value,
-        ));
+        ),
+      );
     }
 
     function queryCoordinates(coordinates, includeShadowDOM) {
@@ -351,10 +359,10 @@
       }
       const style = rootWindow.getComputedStyle?.(element);
       if (
-        style?.display === "none"
-        || style?.visibility === "hidden"
-        || style?.visibility === "collapse"
-        || Number.parseFloat(style?.opacity ?? "1") === 0
+        style?.display === "none" ||
+        style?.visibility === "hidden" ||
+        style?.visibility === "collapse" ||
+        Number.parseFloat(style?.opacity ?? "1") === 0
       ) {
         return false;
       }
@@ -373,10 +381,12 @@
     }
 
     function isInViewport(rect) {
-      return rect.bottom > 0
-        && rect.right > 0
-        && rect.top < rootWindow.innerHeight
-        && rect.left < rootWindow.innerWidth;
+      return (
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < rootWindow.innerHeight &&
+        rect.left < rootWindow.innerWidth
+      );
     }
 
     function nextRender() {
@@ -515,7 +525,9 @@
   }
 
   function normalizedText(value) {
-    return String(value || "").replace(/\s+/g, " ").trim();
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function clamp(value, minimum, maximum) {
@@ -534,13 +546,17 @@
       element.id,
       element.getAttribute?.("name"),
       element.getAttribute?.("autocomplete"),
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     return /(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(identity);
   }
 
   function defaultID() {
-    return globalThis.crypto?.randomUUID?.()
-      || `element-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    return (
+      globalThis.crypto?.randomUUID?.() ||
+      `element-${Date.now()}-${Math.random().toString(16).slice(2)}`
+    );
   }
 
   function commandError(code, message, details = undefined) {

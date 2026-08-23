@@ -70,7 +70,12 @@ elements.resetIdentity.addEventListener("click", () => {
     return;
   }
   void run(async () => {
-    renderResponse(await chrome.runtime.sendMessage({ type: "RESET_IDENTITY", confirm: true }));
+    renderResponse(
+      await chrome.runtime.sendMessage({
+        type: "RESET_IDENTITY",
+        confirm: true,
+      }),
+    );
   });
 });
 
@@ -109,9 +114,8 @@ function renderResponse(response) {
   const data = response.data;
   renderStatus(data.status);
   showError(data.error || "");
-  elements.browserRuntime.textContent = [data.browserName, data.browserVersion]
-    .filter(Boolean)
-    .join(" ") || "Chromium";
+  elements.browserRuntime.textContent =
+    [data.browserName, data.browserVersion].filter(Boolean).join(" ") || "Chromium";
   elements.browserId.textContent = data.browserId || "—";
   elements.browserId.title = data.browserId || "";
   elements.connectionId.textContent = data.connectionId || "—";

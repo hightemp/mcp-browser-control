@@ -1114,7 +1114,7 @@ README на английском должен содержать:
 
 - Приоритет: P0
 - Зависимости: T-040, T-090, T-094
-- Статус: `[~]`
+- Статус: `[x]`
 
 CI запускает:
 
@@ -1125,7 +1125,7 @@ CI запускает:
 - secret scan;
 - build artifacts.
 
-Локальные команды `fmt-check`, `vet`, `lint`, `test-race`, `coverage`, extension checks и сборка добавлены в `Makefile`; CI workflow ещё не создан.
+Локальные команды `fmt-check`, `vet`, `lint`, `test-race`, `coverage`, extension format/lint/test/build и security checks добавлены в `Makefile`. GitHub Actions запускает их для push, pull request, ручного запуска и еженедельной проверки. Отдельный security job выполняет `govulncheck`, npm audit, проверку лицензий Go/npm dependencies и полный git-history secret scan через Gitleaks. Успешная проверка публикует server binary, coverage profile и production extension как краткоживущие CI artifacts; внешние Actions закреплены на полных commit SHA и работают с минимальным `contents: read`.
 
 ### T-104 — Подготовить reproducible builds
 

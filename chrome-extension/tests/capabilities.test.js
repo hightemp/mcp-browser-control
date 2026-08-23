@@ -34,7 +34,10 @@ test("capability detection removes unavailable or disabled commands", () => {
     detectCapabilities({
       browserVersion: "115",
       apis: { tabs: true, scripting: true },
-      permissions: { permissions: ["tabs", "scripting"], origins: ["https://example.com/*"] },
+      permissions: {
+        permissions: ["tabs", "scripting"],
+        origins: ["https://example.com/*"],
+      },
     }),
     ["browser.ping"],
   );
@@ -42,7 +45,10 @@ test("capability detection removes unavailable or disabled commands", () => {
     detectCapabilities({
       browserVersion: "116",
       apis: { tabs: false, scripting: true },
-      permissions: { permissions: ["tabs", "scripting"], origins: ["https://example.com/*"] },
+      permissions: {
+        permissions: ["tabs", "scripting"],
+        origins: ["https://example.com/*"],
+      },
       featureFlags: { pageAutomation: false },
     }),
     ["browser.ping"],
@@ -60,7 +66,10 @@ test("capability detection removes unavailable or disabled commands", () => {
     detectCapabilities({
       browserVersion: "116",
       apis: { tabs: true, scripting: true },
-      permissions: { permissions: ["tabs"], origins: ["https://example.com/*"] },
+      permissions: {
+        permissions: ["tabs"],
+        origins: ["https://example.com/*"],
+      },
       featureFlags: { pageAutomation: true },
     }),
     tabCapabilitiesWithoutStop(),
@@ -69,7 +78,12 @@ test("capability detection removes unavailable or disabled commands", () => {
   assert.deepEqual(
     detectCapabilities({
       browserVersion: "116",
-      apis: { tabs: true, tabGrouping: true, tabGroups: false, sessions: false },
+      apis: {
+        tabs: true,
+        tabGrouping: true,
+        tabGroups: false,
+        sessions: false,
+      },
       permissions: { permissions: ["tabs"], origins: [] },
     }),
     [...tabCapabilitiesWithoutStop(), "tabs.group", "tabs.ungroup"],
@@ -84,11 +98,19 @@ test("capability detection removes unavailable or disabled commands", () => {
     },
   });
   assert.equal(withoutDocumentIdentity.includes("tabs.stop"), true);
-  assert.equal(withoutDocumentIdentity.some((name) => name.startsWith("page.")), false);
+  assert.equal(
+    withoutDocumentIdentity.some((name) => name.startsWith("page.")),
+    false,
+  );
 
   const withoutFrameTree = detectCapabilities({
     browserVersion: "116",
-    apis: { tabs: true, scripting: true, webNavigation: true, frameTree: false },
+    apis: {
+      tabs: true,
+      scripting: true,
+      webNavigation: true,
+      frameTree: false,
+    },
     permissions: {
       permissions: ["tabs", "scripting"],
       origins: ["https://example.com/*"],
@@ -101,10 +123,9 @@ test("capability detection removes unavailable or disabled commands", () => {
 
 function tabCapabilitiesWithoutStop() {
   return COMMAND_NAMES.filter(
-    (capability) => capability === "browser.ping"
-      || (
-        capability.startsWith("tabs.")
-        && !["tabs.stop", "tabs.group", "tabs.ungroup"].includes(capability)
-      ),
+    (capability) =>
+      capability === "browser.ping" ||
+      (capability.startsWith("tabs.") &&
+        !["tabs.stop", "tabs.group", "tabs.ungroup"].includes(capability)),
   );
 }

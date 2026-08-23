@@ -10,7 +10,11 @@ const schemaURL = new URL("../../protocol/schema/v1.schema.json", import.meta.ur
 const fixturesURL = new URL("../../protocol/fixtures/v1/", import.meta.url);
 
 const schema = JSON.parse(await readFile(schemaURL, "utf8"));
-const ajv = new Ajv2020({ allErrors: true, strict: true, strictRequired: false });
+const ajv = new Ajv2020({
+  allErrors: true,
+  strict: true,
+  strictRequired: false,
+});
 const validate = ajv.compile(schema);
 
 test("shared valid protocol fixtures pass Ajv and extension validation", async (t) => {
@@ -33,7 +37,9 @@ test("shared invalid protocol fixtures fail Ajv validation", async (t) => {
 });
 
 async function fixtureNames(group) {
-  const entries = await readdir(new URL(`${group}/`, fixturesURL), { withFileTypes: true });
+  const entries = await readdir(new URL(`${group}/`, fixturesURL), {
+    withFileTypes: true,
+  });
   return entries
     .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
     .map((entry) => entry.name)

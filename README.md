@@ -46,9 +46,9 @@ boundaries.
 
 ## Requirements
 
-- Go 1.23 or newer
+- Go 1.26.7 or newer
 - Chrome or a compatible Chromium browser version 116 or newer
-- Node.js only for extension unit tests
+- Node.js 20.19 or newer for extension development and tests
 
 ## Run the Server
 
@@ -446,7 +446,19 @@ Run extension checks:
 
 ```bash
 make extension-check
+make extension-build
 ```
+
+Run the dependency, license, and repository secret scans after installing
+`govulncheck` and `gitleaks`:
+
+```bash
+make security-check
+```
+
+GitHub Actions runs these checks for pushes, pull requests, manual runs, and a
+weekly security schedule. Successful runs publish the server binary, coverage
+profile, and unpacked production extension as short-lived CI artifacts.
 
 Core packages:
 

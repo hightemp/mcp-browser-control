@@ -26,11 +26,23 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   const dragSource = element("div", { id: "drag-source" });
   const dragTarget = element("div", { id: "drag-target" });
   const form = element("form", { id: "settings-form" });
-  form.requestSubmit = () => { form.submitted = true; };
-  const script = element("script", { children: [textNode("window.secret = true")] });
+  form.requestSubmit = () => {
+    form.submitted = true;
+  };
+  const script = element("script", {
+    children: [textNode("window.secret = true")],
+  });
   const main = element("main", {
     children: [
-      button, password, country, checkbox, scrollBox, dragSource, dragTarget, form, script,
+      button,
+      password,
+      country,
+      checkbox,
+      scrollBox,
+      dragSource,
+      dragTarget,
+      form,
+      script,
     ],
   });
   const body = element("body", { children: [main] });
@@ -50,17 +62,25 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   globalThis.HTMLInputElement = class {};
   globalThis.HTMLTextAreaElement = class {};
   Object.defineProperty(globalThis.HTMLInputElement.prototype, "value", {
-    set(value) { this.value = value; },
+    set(value) {
+      this.value = value;
+    },
   });
   Object.defineProperty(globalThis.HTMLTextAreaElement.prototype, "value", {
-    set(value) { this.value = value; },
+    set(value) {
+      this.value = value;
+    },
   });
   globalThis.document = document;
   globalThis.window = window;
   globalThis.chrome = {
     runtime: {
       id: "extension-id",
-      onMessage: { addListener: (registered) => { listener = registered; } },
+      onMessage: {
+        addListener: (registered) => {
+          listener = registered;
+        },
+      },
     },
   };
   await import(`../src/locator-engine.js?inspection=${Date.now()}`);
@@ -133,7 +153,11 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   const immediateWaits = [
     { condition: "loadState", readyState: "complete" },
     { condition: "url", urlPattern: "https://example.com/*" },
-    { condition: "element", locator: { css: "#save" }, elementState: "visible" },
+    {
+      condition: "element",
+      locator: { css: "#save" },
+      elementState: "visible",
+    },
     { condition: "text", expected: "Save settings", matchOperator: "contains" },
     {
       condition: "value",
@@ -141,7 +165,12 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
       expected: "",
       matchOperator: "equals",
     },
-    { condition: "count", locator: { css: "input" }, count: 2, countOperator: "equals" },
+    {
+      condition: "count",
+      locator: { css: "input" },
+      count: 2,
+      countOperator: "equals",
+    },
     {
       condition: "attribute",
       locator: { css: "#save" },
@@ -151,7 +180,10 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
     },
   ];
   for (const params of immediateWaits) {
-    const waited = await command(listener, "page.wait", { ...params, internalTimeoutMs: 100 });
+    const waited = await command(listener, "page.wait", {
+      ...params,
+      internalTimeoutMs: 100,
+    });
     assert.equal(waited.success, true, JSON.stringify(waited.error));
     assert.equal(waited.result.matched, true);
     assert.equal(waited.result.mode, "immediate");
@@ -211,7 +243,9 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
     modifiers: ["Control"],
   });
   assert.equal(password.events.includes("keydown"), true);
-  const cleared = await command(listener, "page.clear", { locator: { css: "#password" } });
+  const cleared = await command(listener, "page.clear", {
+    locator: { css: "#password" },
+  });
   assert.equal(cleared.result.value, "[REDACTED]");
   assert.equal(password.value, "");
 
@@ -277,19 +311,28 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   assert.equal(timedOut.error.retryable, true);
 
   const cancelledOperation = "cancelled-wait";
-  const cancelledWait = command(listener, "page.wait", {
-    condition: "element",
-    locator: { css: "#missing" },
-    elementState: "attached",
-    mode: "event",
-    internalTimeoutMs: 1_000,
-  }, cancelledOperation);
+  const cancelledWait = command(
+    listener,
+    "page.wait",
+    {
+      condition: "element",
+      locator: { css: "#missing" },
+      elementState: "attached",
+      mode: "event",
+      internalTimeoutMs: 1_000,
+    },
+    cancelledOperation,
+  );
   await new Promise((resolve) => setTimeout(resolve, 0));
-  listener({
-    type: "MCP_BROWSER_CANCEL",
-    bridgeVersion: "1.5",
-    operationId: cancelledOperation,
-  }, { id: "extension-id" }, () => undefined);
+  listener(
+    {
+      type: "MCP_BROWSER_CANCEL",
+      bridgeVersion: "1.5",
+      operationId: cancelledOperation,
+    },
+    { id: "extension-id" },
+    () => undefined,
+  );
   const cancelled = await cancelledWait;
   assert.equal(cancelled.success, false);
   assert.equal(cancelled.error.code, "CANCELLED");
@@ -319,15 +362,19 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
 
 function command(listener, name, params, operationId = `${name}-${Date.now()}-${Math.random()}`) {
   return new Promise((resolve, reject) => {
-    const handled = listener({
-      type: "MCP_BROWSER_COMMAND",
-      bridgeVersion: "1.5",
-      operationId,
-      command: name,
-      params,
-      frameId: 0,
-      documentId: "document-1",
-    }, { id: "extension-id" }, resolve);
+    const handled = listener(
+      {
+        type: "MCP_BROWSER_COMMAND",
+        bridgeVersion: "1.5",
+        operationId,
+        command: name,
+        params,
+        frameId: 0,
+        documentId: "document-1",
+      },
+      { id: "extension-id" },
+      resolve,
+    );
     if (!handled) reject(new Error(`Command ${name} was not handled`));
   });
 }
@@ -348,8 +395,9 @@ class FakeDocument {
   }
 
   querySelectorAll(selector) {
-    return [this.documentElement, ...descendants(this.documentElement)]
-      .filter((candidate) => matches(candidate, selector));
+    return [this.documentElement, ...descendants(this.documentElement)].filter((candidate) =>
+      matches(candidate, selector),
+    );
   }
 
   getElementById(id) {
@@ -387,7 +435,12 @@ function element(tagName, { id = "", attributes = {}, children = [] } = {}) {
     attributes: [...attributeMap].map(([name, value]) => ({ name, value })),
     childNodes: children,
     children: children.filter((child) => child.nodeType === 1),
-    style: { display: "block", visibility: "visible", opacity: "1", pointerEvents: "auto" },
+    style: {
+      display: "block",
+      visibility: "visible",
+      opacity: "1",
+      pointerEvents: "auto",
+    },
     hidden: false,
     disabled: false,
     isConnected: true,
@@ -409,7 +462,16 @@ function element(tagName, { id = "", attributes = {}, children = [] } = {}) {
       return attributeMap.has(name);
     },
     getBoundingClientRect() {
-      return { x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 30, width: 100, height: 30 };
+      return {
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 30,
+        width: 100,
+        height: 30,
+      };
     },
     querySelectorAll(selector) {
       return descendants(this).filter((child) => matches(child, selector));
@@ -436,8 +498,12 @@ function element(tagName, { id = "", attributes = {}, children = [] } = {}) {
       if (["checkbox", "radio"].includes(this.type)) this.checked = true;
       this.events.push("click");
     },
-    focus() { this.focused = true; },
-    blur() { this.focused = false; },
+    focus() {
+      this.focused = true;
+    },
+    blur() {
+      this.focused = false;
+    },
   };
   for (const child of children) child.parentNode = candidate;
   return candidate;

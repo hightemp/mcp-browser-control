@@ -8,11 +8,7 @@ import {
   validateIncomingMessage,
   validateServerEndpoint,
 } from "./protocol.js";
-import {
-  getStoredIdentity,
-  initializeStoredState,
-  resetStoredIdentity,
-} from "./identity.js";
+import { getStoredIdentity, initializeStoredState, resetStoredIdentity } from "./identity.js";
 import { badgeForStatus, permissionProfilesFor } from "./status.js";
 import { detectCapabilities } from "./capabilities.js";
 import { CommandRouter } from "./command-router.js";
@@ -109,8 +105,9 @@ async function handleRuntimeMessage(message) {
         displayName: String(message.settings?.displayName || "").trim(),
         autoConnect: Boolean(message.settings?.autoConnect),
         featureFlags: {
-          pageAutomation: message.settings?.featureFlags?.pageAutomation
-            ?? currentSettings.featureFlags.pageAutomation,
+          pageAutomation:
+            message.settings?.featureFlags?.pageAutomation ??
+            currentSettings.featureFlags.pageAutomation,
         },
       };
       await chrome.storage.local.set({ settings });
@@ -121,7 +118,7 @@ async function handleRuntimeMessage(message) {
       return { success: true, data: await getStatus() };
     }
     case "CONNECT":
-	  authenticationBlocked = false;
+      authenticationBlocked = false;
       await chrome.storage.local.set({
         settings: { ...(await getSettings()), autoConnect: true },
       });
@@ -198,7 +195,10 @@ async function getSettings() {
 }
 
 async function connect() {
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+  if (
+    socket &&
+    (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)
+  ) {
     return;
   }
 
@@ -207,10 +207,10 @@ async function connect() {
     await updateStatus("disconnected");
     return;
   }
-	if (authenticationBlocked) {
-	  await updateStatus("pairing_required");
-	  return;
-	}
+  if (authenticationBlocked) {
+    await updateStatus("pairing_required");
+    return;
+  }
 
   let endpoint;
   try {
@@ -230,15 +230,15 @@ async function connect() {
     void sendHello(currentSocket);
   });
   currentSocket.addEventListener("message", (event) => {
-	 incomingMessages = incomingMessages
-	   .then(() => handleSocketMessage(currentSocket, event.data))
-	   .catch(async (error) => {
-	     await updateStatus("error", error.message || "Failed to process a server message");
-	     currentSocket.close(1011, "Message processing failed");
-	   });
+    incomingMessages = incomingMessages
+      .then(() => handleSocketMessage(currentSocket, event.data))
+      .catch(async (error) => {
+        await updateStatus("error", error.message || "Failed to process a server message");
+        currentSocket.close(1011, "Message processing failed");
+      });
   });
   currentSocket.addEventListener("close", () => {
-	void incomingMessages.then(() => handleSocketClose(currentSocket));
+    void incomingMessages.then(() => handleSocketClose(currentSocket));
   });
   currentSocket.addEventListener("error", () => {
     if (socket === currentSocket) {
@@ -248,26 +248,28 @@ async function connect() {
 }
 
 async function handleSocketClose(currentSocket) {
-	if (socket !== currentSocket) {
-	  return;
-	}
-	socket = null;
-	connectionId = "";
-	stopKeepalive();
-	if (pendingRevocation) {
-	  clearTimeout(pendingRevocation.timeout);
-	  pendingRevocation.reject(protocolError(
-	    ErrorCode.BROWSER_DISCONNECTED,
-	    "The browser disconnected before pairing could be revoked",
-	    true,
-	  ));
-	  pendingRevocation = null;
-	}
-	if (authenticationBlocked) {
-	  return;
-	}
-	await updateStatus("disconnected");
-	await scheduleReconnect();
+  if (socket !== currentSocket) {
+    return;
+  }
+  socket = null;
+  connectionId = "";
+  stopKeepalive();
+  if (pendingRevocation) {
+    clearTimeout(pendingRevocation.timeout);
+    pendingRevocation.reject(
+      protocolError(
+        ErrorCode.BROWSER_DISCONNECTED,
+        "The browser disconnected before pairing could be revoked",
+        true,
+      ),
+    );
+    pendingRevocation = null;
+  }
+  if (authenticationBlocked) {
+    return;
+  }
+  await updateStatus("disconnected");
+  await scheduleReconnect();
 }
 
 async function sendHello(currentSocket) {
@@ -276,15 +278,15 @@ async function sendHello(currentSocket) {
   const platform = await chrome.runtime.getPlatformInfo();
   const permissions = await chrome.permissions.getAll();
   const manifest = chrome.runtime.getManifest();
-	const { credential } = await chrome.storage.local.get("credential");
+  const { credential } = await chrome.storage.local.get("credential");
 
   const hello = createMessage(MessageType.HELLO, {
     browserId,
     params: {
       displayName: settings.displayName || `Chromium ${browserId.slice(0, 8)}`,
       extensionVersion: manifest.version,
-	  ...(credential ? { credential } : {}),
-	  ...(!credential && pendingPairingCode ? { pairingCode: pendingPairingCode } : {}),
+      ...(credential ? { credential } : {}),
+      ...(!credential && pendingPairingCode ? { pairingCode: pendingPairingCode } : {}),
       browser: {
         name: getBrowserName(),
         version: getBrowserVersion(),
@@ -319,7 +321,9 @@ async function handleSocketMessage(currentSocket, rawMessage) {
     case MessageType.WELCOME:
       connectionId = message.connectionId;
       if (message.result?.credential) {
-        await chrome.storage.local.set({ credential: message.result.credential });
+        await chrome.storage.local.set({
+          credential: message.result.credential,
+        });
       }
       await chrome.storage.local.set({
         connectionDiagnostics: {
@@ -334,39 +338,41 @@ async function handleSocketMessage(currentSocket, rawMessage) {
       startKeepalive();
       await updateStatus("connected");
       break;
-	case MessageType.AUTH_ERROR: {
-	  const authError = message.error || {};
-	  authenticationBlocked = authError.code === ErrorCode.PAIRING_REQUIRED;
-	  pendingPairingCode = "";
-	  if (authenticationBlocked) {
-	    await chrome.storage.local.remove("credential");
-	  }
-	  await updateStatus(
-	    authenticationBlocked ? "pairing_required" : "error",
-	    authError.message || "Browser authentication failed",
-	  );
-	  currentSocket.close(1008, "Browser authentication failed");
-	  break;
-	}
-	case MessageType.REVOKE: {
-	  if (!pendingRevocation) {
-	    break;
-	  }
-	  const revocation = pendingRevocation;
-	  pendingRevocation = null;
-	  clearTimeout(revocation.timeout);
-	  if (message.success === false) {
-	    revocation.reject(protocolError(
-	      message.error?.code || ErrorCode.INTERNAL_ERROR,
-	      message.error?.message || "The server could not revoke browser pairing",
-	      Boolean(message.error?.retryable),
-	    ));
-	    break;
-	  }
-	  authenticationBlocked = true;
-	  revocation.resolve();
-	  break;
-	}
+    case MessageType.AUTH_ERROR: {
+      const authError = message.error || {};
+      authenticationBlocked = authError.code === ErrorCode.PAIRING_REQUIRED;
+      pendingPairingCode = "";
+      if (authenticationBlocked) {
+        await chrome.storage.local.remove("credential");
+      }
+      await updateStatus(
+        authenticationBlocked ? "pairing_required" : "error",
+        authError.message || "Browser authentication failed",
+      );
+      currentSocket.close(1008, "Browser authentication failed");
+      break;
+    }
+    case MessageType.REVOKE: {
+      if (!pendingRevocation) {
+        break;
+      }
+      const revocation = pendingRevocation;
+      pendingRevocation = null;
+      clearTimeout(revocation.timeout);
+      if (message.success === false) {
+        revocation.reject(
+          protocolError(
+            message.error?.code || ErrorCode.INTERNAL_ERROR,
+            message.error?.message || "The server could not revoke browser pairing",
+            Boolean(message.error?.retryable),
+          ),
+        );
+        break;
+      }
+      authenticationBlocked = true;
+      revocation.resolve();
+      break;
+    }
     case MessageType.REQUEST:
       void executeRequest(message);
       break;
@@ -374,10 +380,12 @@ async function handleSocketMessage(currentSocket, rawMessage) {
       commandRouter.cancel(message.requestId);
       break;
     case MessageType.PING:
-      sendMessage(createMessage(MessageType.PONG, {
-        browserId: await getIdentity(),
-        connectionId,
-      }));
+      sendMessage(
+        createMessage(MessageType.PONG, {
+          browserId: await getIdentity(),
+          connectionId,
+        }),
+      );
       break;
     case MessageType.PONG:
       await recordKeepaliveLatency();
@@ -389,13 +397,15 @@ async function handleSocketMessage(currentSocket, rawMessage) {
 
 async function executeRequest(request) {
   await commandRouter.execute(request, async (outcome) => {
-    sendMessage(createMessage(MessageType.RESPONSE, {
-      requestId: request.requestId,
-      browserId: await getIdentity(),
-      connectionId,
-      target: request.target,
-      ...outcome,
-    }));
+    sendMessage(
+      createMessage(MessageType.RESPONSE, {
+        requestId: request.requestId,
+        browserId: await getIdentity(),
+        connectionId,
+        target: request.target,
+        ...outcome,
+      }),
+    );
   });
 }
 
@@ -408,33 +418,37 @@ function sendMessage(message) {
 }
 
 async function requestPairingRevocation() {
-	if (!socket || socket.readyState !== WebSocket.OPEN || !connectionId) {
-	  throw protocolError(
-	    ErrorCode.BROWSER_DISCONNECTED,
-	    "Connect the paired browser before revoking its credential",
-	    true,
-	  );
-	}
-	if (pendingRevocation) {
-	  throw protocolError(ErrorCode.INVALID_COMMAND, "Pairing revocation is already in progress");
-	}
-	const browserId = await getIdentity();
-	await new Promise((resolve, reject) => {
-	  const timeout = setTimeout(() => {
-	    pendingRevocation = null;
-	    reject(protocolError(
-	      ErrorCode.BROWSER_DISCONNECTED,
-	      "Timed out while revoking browser pairing",
-	      true,
-	    ));
-	  }, 5_000);
-	  pendingRevocation = { resolve, reject, timeout };
-	  if (!sendMessage(createMessage(MessageType.REVOKE, { browserId, connectionId }))) {
-	    clearTimeout(timeout);
-	    pendingRevocation = null;
-	    reject(protocolError(ErrorCode.BROWSER_DISCONNECTED, "Browser connection is unavailable", true));
-	  }
-	});
+  if (!socket || socket.readyState !== WebSocket.OPEN || !connectionId) {
+    throw protocolError(
+      ErrorCode.BROWSER_DISCONNECTED,
+      "Connect the paired browser before revoking its credential",
+      true,
+    );
+  }
+  if (pendingRevocation) {
+    throw protocolError(ErrorCode.INVALID_COMMAND, "Pairing revocation is already in progress");
+  }
+  const browserId = await getIdentity();
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      pendingRevocation = null;
+      reject(
+        protocolError(
+          ErrorCode.BROWSER_DISCONNECTED,
+          "Timed out while revoking browser pairing",
+          true,
+        ),
+      );
+    }, 5_000);
+    pendingRevocation = { resolve, reject, timeout };
+    if (!sendMessage(createMessage(MessageType.REVOKE, { browserId, connectionId }))) {
+      clearTimeout(timeout);
+      pendingRevocation = null;
+      reject(
+        protocolError(ErrorCode.BROWSER_DISCONNECTED, "Browser connection is unavailable", true),
+      );
+    }
+  });
 }
 
 async function sendCapabilitiesChanged() {
@@ -444,21 +458,20 @@ async function sendCapabilitiesChanged() {
   const browserId = await getIdentity();
   const settings = await getSettings();
   const permissions = await chrome.permissions.getAll();
-  sendMessage(createMessage(MessageType.CAPABILITIES_CHANGED, {
-    browserId,
-    connectionId,
-    params: {
-      capabilities: capabilitiesFor(permissions, settings.featureFlags),
-      permissions: [...(permissions.permissions || []), ...(permissions.origins || [])],
-    },
-  }));
+  sendMessage(
+    createMessage(MessageType.CAPABILITIES_CHANGED, {
+      browserId,
+      connectionId,
+      params: {
+        capabilities: capabilitiesFor(permissions, settings.featureFlags),
+        permissions: [...(permissions.permissions || []), ...(permissions.origins || [])],
+      },
+    }),
+  );
 }
 
 async function getCurrentCapabilities() {
-  const [settings, permissions] = await Promise.all([
-    getSettings(),
-    chrome.permissions.getAll(),
-  ]);
+  const [settings, permissions] = await Promise.all([getSettings(), chrome.permissions.getAll()]);
   return capabilitiesFor(permissions, settings.featureFlags);
 }
 

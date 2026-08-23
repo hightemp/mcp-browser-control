@@ -1,9 +1,4 @@
-import {
-  ErrorCode,
-  assertFreshDocument,
-  mapChromeError,
-  protocolError,
-} from "../protocol.js";
+import { ErrorCode, assertFreshDocument, mapChromeError, protocolError } from "../protocol.js";
 import { ContentScriptBridge } from "../content-bridge.js";
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
@@ -33,7 +28,13 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     const documentId = await currentDocument(request, tab.id, frameId);
     throwIfCancelled(signal);
     if (request.command === "page.wait") {
-      return executeWait(request, { tabId: tab.id, frameId, documentId, signal, timeoutMs });
+      return executeWait(request, {
+        tabId: tab.id,
+        frameId,
+        documentId,
+        signal,
+        timeoutMs,
+      });
     }
     const navigation = request.params.waitForNavigation
       ? createNavigationWaiter(chromeAPI, tab.id, frameId, signal)
@@ -91,7 +92,9 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     switch (request.params.condition) {
       case "delay":
         await waitForDelay(request.params.delayMs, context.signal);
-        return waitResult("delay", startedAt, "timer", { delayMs: request.params.delayMs });
+        return waitResult("delay", startedAt, "timer", {
+          delayMs: request.params.delayMs,
+        });
       case "navigation": {
         const navigation = createNavigationWaiter(
           chromeAPI,
@@ -112,7 +115,9 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
           context.signal,
         );
       case "networkIdle": {
-        const granted = await chromeAPI.permissions.contains({ permissions: ["webRequest"] });
+        const granted = await chromeAPI.permissions.contains({
+          permissions: ["webRequest"],
+        });
         if (!granted || !networkActivity?.available) {
           throw protocolError(
             ErrorCode.CAPABILITY_UNAVAILABLE,
@@ -148,7 +153,10 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
       let activatedTarget = false;
       const warnings = [];
       try {
-        const activeTabs = await chromeAPI.tabs.query({ active: true, windowId: tab.windowId });
+        const activeTabs = await chromeAPI.tabs.query({
+          active: true,
+          windowId: tab.windowId,
+        });
         throwIfCancelled(signal);
         originalTab = activeTabs[0];
         if (originalTab?.id !== tab.id) {
@@ -156,7 +164,10 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
           activatedTarget = true;
           throwIfCancelled(signal);
         }
-        const currentTabs = await chromeAPI.tabs.query({ active: true, windowId: tab.windowId });
+        const currentTabs = await chromeAPI.tabs.query({
+          active: true,
+          windowId: tab.windowId,
+        });
         if (currentTabs[0]?.id !== tab.id) {
           throw protocolError(
             ErrorCode.INTERNAL_ERROR,
@@ -190,7 +201,11 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
           throw mapChromeError(error);
         }
         throwIfCancelled(signal);
-        const image = decodeScreenshotDataURL(dataURL, format, request.params.maxBytes ?? 2_000_000);
+        const image = decodeScreenshotDataURL(
+          dataURL,
+          format,
+          request.params.maxBytes ?? 2_000_000,
+        );
         const maxWidth = request.params.maxWidth ?? 16_384;
         const maxHeight = request.params.maxHeight ?? 16_384;
         if (image.width > maxWidth || image.height > maxHeight) {
@@ -231,7 +246,10 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
         throw protocolError(ErrorCode.TAB_NOT_FOUND, `Tab ${explicitTabId} was not found`);
       }
     }
-    const tabs = await chromeAPI.tabs.query({ active: true, lastFocusedWindow: true });
+    const tabs = await chromeAPI.tabs.query({
+      active: true,
+      lastFocusedWindow: true,
+    });
     if (!tabs[0]) {
       throw protocolError(ErrorCode.TAB_NOT_FOUND, "No active tab was found");
     }
@@ -249,7 +267,9 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
       throw protocolError(ErrorCode.RESTRICTED_URL, `Cannot access ${parsed.protocol} pages`);
     }
     const originPattern = `${parsed.protocol}//${parsed.host}/*`;
-    const granted = await chromeAPI.permissions.contains({ origins: [originPattern] });
+    const granted = await chromeAPI.permissions.contains({
+      origins: [originPattern],
+    });
     if (!granted) {
       throw protocolError(
         ErrorCode.PERMISSION_REQUIRED,
@@ -319,7 +339,9 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
 async function withCaptureLock(queues, windowId, operation) {
   const previous = queues.get(windowId) || Promise.resolve();
   let release;
-  const current = new Promise((resolve) => { release = resolve; });
+  const current = new Promise((resolve) => {
+    release = resolve;
+  });
   queues.set(windowId, current);
   await previous.catch(() => undefined);
   try {
@@ -338,13 +360,13 @@ function decodeScreenshotDataURL(dataURL, format, maxBytes) {
   }
   const dataBase64 = dataURL.slice(prefix.length);
   if (
-    dataBase64.length === 0
-    || dataBase64.length % 4 !== 0
-    || !/^[A-Za-z0-9+/]*={0,2}$/.test(dataBase64)
+    dataBase64.length === 0 ||
+    dataBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(dataBase64)
   ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid image data");
   }
-  const padding = dataBase64.endsWith("==") ? 2 : (dataBase64.endsWith("=") ? 1 : 0);
+  const padding = dataBase64.endsWith("==") ? 2 : dataBase64.endsWith("=") ? 1 : 0;
   const byteLength = (dataBase64.length / 4) * 3 - padding;
   if (byteLength < 1 || byteLength > maxBytes) {
     throw protocolError(
@@ -362,16 +384,17 @@ function decodeScreenshotDataURL(dataURL, format, maxBytes) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid image data");
   }
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-  const { width, height } = format === "jpeg"
-    ? jpegDimensions(bytes)
-    : pngDimensions(bytes);
+  const { width, height } = format === "jpeg" ? jpegDimensions(bytes) : pngDimensions(bytes);
   return { mimeType, dataBase64, byteLength, width, height };
 }
 
 function pngDimensions(bytes) {
   const signature = [137, 80, 78, 71, 13, 10, 26, 10];
   if (bytes.length < 24 || signature.some((value, index) => bytes[index] !== value)) {
-    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned an invalid PNG screenshot");
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "The browser returned an invalid PNG screenshot",
+    );
   }
   const width = readUint32(bytes, 16);
   const height = readUint32(bytes, 20);
@@ -380,7 +403,10 @@ function pngDimensions(bytes) {
 
 function jpegDimensions(bytes) {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) {
-    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned an invalid JPEG screenshot");
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "The browser returned an invalid JPEG screenshot",
+    );
   }
   const startOfFrame = new Set([
     0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf,
@@ -392,8 +418,8 @@ function jpegDimensions(bytes) {
     if (offset >= bytes.length) break;
     const marker = bytes[offset];
     offset += 1;
-    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01
-      || (marker >= 0xd0 && marker <= 0xd7)) continue;
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7))
+      continue;
     if (offset + 1 >= bytes.length) break;
     const segmentLength = (bytes[offset] << 8) | bytes[offset + 1];
     if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
@@ -409,10 +435,10 @@ function jpegDimensions(bytes) {
 
 function readUint32(bytes, offset) {
   return (
-    bytes[offset] * 0x1000000
-    + (bytes[offset + 1] << 16)
-    + (bytes[offset + 2] << 8)
-    + bytes[offset + 3]
+    bytes[offset] * 0x1000000 +
+    (bytes[offset + 1] << 16) +
+    (bytes[offset + 2] << 8) +
+    bytes[offset + 3]
   );
 }
 
@@ -462,10 +488,12 @@ function waitForURL(chromeAPI, tabId, frameId, params, signal) {
     chromeAPI.webNavigation?.onReferenceFragmentUpdated,
   ].filter((event) => event?.addListener && event?.removeListener);
   if (mode === "event" && events.length === 0) {
-    return Promise.reject(protocolError(
-      ErrorCode.CAPABILITY_UNAVAILABLE,
-      "Event-driven URL waiting is unavailable in this browser",
-    ));
+    return Promise.reject(
+      protocolError(
+        ErrorCode.CAPABILITY_UNAVAILABLE,
+        "Event-driven URL waiting is unavailable in this browser",
+      ),
+    );
   }
 
   return new Promise((resolve, reject) => {
@@ -485,10 +513,14 @@ function waitForURL(chromeAPI, tabId, frameId, params, signal) {
     };
     const match = (url, documentId = "") => {
       if (!urlMatches(url, params)) return false;
-      finish(() => resolve(waitResult("url", startedAt, mode, {
-        url: String(url).slice(0, 4_096),
-        documentId,
-      })));
+      finish(() =>
+        resolve(
+          waitResult("url", startedAt, mode, {
+            url: String(url).slice(0, 4_096),
+            documentId,
+          }),
+        ),
+      );
       return true;
     };
     const onNavigation = (details) => {
@@ -500,7 +532,10 @@ function waitForURL(chromeAPI, tabId, frameId, params, signal) {
       if (settled || checking) return;
       checking = true;
       try {
-        const frame = await chromeAPI.webNavigation.getFrame({ tabId, frameId });
+        const frame = await chromeAPI.webNavigation.getFrame({
+          tabId,
+          frameId,
+        });
         if (frame) match(frame.url, frame.documentId || "");
       } catch (error) {
         const mapped = mapChromeError(error);
@@ -550,13 +585,16 @@ function withTimeout(operation, parentSignal, timeoutMs) {
     return Promise.reject(protocolError(ErrorCode.CANCELLED, "Command was cancelled", true));
   }
   const controller = new AbortController();
-  const onParentAbort = () => controller.abort(
-    protocolError(ErrorCode.CANCELLED, "Command was cancelled", true),
-  );
+  const onParentAbort = () =>
+    controller.abort(protocolError(ErrorCode.CANCELLED, "Command was cancelled", true));
   parentSignal.addEventListener("abort", onParentAbort, { once: true });
-  const timeout = setTimeout(() => controller.abort(
-    protocolError(ErrorCode.TIMEOUT, `Command timed out after ${timeoutMs} ms`, true),
-  ), timeoutMs);
+  const timeout = setTimeout(
+    () =>
+      controller.abort(
+        protocolError(ErrorCode.TIMEOUT, `Command timed out after ${timeoutMs} ms`, true),
+      ),
+    timeoutMs,
+  );
 
   return Promise.race([
     operation(controller.signal),
@@ -615,18 +653,21 @@ function createNavigationWaiter(chromeAPI, tabId, frameId, signal) {
   };
   const onError = (details) => {
     if (matches(details)) {
-      finish(() => rejectPromise(protocolError(
-        ErrorCode.INTERNAL_ERROR,
-        "Navigation failed before completion",
-        true,
-      )));
+      finish(() =>
+        rejectPromise(
+          protocolError(ErrorCode.INTERNAL_ERROR, "Navigation failed before completion", true),
+        ),
+      );
     }
   };
-  const onAbort = () => finish(() => rejectPromise(
-    typeof signal.reason?.code === "string"
-      ? signal.reason
-      : protocolError(ErrorCode.CANCELLED, "Command was cancelled", true),
-  ));
+  const onAbort = () =>
+    finish(() =>
+      rejectPromise(
+        typeof signal.reason?.code === "string"
+          ? signal.reason
+          : protocolError(ErrorCode.CANCELLED, "Command was cancelled", true),
+      ),
+    );
   const promise = new Promise((resolve, reject) => {
     resolvePromise = resolve;
     rejectPromise = reject;

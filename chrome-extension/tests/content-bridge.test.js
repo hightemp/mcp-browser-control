@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
-  CONTENT_BRIDGE_VERSION,
-  ContentScriptBridge,
-} from "../src/content-bridge.js";
+import { CONTENT_BRIDGE_VERSION, ContentScriptBridge } from "../src/content-bridge.js";
 import { ErrorCode } from "../src/protocol.js";
 
 test("bridge performs readiness handshake and document-scoped command messaging", async () => {
@@ -19,7 +16,9 @@ test("bridge performs readiness handshake and document-scoped command messaging"
         return { success: true, result: { html: "<main></main>" } };
       },
     },
-    scripting: { executeScript: async () => assert.fail("unexpected injection") },
+    scripting: {
+      executeScript: async () => assert.fail("unexpected injection"),
+    },
   });
 
   const result = await bridge.execute({
@@ -68,10 +67,12 @@ test("bridge injects on demand when navigation removed the content script", asyn
   });
   assert.deepEqual(result, { clicked: true });
   assert.equal(readyAttempts, 2);
-  assert.deepEqual(injections, [{
-    target: { tabId: 9, frameIds: [0] },
-    files: ["src/locator-engine.js", "src/content.js"],
-  }]);
+  assert.deepEqual(injections, [
+    {
+      target: { tabId: 9, frameIds: [0] },
+      files: ["src/locator-engine.js", "src/content.js"],
+    },
+  ]);
 });
 
 test("bridge rejects incompatible and untrusted responses", async (t) => {
@@ -113,7 +114,9 @@ test("bridge cancellation stops delivery before the page command", async () => {
     tabs: {
       sendMessage: async (_tabId, message) => {
         if (message.type === "MCP_BROWSER_BRIDGE_READY") {
-          return new Promise((resolve) => { resolveReady = resolve; });
+          return new Promise((resolve) => {
+            resolveReady = resolve;
+          });
         }
         commands += 1;
         return { success: true, result: {} };
@@ -146,7 +149,9 @@ test("bridge forwards cancellation to an active content operation", async () => 
           return { cancelled: true };
         }
         commandStarted = true;
-        return new Promise((resolve) => { resolveCommand = resolve; });
+        return new Promise((resolve) => {
+          resolveCommand = resolve;
+        });
       },
     },
     scripting: { executeScript: async () => undefined },
@@ -162,8 +167,9 @@ test("bridge forwards cancellation to an active content operation", async () => 
 
   await assert.rejects(execution, (error) => error.code === ErrorCode.CANCELLED);
   assert.equal(
-    messages.some((message) => message.type === "MCP_BROWSER_CANCEL"
-      && message.operationId === "operation-1"),
+    messages.some(
+      (message) => message.type === "MCP_BROWSER_CANCEL" && message.operationId === "operation-1",
+    ),
     true,
   );
   resolveCommand({ success: true, result: {} });

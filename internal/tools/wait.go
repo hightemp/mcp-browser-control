@@ -220,10 +220,11 @@ func validAttributeName(value string) bool {
 		return false
 	}
 	for _, character := range value {
-		if !((character >= 'a' && character <= 'z') ||
+		allowed := (character >= 'a' && character <= 'z') ||
 			(character >= 'A' && character <= 'Z') ||
 			(character >= '0' && character <= '9') ||
-			character == ':' || character == '_' || character == '-') {
+			character == ':' || character == '_' || character == '-'
+		if !allowed {
 			return false
 		}
 	}

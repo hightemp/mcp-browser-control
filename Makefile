@@ -5,15 +5,18 @@ BUILD_DIR := bin
 BINARY := $(BUILD_DIR)/$(APP_NAME)
 COMMAND := ./cmd/server
 COVERAGE_FILE := coverage.out
+GO_PACKAGES := ./cmd/... ./internal/...
 
 GO ?= go
 NPM ?= npm
 GOLANGCI_LINT ?= golangci-lint
+GOVULNCHECK ?= govulncheck
+GITLEAKS ?= gitleaks
 
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build run test test-race coverage coverage-html vet lint extension-check check verify clean
+.PHONY: help deps fmt fmt-check build run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-license-check extension-check security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -29,7 +32,9 @@ help:
 		'  coverage-html   Generate coverage.html from coverage.out' \
 		'  vet             Run go vet' \
 		'  lint            Run golangci-lint' \
-		'  extension-check Check extension JavaScript and run its tests' \
+		'  extension-check Check extension formatting, lint, and tests' \
+		'  extension-build Build the unpacked production extension' \
+		'  security-check  Scan vulnerabilities, licenses, and secrets' \
 		'  check           Run non-mutating validation checks' \
 		'  verify          Format, check, measure coverage, and build' \
 		'  clean           Remove generated build and coverage files'
@@ -40,10 +45,10 @@ deps:
 	$(NPM) ci --prefix chrome-extension
 
 fmt:
-	$(GO) fmt ./...
+	$(GO) fmt $(GO_PACKAGES)
 
 fmt-check:
-	@test -z "$$(gofmt -l .)"
+	@files="$$(git ls-files '*.go')"; test -z "$$(gofmt -l $$files)"
 
 build:
 	@mkdir -p "$(BUILD_DIR)"
@@ -53,10 +58,10 @@ run:
 	$(GO) run "$(COMMAND)" $(ARGS)
 
 test:
-	$(GO) test ./...
+	$(GO) test $(GO_PACKAGES)
 
 test-race:
-	$(GO) test -race ./...
+	$(GO) test -race $(GO_PACKAGES)
 
 coverage:
 	$(GO) test -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile="$(COVERAGE_FILE)" ./internal/...
@@ -66,16 +71,33 @@ coverage-html: coverage
 	$(GO) tool cover -html="$(COVERAGE_FILE)" -o coverage.html
 
 vet:
-	$(GO) vet ./...
+	$(GO) vet $(GO_PACKAGES)
 
 lint:
-	$(GOLANGCI_LINT) run ./...
+	$(GOLANGCI_LINT) run $(GO_PACKAGES)
 
-extension-check:
-	@for file in chrome-extension/src/*.js chrome-extension/src/handlers/*.js chrome-extension/tests/*.js; do \
-		node --check "$$file"; \
-	done
+extension-format-check:
+	$(NPM) run format:check --prefix chrome-extension
+
+extension-lint:
+	$(NPM) run lint --prefix chrome-extension
+
+extension-test:
 	$(NPM) test --prefix chrome-extension
+
+extension-build:
+	$(NPM) run build --prefix chrome-extension
+
+extension-license-check:
+	$(NPM) run license:check --prefix chrome-extension
+
+extension-check: extension-format-check extension-lint extension-test
+
+security-check: extension-license-check
+	$(GOVULNCHECK) ./cmd/server
+	sh scripts/check-go-licenses.sh
+	$(NPM) audit --prefix chrome-extension --audit-level=high
+	$(GITLEAKS) git --redact --no-banner .
 
 check: fmt-check vet lint test-race extension-check
 
@@ -83,4 +105,5 @@ verify: fmt check coverage build
 
 clean:
 	rm -f "$(BINARY)" "$(COVERAGE_FILE)" coverage.html
+	rm -rf chrome-extension/dist
 	@rmdir "$(BUILD_DIR)" 2>/dev/null || true

@@ -29,17 +29,19 @@ const elements = {
 elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
   void run(async () => {
-    await renderResponse(await chrome.runtime.sendMessage({
-      type: "SAVE_SETTINGS",
-      settings: {
-        displayName: elements.displayName.value,
-        endpoint: elements.endpoint.value,
-        autoConnect: elements.autoConnect.checked,
-        featureFlags: {
-          pageAutomation: elements.pageAutomation.checked,
+    await renderResponse(
+      await chrome.runtime.sendMessage({
+        type: "SAVE_SETTINGS",
+        settings: {
+          displayName: elements.displayName.value,
+          endpoint: elements.endpoint.value,
+          autoConnect: elements.autoConnect.checked,
+          featureFlags: {
+            pageAutomation: elements.pageAutomation.checked,
+          },
         },
-      },
-    }));
+      }),
+    );
   });
 });
 
@@ -84,9 +86,8 @@ async function renderResponse(response) {
   elements.endpoint.value = data.settings?.endpoint || "";
   elements.autoConnect.checked = Boolean(data.settings?.autoConnect);
   elements.pageAutomation.checked = data.settings?.featureFlags?.pageAutomation !== false;
-  elements.browserRuntime.textContent = [data.browserName, data.browserVersion]
-    .filter(Boolean)
-    .join(" ") || "Chromium";
+  elements.browserRuntime.textContent =
+    [data.browserName, data.browserVersion].filter(Boolean).join(" ") || "Chromium";
   elements.browserId.textContent = data.browserId || "—";
   elements.connectionId.textContent = data.connectionId || "—";
   elements.diagnosticEndpoint.textContent = data.settings?.endpoint || "—";
@@ -95,10 +96,9 @@ async function renderResponse(response) {
   elements.permissionProfiles.textContent = data.permissionProfiles?.join(", ") || "Core";
   renderPermissionProfiles(data.permissions);
   elements.capabilities.textContent = data.capabilities?.join(", ") || "None";
-  elements.permissions.textContent = [
-    ...(data.permissions?.permissions || []),
-    ...(data.permissions?.origins || []),
-  ].join(", ") || "None";
+  elements.permissions.textContent =
+    [...(data.permissions?.permissions || []), ...(data.permissions?.origins || [])].join(", ") ||
+    "None";
   showError(data.error || "");
 }
 
@@ -176,9 +176,11 @@ function renderPermissionProfiles(permissions) {
 async function changePermissions(operation, request) {
   const changed = await chrome.permissions[operation](request);
   if (!changed) {
-    throw new Error(operation === "request"
-      ? "Permission request was declined"
-      : "The permission profile could not be removed");
+    throw new Error(
+      operation === "request"
+        ? "Permission request was declined"
+        : "The permission profile could not be removed",
+    );
   }
 }
 

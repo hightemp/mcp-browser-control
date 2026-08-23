@@ -27,7 +27,11 @@ export async function getStoredIdentity(storage, defaultSettings, randomUUID) {
   return state.browserId;
 }
 
-export async function resetStoredIdentity(storage, confirmed, randomUUID = () => crypto.randomUUID()) {
+export async function resetStoredIdentity(
+  storage,
+  confirmed,
+  randomUUID = () => crypto.randomUUID(),
+) {
   if (confirmed !== true) {
     throw protocolError(
       ErrorCode.CONFIRMATION_REQUIRED,

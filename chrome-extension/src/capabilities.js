@@ -34,10 +34,10 @@ export function detectCapabilities({
       "tabs.reload",
     );
     if (
-      featureFlags.pageAutomation !== false
-      && apis.scripting
-      && grantedPermissions.has("scripting")
-      && (permissions.origins || []).length > 0
+      featureFlags.pageAutomation !== false &&
+      apis.scripting &&
+      grantedPermissions.has("scripting") &&
+      (permissions.origins || []).length > 0
     ) {
       capabilities.push("tabs.stop");
     }
@@ -66,11 +66,11 @@ export function detectCapabilities({
 
   const hasWebsiteAccess = (permissions.origins || []).length > 0;
   if (
-    featureFlags.pageAutomation !== false
-    && apis.scripting
-    && apis.webNavigation
-    && grantedPermissions.has("scripting")
-    && hasWebsiteAccess
+    featureFlags.pageAutomation !== false &&
+    apis.scripting &&
+    apis.webNavigation &&
+    grantedPermissions.has("scripting") &&
+    hasWebsiteAccess
   ) {
     if (apis.frameTree) {
       capabilities.push("page.info");

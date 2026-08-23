@@ -1,6 +1,6 @@
 module github.com/hightemp/go_mcp_browser_ext_tool
 
-go 1.23.5
+go 1.26.7
 
 require (
 	github.com/google/uuid v1.6.0

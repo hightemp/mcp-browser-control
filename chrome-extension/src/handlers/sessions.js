@@ -4,9 +4,8 @@ import { describeTab } from "./tabs.js";
 export function createSessionHandlers(chromeAPI) {
   return {
     async recentlyClosed(request) {
-      const filter = request.params.maxResults === undefined
-        ? {}
-        : { maxResults: request.params.maxResults };
+      const filter =
+        request.params.maxResults === undefined ? {} : { maxResults: request.params.maxResults };
       const sessions = await callChrome(() => chromeAPI.sessions.getRecentlyClosed(filter));
       return {
         sessions: sessions.map(describeSession),
@@ -15,9 +14,10 @@ export function createSessionHandlers(chromeAPI) {
     },
 
     async restore(request) {
-      const session = request.params.sessionId === undefined
-        ? await callChrome(() => chromeAPI.sessions.restore())
-        : await callChrome(() => chromeAPI.sessions.restore(request.params.sessionId));
+      const session =
+        request.params.sessionId === undefined
+          ? await callChrome(() => chromeAPI.sessions.restore())
+          : await callChrome(() => chromeAPI.sessions.restore(request.params.sessionId));
       if (!session) {
         throw protocolError(
           ErrorCode.SESSION_NOT_FOUND,

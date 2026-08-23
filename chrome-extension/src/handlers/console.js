@@ -1,9 +1,4 @@
-import {
-  ErrorCode,
-  assertFreshDocument,
-  mapChromeError,
-  protocolError,
-} from "../protocol.js";
+import { ErrorCode, assertFreshDocument, mapChromeError, protocolError } from "../protocol.js";
 import { ConsoleCaptureBridge } from "../console-bridge.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -13,29 +8,33 @@ export function createConsoleHandlers(chromeAPI) {
 
   async function execute(request, parentSignal) {
     const timeoutMs = request.timeoutMs || DEFAULT_TIMEOUT_MS;
-    return withTimeout(async (signal) => {
-      const tab = await resolveTab(chromeAPI, request.target?.tabId);
-      throwIfCancelled(signal);
-      await assertPageAccess(chromeAPI, tab);
-      const frameId = request.target?.frameId ?? 0;
-      const frame = await currentFrame(chromeAPI, request, tab.id, frameId);
-      throwIfCancelled(signal);
-      const result = await bridge.execute({
-        tabId: tab.id,
-        frameId,
-        documentId: frame.documentId,
-        operationId: request.requestId,
-        command: request.command,
-        params: request.params,
-        signal,
-      });
-      return {
-        ...result,
-        tabId: tab.id,
-        frameId,
-        documentId: frame.documentId,
-      };
-    }, parentSignal, timeoutMs);
+    return withTimeout(
+      async (signal) => {
+        const tab = await resolveTab(chromeAPI, request.target?.tabId);
+        throwIfCancelled(signal);
+        await assertPageAccess(chromeAPI, tab);
+        const frameId = request.target?.frameId ?? 0;
+        const frame = await currentFrame(chromeAPI, request, tab.id, frameId);
+        throwIfCancelled(signal);
+        const result = await bridge.execute({
+          tabId: tab.id,
+          frameId,
+          documentId: frame.documentId,
+          operationId: request.requestId,
+          command: request.command,
+          params: request.params,
+          signal,
+        });
+        return {
+          ...result,
+          tabId: tab.id,
+          frameId,
+          documentId: frame.documentId,
+        };
+      },
+      parentSignal,
+      timeoutMs,
+    );
   }
 
   return {
@@ -54,7 +53,10 @@ async function resolveTab(chromeAPI, explicitTabId) {
       throw protocolError(ErrorCode.TAB_NOT_FOUND, `Tab ${explicitTabId} was not found`);
     }
   }
-  const tabs = await chromeAPI.tabs.query({ active: true, lastFocusedWindow: true });
+  const tabs = await chromeAPI.tabs.query({
+    active: true,
+    lastFocusedWindow: true,
+  });
   if (!tabs[0]) throw protocolError(ErrorCode.TAB_NOT_FOUND, "No active tab was found");
   return tabs[0];
 }
@@ -103,20 +105,23 @@ function withTimeout(operation, parentSignal, timeoutMs) {
     return Promise.reject(protocolError(ErrorCode.CANCELLED, "Command was cancelled", true));
   }
   const controller = new AbortController();
-  const onParentAbort = () => controller.abort(
-    protocolError(ErrorCode.CANCELLED, "Command was cancelled", true),
-  );
+  const onParentAbort = () =>
+    controller.abort(protocolError(ErrorCode.CANCELLED, "Command was cancelled", true));
   parentSignal.addEventListener("abort", onParentAbort, { once: true });
-  const timeout = setTimeout(() => controller.abort(
-    protocolError(ErrorCode.TIMEOUT, `Command timed out after ${timeoutMs} ms`, true),
-  ), timeoutMs);
+  const timeout = setTimeout(
+    () =>
+      controller.abort(
+        protocolError(ErrorCode.TIMEOUT, `Command timed out after ${timeoutMs} ms`, true),
+      ),
+    timeoutMs,
+  );
   return Promise.race([
     operation(controller.signal),
-    new Promise((_, reject) => controller.signal.addEventListener(
-      "abort",
-      () => reject(controller.signal.reason),
-      { once: true },
-    )),
+    new Promise((_, reject) =>
+      controller.signal.addEventListener("abort", () => reject(controller.signal.reason), {
+        once: true,
+      }),
+    ),
   ]).finally(() => {
     clearTimeout(timeout);
     parentSignal.removeEventListener("abort", onParentAbort);

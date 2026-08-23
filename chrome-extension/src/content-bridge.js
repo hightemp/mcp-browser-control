@@ -29,15 +29,19 @@ export class ContentScriptBridge {
     const currentOperationId = operationId || globalThis.crypto.randomUUID();
     await this.ensureReady(tabId, frameId, options, signal);
     const response = await abortable(
-      this.chromeAPI.tabs.sendMessage(tabId, {
-        type: "MCP_BROWSER_COMMAND",
-        bridgeVersion: CONTENT_BRIDGE_VERSION,
-        operationId: currentOperationId,
-        command,
-        params,
-        frameId,
-        documentId,
-      }, options),
+      this.chromeAPI.tabs.sendMessage(
+        tabId,
+        {
+          type: "MCP_BROWSER_COMMAND",
+          bridgeVersion: CONTENT_BRIDGE_VERSION,
+          operationId: currentOperationId,
+          command,
+          params,
+          frameId,
+          documentId,
+        },
+        options,
+      ),
       signal,
       () => this.cancel(tabId, currentOperationId, options),
     );
@@ -45,11 +49,17 @@ export class ContentScriptBridge {
   }
 
   cancel(tabId, operationId, options) {
-    void this.chromeAPI.tabs.sendMessage(tabId, {
-      type: "MCP_BROWSER_CANCEL",
-      bridgeVersion: CONTENT_BRIDGE_VERSION,
-      operationId,
-    }, options).catch(() => undefined);
+    void this.chromeAPI.tabs
+      .sendMessage(
+        tabId,
+        {
+          type: "MCP_BROWSER_CANCEL",
+          bridgeVersion: CONTENT_BRIDGE_VERSION,
+          operationId,
+        },
+        options,
+      )
+      .catch(() => undefined);
   }
 
   async ensureReady(tabId, frameId, options, signal) {
@@ -68,10 +78,13 @@ export class ContentScriptBridge {
     }
 
     try {
-      await abortable(this.chromeAPI.scripting.executeScript({
-        target: { tabId, frameIds: [frameId] },
-        files: ["src/locator-engine.js", "src/content.js"],
-      }), signal);
+      await abortable(
+        this.chromeAPI.scripting.executeScript({
+          target: { tabId, frameIds: [frameId] },
+          files: ["src/locator-engine.js", "src/content.js"],
+        }),
+        signal,
+      );
       const response = await abortable(
         this.chromeAPI.tabs.sendMessage(tabId, READY_MESSAGE, options),
         signal,
@@ -119,9 +132,10 @@ function unwrapResponse(response) {
   if (!isPlainObject(error) || !CONTENT_ERROR_CODES.has(error.code)) {
     throw protocolError(ErrorCode.INTERNAL_ERROR, "The page bridge returned an invalid error");
   }
-  const message = typeof error.message === "string" && error.message.trim()
-    ? error.message.slice(0, 1_000)
-    : "Page command failed";
+  const message =
+    typeof error.message === "string" && error.message.trim()
+      ? error.message.slice(0, 1_000)
+      : "Page command failed";
   throw protocolError(
     error.code,
     message,
@@ -138,9 +152,11 @@ function abortable(promise, signal, onAbort = undefined) {
       reject(abortReason(signal));
     };
     signal.addEventListener("abort", handleAbort, { once: true });
-    Promise.resolve(promise).then(resolve, reject).finally(() => {
-      signal.removeEventListener("abort", handleAbort);
-    });
+    Promise.resolve(promise)
+      .then(resolve, reject)
+      .finally(() => {
+        signal.removeEventListener("abort", handleAbort);
+      });
   });
 }
 

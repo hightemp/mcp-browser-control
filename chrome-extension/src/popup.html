@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MCP Browser Control</title>
-    <link rel="stylesheet" href="popup.css">
+    <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <main>
@@ -15,16 +15,16 @@
 
       <label>
         Browser name
-        <input id="display-name" type="text" maxlength="80" autocomplete="off">
+        <input id="display-name" type="text" maxlength="80" autocomplete="off" />
       </label>
 
       <label>
         Server endpoint
-        <input id="endpoint" type="url" spellcheck="false">
+        <input id="endpoint" type="url" spellcheck="false" />
       </label>
 
       <label class="checkbox">
-        <input id="auto-connect" type="checkbox">
+        <input id="auto-connect" type="checkbox" />
         Connect automatically
       </label>
 
@@ -33,7 +33,14 @@
         <p>Enter the one-time code printed by the server.</p>
         <label>
           Pairing code
-          <input id="pairing-code" type="text" inputmode="numeric" maxlength="9" autocomplete="one-time-code" placeholder="1234-5678">
+          <input
+            id="pairing-code"
+            type="text"
+            inputmode="numeric"
+            maxlength="9"
+            autocomplete="one-time-code"
+            placeholder="1234-5678"
+          />
         </label>
         <div class="pairing-actions">
           <button id="pair" type="button">Pair</button>

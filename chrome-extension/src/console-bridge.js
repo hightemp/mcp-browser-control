@@ -18,15 +18,22 @@ export class ConsoleCaptureBridge {
     if (command === "console.start") {
       await this.ensureMainWorld(tabId, frameId, documentId, signal);
     }
-    const response = await abortable(this.chromeAPI.tabs.sendMessage(tabId, {
-      type: "MCP_BROWSER_CONSOLE_COMMAND",
-      bridgeVersion: CONSOLE_BRIDGE_VERSION,
-      operationId: operationId || globalThis.crypto.randomUUID(),
-      command,
-      params,
-      frameId,
-      documentId,
-    }, options), signal);
+    const response = await abortable(
+      this.chromeAPI.tabs.sendMessage(
+        tabId,
+        {
+          type: "MCP_BROWSER_CONSOLE_COMMAND",
+          bridgeVersion: CONSOLE_BRIDGE_VERSION,
+          operationId: operationId || globalThis.crypto.randomUUID(),
+          command,
+          params,
+          frameId,
+          documentId,
+        },
+        options,
+      ),
+      signal,
+    );
     return unwrapConsoleResponse(response);
   }
 
@@ -44,11 +51,14 @@ export class ConsoleCaptureBridge {
     }
 
     try {
-      await abortable(this.chromeAPI.scripting.executeScript({
-        target: scriptTarget(tabId, frameId, documentId),
-        files: ["src/console-content.js"],
-        world: "ISOLATED",
-      }), signal);
+      await abortable(
+        this.chromeAPI.scripting.executeScript({
+          target: scriptTarget(tabId, frameId, documentId),
+          files: ["src/console-content.js"],
+          world: "ISOLATED",
+        }),
+        signal,
+      );
       const response = await abortable(
         this.chromeAPI.tabs.sendMessage(tabId, READY_MESSAGE, options),
         signal,
@@ -63,11 +73,14 @@ export class ConsoleCaptureBridge {
 
   async ensureMainWorld(tabId, frameId, documentId, signal) {
     try {
-      await abortable(this.chromeAPI.scripting.executeScript({
-        target: scriptTarget(tabId, frameId, documentId),
-        files: ["src/console-main.js"],
-        world: "MAIN",
-      }), signal);
+      await abortable(
+        this.chromeAPI.scripting.executeScript({
+          target: scriptTarget(tabId, frameId, documentId),
+          files: ["src/console-main.js"],
+          world: "MAIN",
+        }),
+        signal,
+      );
     } catch (error) {
       throwIfAborted(signal);
       if (typeof error?.code === "string") throw error;
@@ -77,9 +90,7 @@ export class ConsoleCaptureBridge {
 }
 
 function scriptTarget(tabId, frameId, documentId) {
-  return documentId
-    ? { tabId, documentIds: [documentId] }
-    : { tabId, frameIds: [frameId] };
+  return documentId ? { tabId, documentIds: [documentId] } : { tabId, frameIds: [frameId] };
 }
 
 function messageOptions(frameId, documentId) {
@@ -98,7 +109,10 @@ function assertReady(response) {
 
 function unwrapConsoleResponse(response) {
   if (!isPlainObject(response) || typeof response.success !== "boolean") {
-    throw protocolError(ErrorCode.INTERNAL_ERROR, "The console bridge returned an invalid response");
+    throw protocolError(
+      ErrorCode.INTERNAL_ERROR,
+      "The console bridge returned an invalid response",
+    );
   }
   if (response.success) {
     if (!("result" in response)) {
@@ -123,9 +137,11 @@ function abortable(promise, signal) {
   return new Promise((resolve, reject) => {
     const onAbort = () => reject(abortReason(signal));
     signal.addEventListener("abort", onAbort, { once: true });
-    Promise.resolve(promise).then(resolve, reject).finally(() => {
-      signal.removeEventListener("abort", onAbort);
-    });
+    Promise.resolve(promise)
+      .then(resolve, reject)
+      .finally(() => {
+        signal.removeEventListener("abort", onAbort);
+      });
   });
 }
 

@@ -8,8 +8,10 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
   const fakeWindow = createFakeWindow();
   const originalCalls = [];
   const fakeConsole = Object.fromEntries(
-    ["debug", "log", "info", "warn", "error", "dir", "table", "trace"]
-      .map((method) => [method, (...args) => originalCalls.push([method, args])]),
+    ["debug", "log", "info", "warn", "error", "dir", "table", "trace"].map((method) => [
+      method,
+      (...args) => originalCalls.push([method, args]),
+    ]),
   );
   const runtimeListeners = [];
   globalThis.window = fakeWindow;
@@ -36,10 +38,10 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
     assert.equal(started.result.active, true);
     assert.equal(started.result.documentScoped, true);
 
-    fakeConsole.warn(
-      "request token=visible-secret https://example.com/?api_key=query-secret",
-      { password: "object-secret", safe: "shown" },
-    );
+    fakeConsole.warn("request token=visible-secret https://example.com/?api_key=query-secret", {
+      password: "object-secret",
+      safe: "shown",
+    });
     fakeWindow.emit("error", {
       target: fakeWindow,
       message: "Uncaught credential=error-secret",
@@ -68,8 +70,14 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
     assert.equal(read.result.nextCursor, "3");
     const serialized = JSON.stringify(read.result.entries);
     for (const secret of [
-      "visible-secret", "query-secret", "object-secret", "error-secret",
-      "exception-secret", "stack-secret", "source-secret", "rejection-secret",
+      "visible-secret",
+      "query-secret",
+      "object-secret",
+      "error-secret",
+      "exception-secret",
+      "stack-secret",
+      "source-secret",
+      "rejection-secret",
     ]) {
       assert.equal(serialized.includes(secret), false, `${secret} was not redacted`);
     }
@@ -79,7 +87,9 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
     const stopped = await consoleCommand(listener, "console.stop", {});
     assert.equal(stopped.result.active, false);
     fakeConsole.error("after-stop");
-    const afterStop = await consoleCommand(listener, "console.read", { cursor: "3" });
+    const afterStop = await consoleCommand(listener, "console.read", {
+      cursor: "3",
+    });
     assert.equal(afterStop.result.entries.length, 0);
 
     const cleared = await consoleCommand(listener, "console.clear", {});
@@ -103,7 +113,11 @@ test("console ring buffer reports eviction and cursor expiry", async () => {
   globalThis.chrome = {
     runtime: {
       id: "extension-id",
-      onMessage: { addListener: (registered) => { listener = registered; } },
+      onMessage: {
+        addListener: (registered) => {
+          listener = registered;
+        },
+      },
     },
   };
   try {
@@ -117,8 +131,14 @@ test("console ring buffer reports eviction and cursor expiry", async () => {
         entry: { kind: "console", level: "log", method: "log", args: [index] },
       });
     }
-    const read = await consoleCommand(listener, "console.read", { cursor: "1", limit: 10 });
-    assert.deepEqual(read.result.entries.map((entry) => entry.cursor), [3, 4]);
+    const read = await consoleCommand(listener, "console.read", {
+      cursor: "1",
+      limit: 10,
+    });
+    assert.deepEqual(
+      read.result.entries.map((entry) => entry.cursor),
+      [3, 4],
+    );
     assert.equal(read.result.droppedCount, 2);
     assert.equal(read.result.cursorExpired, true);
     assert.equal(read.result.warnings.length, 2);
@@ -131,15 +151,19 @@ test("console ring buffer reports eviction and cursor expiry", async () => {
 
 function consoleCommand(listener, command, params) {
   return new Promise((resolve, reject) => {
-    const handled = listener({
-      type: "MCP_BROWSER_CONSOLE_COMMAND",
-      bridgeVersion: "1.0",
-      operationId: `${command}-${Math.random()}`,
-      command,
-      params,
-      frameId: 2,
-      documentId: "document-1",
-    }, { id: "extension-id" }, resolve);
+    const handled = listener(
+      {
+        type: "MCP_BROWSER_CONSOLE_COMMAND",
+        bridgeVersion: "1.0",
+        operationId: `${command}-${Math.random()}`,
+        command,
+        params,
+        frameId: 2,
+        documentId: "document-1",
+      },
+      { id: "extension-id" },
+      resolve,
+    );
     if (handled !== false) reject(new Error(`Unexpected async handling for ${command}`));
   });
 }

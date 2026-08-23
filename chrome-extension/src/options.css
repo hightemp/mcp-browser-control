@@ -1,6 +1,8 @@
 :root {
   color-scheme: light dark;
-  font: 14px/1.5 system-ui, sans-serif;
+  font:
+    14px/1.5 system-ui,
+    sans-serif;
 }
 
 body {

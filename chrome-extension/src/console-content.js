@@ -33,8 +33,13 @@
   });
 
   window.addEventListener("message", (event) => {
-    if (event.source !== window || event.data?.type !== EVENT_TYPE
-      || event.data?.bridgeVersion !== BRIDGE_VERSION || !state.active) return;
+    if (
+      event.source !== window ||
+      event.data?.type !== EVENT_TYPE ||
+      event.data?.bridgeVersion !== BRIDGE_VERSION ||
+      !state.active
+    )
+      return;
     const entry = normalizeEntry(event.data.entry, event.data.timestamp);
     if (!entry) return;
     if (entry.kind === "console" && !state.captureConsole) return;
@@ -48,15 +53,20 @@
       sendResponse({ ready: true, bridgeVersion: BRIDGE_VERSION });
       return false;
     }
-    if (message?.type !== "MCP_BROWSER_CONSOLE_COMMAND"
-      || message.bridgeVersion !== BRIDGE_VERSION
-      || !isPlainObject(message.params)) return false;
+    if (
+      message?.type !== "MCP_BROWSER_CONSOLE_COMMAND" ||
+      message.bridgeVersion !== BRIDGE_VERSION ||
+      !isPlainObject(message.params)
+    )
+      return false;
     try {
       state.frameId = Number.isInteger(message.frameId) ? message.frameId : 0;
-      state.documentId = typeof message.documentId === "string"
-        ? message.documentId.slice(0, 200)
-        : "";
-      sendResponse({ success: true, result: dispatch(message.command, message.params) });
+      state.documentId =
+        typeof message.documentId === "string" ? message.documentId.slice(0, 200) : "";
+      sendResponse({
+        success: true,
+        result: dispatch(message.command, message.params),
+      });
     } catch (error) {
       sendResponse({
         success: false,
@@ -199,9 +209,10 @@
     if (!isPlainObject(candidate) || !KINDS.has(candidate.kind) || !LEVELS.has(candidate.level)) {
       return null;
     }
-    const normalizedTimestamp = typeof timestamp === "string" && Number.isFinite(Date.parse(timestamp))
-      ? new Date(timestamp).toISOString()
-      : new Date().toISOString();
+    const normalizedTimestamp =
+      typeof timestamp === "string" && Number.isFinite(Date.parse(timestamp))
+        ? new Date(timestamp).toISOString()
+        : new Date().toISOString();
     return {
       cursor: 0,
       timestamp: normalizedTimestamp,
@@ -248,13 +259,16 @@
   }
 
   function postControl(action) {
-    window.postMessage({
-      type: CONTROL_TYPE,
-      bridgeVersion: BRIDGE_VERSION,
-      action,
-      captureConsole: state.captureConsole,
-      captureErrors: state.captureErrors,
-    }, "*");
+    window.postMessage(
+      {
+        type: CONTROL_TYPE,
+        bridgeVersion: BRIDGE_VERSION,
+        action,
+        captureConsole: state.captureConsole,
+        captureErrors: state.captureErrors,
+      },
+      "*",
+    );
   }
 
   function captureState() {
@@ -272,8 +286,12 @@
 
   function validateFilter(values, allowed, name) {
     if (values === undefined) return null;
-    if (!Array.isArray(values) || values.length > allowed.size
-      || values.some((value) => !allowed.has(value)) || new Set(values).size !== values.length) {
+    if (
+      !Array.isArray(values) ||
+      values.length > allowed.size ||
+      values.some((value) => !allowed.has(value)) ||
+      new Set(values).size !== values.length
+    ) {
       throw commandError("INVALID_MESSAGE", `${name} contains invalid values`);
     }
     return values.length > 0 ? new Set(values) : null;
@@ -285,7 +303,8 @@
       throw commandError("INVALID_MESSAGE", "cursor must be an unsigned integer string");
     }
     const cursor = Number.parseInt(value, 10);
-    if (!Number.isSafeInteger(cursor)) throw commandError("INVALID_MESSAGE", "cursor is out of range");
+    if (!Number.isSafeInteger(cursor))
+      throw commandError("INVALID_MESSAGE", "cursor is out of range");
     return cursor;
   }
 
@@ -302,8 +321,14 @@
     return String(value || "")
       .replace(/(https?:\/\/)[^/@\s:]+:[^/@\s]+@/gi, "$1[REDACTED]@")
       .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]+/gi, "Bearer [REDACTED]")
-      .replace(/([?&#](?:password|secret|token|credential|authorization|cookie|api[-_]?key)=)[^&#\s]*/gi, "$1[REDACTED]")
-      .replace(/((?:password|secret|token|credential|authorization|cookie|api[-_]?key)\s*[:=]\s*)[^,;\s&]+/gi, "$1[REDACTED]");
+      .replace(
+        /([?&#](?:password|secret|token|credential|authorization|cookie|api[-_]?key)=)[^&#\s]*/gi,
+        "$1[REDACTED]",
+      )
+      .replace(
+        /((?:password|secret|token|credential|authorization|cookie|api[-_]?key)\s*[:=]\s*)[^,;\s&]+/gi,
+        "$1[REDACTED]",
+      );
   }
 
   function sensitiveName(name) {

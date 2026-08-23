@@ -8,15 +8,20 @@ export function createWindowHandlers(chromeAPI) {
           populate: false,
           windowTypes: ["normal", "popup"],
         });
-        return { windows: windows.map(describeWindow), totalCount: windows.length };
+        return {
+          windows: windows.map(describeWindow),
+          totalCount: windows.length,
+        };
       });
     },
 
     async get(request) {
       return callChrome(async () => ({
-        window: describeWindow(await chromeAPI.windows.get(request.target.windowId, {
-          populate: false,
-        })),
+        window: describeWindow(
+          await chromeAPI.windows.get(request.target.windowId, {
+            populate: false,
+          }),
+        ),
       }));
     },
 
@@ -33,19 +38,19 @@ export function createWindowHandlers(chromeAPI) {
 
     async update(request) {
       return callChrome(async () => ({
-        window: describeWindow(await chromeAPI.windows.update(
-          request.target.windowId,
-          request.params,
-        )),
+        window: describeWindow(
+          await chromeAPI.windows.update(request.target.windowId, request.params),
+        ),
       }));
     },
 
     async focus(request) {
       return callChrome(async () => ({
-        window: describeWindow(await chromeAPI.windows.update(
-          request.target.windowId,
-          { focused: true },
-        )),
+        window: describeWindow(
+          await chromeAPI.windows.update(request.target.windowId, {
+            focused: true,
+          }),
+        ),
       }));
     },
 

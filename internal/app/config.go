@@ -265,7 +265,7 @@ func applyConfigFile(config *Config, path string) error {
 	if err != nil {
 		return fmt.Errorf("open config file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	decoder := json.NewDecoder(file)
 	decoder.DisallowUnknownFields()

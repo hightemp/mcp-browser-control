@@ -14,11 +14,20 @@ test("locator engine resolves every strategy and open shadow roots", () => {
       "data-testid": "email-input",
     },
   });
-  const label = element("label", { text: "Email", attributes: { for: "email" } });
+  const label = element("label", {
+    text: "Email",
+    attributes: { for: "email" },
+  });
   label.control = email;
   const logo = element("img", { attributes: { alt: "Company logo" } });
-  const close = element("button", { text: "Close", attributes: { title: "Dismiss" } });
-  const shadowButton = element("button", { id: "shadow-save", text: "Shadow Save" });
+  const close = element("button", {
+    text: "Close",
+    attributes: { title: "Dismiss" },
+  });
+  const shadowButton = element("button", {
+    id: "shadow-save",
+    text: "Shadow Save",
+  });
   const shadow = new FakeRoot([shadowButton]);
   const host = element("section");
   host.shadowRoot = shadow;
@@ -57,9 +66,10 @@ test("strict resolution reports zero, ambiguous, and nth diagnostics", () => {
 
   assert.throws(
     () => engine.resolve({ role: "button", name: "Save" }, { strictDefault: true }),
-    (error) => error.code === "STRICT_MODE_VIOLATION"
-      && error.details.matchCount === 2
-      && error.details.candidates.length === 2,
+    (error) =>
+      error.code === "STRICT_MODE_VIOLATION" &&
+      error.details.matchCount === 2 &&
+      error.details.candidates.length === 2,
   );
   assert.throws(
     () => engine.resolve({ css: "#missing" }, { strictDefault: true }),
@@ -70,7 +80,8 @@ test("strict resolution reports zero, ambiguous, and nth diagnostics", () => {
     second,
   );
   assert.equal(
-    engine.resolve({ role: "button", name: "Save", strict: false }, { strictDefault: true }).element,
+    engine.resolve({ role: "button", name: "Save", strict: false }, { strictDefault: true })
+      .element,
     first,
   );
 });
@@ -127,10 +138,7 @@ test("actionability rejects hidden, disabled, detached, and obscured elements", 
   );
   target.disabled = false;
   target.isConnected = false;
-  await assert.rejects(
-    engine.ensureActionable(target),
-    (error) => error.code === "STALE_TARGET",
-  );
+  await assert.rejects(engine.ensureActionable(target), (error) => error.code === "STALE_TARGET");
   target.isConnected = true;
   document.hit = covering;
   await assert.rejects(
@@ -199,7 +207,12 @@ function element(tagName, { id = "", text = "", attributes = {}, children = [] }
     textContent: text,
     children,
     attributes: [...attributeMap].map(([name, value]) => ({ name, value })),
-    style: { display: "block", visibility: "visible", opacity: "1", pointerEvents: "auto" },
+    style: {
+      display: "block",
+      visibility: "visible",
+      opacity: "1",
+      pointerEvents: "auto",
+    },
     disabled: false,
     hidden: false,
     isConnected: true,
@@ -214,7 +227,16 @@ function element(tagName, { id = "", text = "", attributes = {}, children = [] }
       return attributeMap.has(name);
     },
     getBoundingClientRect() {
-      return { x: 0, y: 0, left: 0, top: 0, right: 100, bottom: 30, width: 100, height: 30 };
+      return {
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: 100,
+        bottom: 30,
+        width: 100,
+        height: 30,
+      };
     },
     scrollIntoView() {},
     contains(other) {

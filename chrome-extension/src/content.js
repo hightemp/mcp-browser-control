@@ -5,7 +5,14 @@
   const DEFAULT_QUERY_LIMIT = 25;
   const MAX_TEXT_SCAN_CHARS = 2_000_001;
   const NON_TEXT_INPUT_TYPES = new Set([
-    "button", "checkbox", "file", "hidden", "image", "radio", "reset", "submit",
+    "button",
+    "checkbox",
+    "file",
+    "hidden",
+    "image",
+    "radio",
+    "reset",
+    "submit",
   ]);
   const activeOperations = new Map();
   if (globalThis.__mcpBrowserControlVersion === BRIDGE_VERSION) {
@@ -32,9 +39,9 @@
       return false;
     }
     if (
-      message?.type === "MCP_BROWSER_CANCEL"
-      && message.bridgeVersion === BRIDGE_VERSION
-      && typeof message.operationId === "string"
+      message?.type === "MCP_BROWSER_CANCEL" &&
+      message.bridgeVersion === BRIDGE_VERSION &&
+      typeof message.operationId === "string"
     ) {
       const controller = activeOperations.get(message.operationId);
       controller?.abort();
@@ -42,13 +49,13 @@
       return false;
     }
     if (
-      message?.type !== "MCP_BROWSER_COMMAND"
-      || message.bridgeVersion !== BRIDGE_VERSION
-      || typeof message.operationId !== "string"
-      || message.operationId.length > 200
-      || !message.params
-      || typeof message.params !== "object"
-      || Array.isArray(message.params)
+      message?.type !== "MCP_BROWSER_COMMAND" ||
+      message.bridgeVersion !== BRIDGE_VERSION ||
+      typeof message.operationId !== "string" ||
+      message.operationId.length > 200 ||
+      !message.params ||
+      typeof message.params !== "object" ||
+      Array.isArray(message.params)
     ) {
       return false;
     }
@@ -68,11 +75,13 @@
     activeOperations.set(message.operationId, controller);
 
     Promise.resolve()
-      .then(() => dispatch(message.command, message.params || {}, {
-        frameId: Number.isInteger(message.frameId) ? message.frameId : 0,
-        documentId: message.documentId || "",
-        signal: controller.signal,
-      }))
+      .then(() =>
+        dispatch(message.command, message.params || {}, {
+          frameId: Number.isInteger(message.frameId) ? message.frameId : 0,
+          documentId: message.documentId || "",
+          signal: controller.signal,
+        }),
+      )
       .then((result) => sendResponse({ success: true, result }))
       .catch((error) => {
         sendResponse({
@@ -175,7 +184,11 @@
     const maxDepth = params.maxDepth ?? DEFAULT_MAX_DEPTH;
     const roots = selectRoots(params.includeSelectors);
     const excluded = selectExcluded(params.excludeSelectors);
-    const serialized = serializeElements(roots, { maxChars, maxDepth, excluded });
+    const serialized = serializeElements(roots, {
+      maxChars,
+      maxDepth,
+      excluded,
+    });
     return {
       html: serialized.value,
       url: String(window.location.href).slice(0, 4_096),
@@ -212,8 +225,9 @@
         ...inspectionWarnings(serialized),
         ...(elements.length > 100 ? ["Element metadata was truncated at 100 entries"] : []),
       ],
-      elements: elements.slice(0, 100).map((element, index) =>
-        locatorEngine.describeElement(element, index, context.documentId)),
+      elements: elements
+        .slice(0, 100)
+        .map((element, index) => locatorEngine.describeElement(element, index, context.documentId)),
       elementsTruncated: elements.length > 100,
       timestamp: new Date().toISOString(),
     };
@@ -288,14 +302,17 @@
   function queryElements(params, context) {
     const offset = parseCursor(params.cursor);
     const limit = params.limit ?? DEFAULT_QUERY_LIMIT;
-    const result = locatorEngine.query(params.locator, { documentId: context.documentId });
+    const result = locatorEngine.query(params.locator, {
+      documentId: context.documentId,
+    });
     const page = result.matches.slice(offset, offset + limit);
     const nextOffset = offset + page.length;
     return {
       locator: params.locator,
       matchCount: result.matches.length,
       elements: page.map((element, index) =>
-        locatorEngine.describeElement(element, offset + index, context.documentId)),
+        locatorEngine.describeElement(element, offset + index, context.documentId),
+      ),
       cursor: String(offset),
       nextCursor: nextOffset < result.matches.length ? String(nextOffset) : "",
       timestamp: new Date().toISOString(),
@@ -413,20 +430,36 @@
 
   function isInteractiveElement(element) {
     const role = element.getAttribute?.("role") || "";
-    return [
-      "button", "checkbox", "combobox", "link", "listbox", "menuitem", "option",
-      "radio", "searchbox", "slider", "spinbutton", "switch", "tab", "textbox",
-    ].includes(role)
-      || ["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(element.tagName)
-      || element.isContentEditable
-      || element.tabIndex >= 0;
+    return (
+      [
+        "button",
+        "checkbox",
+        "combobox",
+        "link",
+        "listbox",
+        "menuitem",
+        "option",
+        "radio",
+        "searchbox",
+        "slider",
+        "spinbutton",
+        "switch",
+        "tab",
+        "textbox",
+      ].includes(role) ||
+      ["A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(element.tagName) ||
+      element.isContentEditable ||
+      element.tabIndex >= 0
+    );
   }
 
   function directText(element) {
-    return normalizeText([...element.childNodes]
-      .filter((child) => child.nodeType === Node.TEXT_NODE)
-      .map((child) => child.nodeValue)
-      .join(" "));
+    return normalizeText(
+      [...element.childNodes]
+        .filter((child) => child.nodeType === Node.TEXT_NODE)
+        .map((child) => child.nodeValue)
+        .join(" "),
+    );
   }
 
   async function click(params, context) {
@@ -442,7 +475,10 @@
     if (count === 2 && button === "left") {
       element.dispatchEvent(mouseEvent("dblclick", element, 0, 2));
     }
-    return interactionResult(element, resolved, context, { button, clickCount: count });
+    return interactionResult(element, resolved, context, {
+      button,
+      clickCount: count,
+    });
   }
 
   async function fill(params, context) {
@@ -532,17 +568,21 @@
         } else {
           setNativeValue(element, `${element.value}${character}`);
         }
-        element.dispatchEvent(new InputEvent("input", {
-          bubbles: true,
-          inputType: "insertText",
-          data: character,
-        }));
+        element.dispatchEvent(
+          new InputEvent("input", {
+            bubbles: true,
+            inputType: "insertText",
+            data: character,
+          }),
+        );
       }
       element.dispatchEvent(keyboardEvent("keyup", character));
       if (params.delayMs) await new Promise((resolve) => setTimeout(resolve, params.delayMs));
     }
     element.dispatchEvent(new Event("change", { bubbles: true }));
-    return interactionResult(element, resolved, context, { value: sensitiveValue(element) });
+    return interactionResult(element, resolved, context, {
+      value: sensitiveValue(element),
+    });
   }
 
   async function clearElement(params, context) {
@@ -555,7 +595,9 @@
     else setNativeValue(element, "");
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContent" }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
-    return interactionResult(element, resolved, context, { value: sensitiveValue(element) });
+    return interactionResult(element, resolved, context, {
+      value: sensitiveValue(element),
+    });
   }
 
   async function pressKey(params, context) {
@@ -598,7 +640,9 @@
     }
     element.dispatchEvent(new InputEvent("input", { bubbles: true }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
-    return interactionResult(element, resolved, context, { selectedValues: selected });
+    return interactionResult(element, resolved, context, {
+      selectedValues: selected,
+    });
   }
 
   async function setChecked(params, context) {
@@ -621,7 +665,9 @@
         element.dispatchEvent(new Event("change", { bubbles: true }));
       }
     }
-    return interactionResult(element, resolved, context, { checked: element.checked });
+    return interactionResult(element, resolved, context, {
+      checked: element.checked,
+    });
   }
 
   async function scrollTarget(params, context) {
@@ -647,7 +693,10 @@
       behavior: params.behavior || "auto",
     });
     return interactionResult(resolved.element, resolved, context, {
-      scroll: { left: resolved.element.scrollLeft, top: resolved.element.scrollTop },
+      scroll: {
+        left: resolved.element.scrollLeft,
+        top: resolved.element.scrollTop,
+      },
     });
   }
 
@@ -659,19 +708,25 @@
     });
     const target = params.targetLocator
       ? locatorEngine.resolve(params.targetLocator, {
-        documentId: context.documentId,
-        strictDefault: true,
-      })
-      : locatorEngine.resolve({ coordinates: params.targetCoordinates }, {
-        documentId: context.documentId,
-        strictDefault: true,
-      });
+          documentId: context.documentId,
+          strictDefault: true,
+        })
+      : locatorEngine.resolve(
+          { coordinates: params.targetCoordinates },
+          {
+            documentId: context.documentId,
+            strictDefault: true,
+          },
+        );
     await locatorEngine.ensureActionable(source.element, { pointer: true });
     await locatorEngine.ensureActionable(target.element, { pointer: true });
     const transfer = typeof DataTransfer === "function" ? new DataTransfer() : undefined;
     for (const [element, type] of [
-      [source.element, "dragstart"], [target.element, "dragenter"],
-      [target.element, "dragover"], [target.element, "drop"], [source.element, "dragend"],
+      [source.element, "dragstart"],
+      [target.element, "dragenter"],
+      [target.element, "dragover"],
+      [target.element, "drop"],
+      [source.element, "dragend"],
     ]) {
       element.dispatchEvent(createDragEvent(type, transfer));
     }
@@ -694,12 +749,14 @@
   async function dispatchEvent(params, context) {
     assertContentBackend(params.backend);
     const resolved = resolveElement(params, context, true);
-    const accepted = resolved.element.dispatchEvent(new CustomEvent(params.eventType, {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      detail: params.detail || {},
-    }));
+    const accepted = resolved.element.dispatchEvent(
+      new CustomEvent(params.eventType, {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        detail: params.detail || {},
+      }),
+    );
     return interactionResult(resolved.element, resolved, context, {
       eventType: params.eventType,
       defaultPrevented: !accepted,
@@ -740,12 +797,18 @@
       let observer = null;
       let pollTimer = null;
       const eventTargets = [];
-      const timeout = setTimeout(() => finish(() => reject(waitError(
-        "TIMEOUT",
-        `Wait condition timed out after ${timeoutMs} ms`,
-        true,
-        { condition: params.condition, elapsedMs: Date.now() - startedAt },
-      ))), timeoutMs);
+      const timeout = setTimeout(
+        () =>
+          finish(() =>
+            reject(
+              waitError("TIMEOUT", `Wait condition timed out after ${timeoutMs} ms`, true, {
+                condition: params.condition,
+                elapsedMs: Date.now() - startedAt,
+              }),
+            ),
+          ),
+        timeoutMs,
+      );
 
       const cleanup = () => {
         clearTimeout(timeout);
@@ -769,13 +832,11 @@
           try {
             const observation = evaluateWaitCondition(params, context);
             if (observation.matched) {
-              finish(() => resolve(waitConditionResult(
-                params,
-                context,
-                observation,
-                startedAt,
-                requestedMode,
-              )));
+              finish(() =>
+                resolve(
+                  waitConditionResult(params, context, observation, startedAt, requestedMode),
+                ),
+              );
             }
           } catch (error) {
             finish(() => reject(error));
@@ -784,11 +845,8 @@
           }
         });
       };
-      const onAbort = () => finish(() => reject(waitError(
-        "CANCELLED",
-        "Wait was cancelled",
-        true,
-      )));
+      const onAbort = () =>
+        finish(() => reject(waitError("CANCELLED", "Wait was cancelled", true)));
       context.signal.addEventListener("abort", onAbort, { once: true });
 
       if (requestedMode !== "polling") {
@@ -830,9 +888,8 @@
       case "url": {
         const url = String(window.location.href);
         return {
-          matched: params.url !== undefined
-            ? url === params.url
-            : wildcardMatch(url, params.urlPattern),
+          matched:
+            params.url !== undefined ? url === params.url : wildcardMatch(url, params.urlPattern),
           url: url.slice(0, 4_096),
         };
       }
@@ -863,8 +920,8 @@
       matches = waitLocatorMatches(params.locator, context);
     } catch (error) {
       if (
-        ["detached", "hidden"].includes(params.elementState)
-        && ["ELEMENT_NOT_FOUND", "STALE_TARGET"].includes(error.code)
+        ["detached", "hidden"].includes(params.elementState) &&
+        ["ELEMENT_NOT_FOUND", "STALE_TARGET"].includes(error.code)
       ) {
         matches = [];
       } else {
@@ -883,14 +940,16 @@
       element = matches.find((candidate) => locatorEngine.isVisible(candidate));
       matched = Boolean(element);
     } else if (state === "hidden") {
-      matched = matches.length === 0 || matches.every((candidate) => !locatorEngine.isVisible(candidate));
+      matched =
+        matches.length === 0 || matches.every((candidate) => !locatorEngine.isVisible(candidate));
       [element] = matches;
     } else if (state === "enabled") {
       element = matches.find((candidate) => locatorEngine.isEnabled(candidate));
       matched = Boolean(element);
     } else if (state === "disabled") {
       element = matches.find((candidate) => !locatorEngine.isEnabled(candidate));
-      matched = matches.length > 0 && matches.every((candidate) => !locatorEngine.isEnabled(candidate));
+      matched =
+        matches.length > 0 && matches.every((candidate) => !locatorEngine.isEnabled(candidate));
     }
     return {
       matched,
@@ -910,16 +969,18 @@
         "Sensitive field values cannot be used in wait conditions",
       );
     }
-    const values = elements.map((element) => property === "value"
-      ? String(element.value ?? "")
-      : normalizeText(element.textContent));
+    const values = elements.map((element) =>
+      property === "value" ? String(element.value ?? "") : normalizeText(element.textContent),
+    );
     const expected = property === "text" ? normalizeText(params.expected) : params.expected;
-    const matchingIndex = values.findIndex((value) => stringMatches(
-      value,
-      expected,
-      params.matchOperator || "contains",
-      params.caseSensitive ?? true,
-    ));
+    const matchingIndex = values.findIndex((value) =>
+      stringMatches(
+        value,
+        expected,
+        params.matchOperator || "contains",
+        params.caseSensitive ?? true,
+      ),
+    );
     return {
       matched: matchingIndex >= 0,
       matchCount: elements.length,
@@ -931,27 +992,27 @@
   function attributeObservation(params, context) {
     const elements = waitLocatorMatches(params.locator, context);
     if (elements.some((element) => isSensitiveWaitAttribute(element, params.attribute))) {
-      throw waitError(
-        "INVALID_MESSAGE",
-        "Sensitive attributes cannot be used in wait conditions",
-      );
+      throw waitError("INVALID_MESSAGE", "Sensitive attributes cannot be used in wait conditions");
     }
     const values = elements.map((element) => element.getAttribute?.(params.attribute));
-    let matchingIndex = -1;
-    if (params.attributeState === "present") {
-      matchingIndex = values.findIndex((value) => value !== null && value !== undefined);
-    } else if (params.attributeState === "absent") {
-      matchingIndex = elements.length > 0 && values.every((value) => value === null || value === undefined)
-        ? 0
-        : -1;
-    } else {
-      matchingIndex = values.findIndex((value) => value !== null && value !== undefined && stringMatches(
-        String(value),
-        params.expected,
-        params.attributeState,
-        params.caseSensitive ?? true,
-      ));
-    }
+    const matchingIndex =
+      params.attributeState === "present"
+        ? values.findIndex((value) => value !== null && value !== undefined)
+        : params.attributeState === "absent"
+          ? elements.length > 0 && values.every((value) => value === null || value === undefined)
+            ? 0
+            : -1
+          : values.findIndex(
+              (value) =>
+                value !== null &&
+                value !== undefined &&
+                stringMatches(
+                  String(value),
+                  params.expected,
+                  params.attributeState,
+                  params.caseSensitive ?? true,
+                ),
+            );
     return {
       matched: matchingIndex >= 0,
       matchCount: elements.length,
@@ -965,8 +1026,10 @@
   }
 
   function isSensitiveWaitAttribute(element, attribute) {
-    return /(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(attribute)
-      || (attribute.toLowerCase() === "value" && isSensitiveElement(element));
+    return (
+      /(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(attribute) ||
+      (attribute.toLowerCase() === "value" && isSensitiveElement(element))
+    );
   }
 
   function waitConditionResult(params, context, observation, startedAt, mode) {
@@ -977,16 +1040,16 @@
       elapsedMs: Math.max(0, Date.now() - startedAt),
       ...(observation.readyState ? { readyState: observation.readyState } : {}),
       ...(observation.url ? { url: observation.url } : {}),
-      ...(Number.isInteger(observation.matchCount)
-        ? { matchCount: observation.matchCount }
+      ...(Number.isInteger(observation.matchCount) ? { matchCount: observation.matchCount } : {}),
+      ...(observation.element
+        ? {
+            element: locatorEngine.describeElement(
+              observation.element,
+              observation.index ?? 0,
+              context.documentId,
+            ),
+          }
         : {}),
-      ...(observation.element ? {
-        element: locatorEngine.describeElement(
-          observation.element,
-          observation.index ?? 0,
-          context.documentId,
-        ),
-      } : {}),
       timestamp: new Date().toISOString(),
     };
   }
@@ -1116,7 +1179,11 @@
         dataTransfer,
       });
     }
-    return new CustomEvent(type, { bubbles: true, cancelable: true, composed: true });
+    return new CustomEvent(type, {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+    });
   }
 
   function selectRoots(selectors) {
@@ -1124,10 +1191,12 @@
       return [document.documentElement];
     }
     try {
-      const roots = [...new Set(selectors.flatMap((selector) =>
-        [...document.querySelectorAll(selector)]))];
-      return roots.filter((candidate) =>
-        !roots.some((other) => other !== candidate && other.contains(candidate)));
+      const roots = [
+        ...new Set(selectors.flatMap((selector) => [...document.querySelectorAll(selector)])),
+      ];
+      return roots.filter(
+        (candidate) => !roots.some((other) => other !== candidate && other.contains(candidate)),
+      );
     } catch {
       throw commandError("INVALID_MESSAGE", "An include CSS selector is invalid");
     }
@@ -1138,8 +1207,7 @@
       return new Set();
     }
     try {
-      return new Set(selectors.flatMap((selector) =>
-        [...document.querySelectorAll(selector)]));
+      return new Set(selectors.flatMap((selector) => [...document.querySelectorAll(selector)]));
     } catch {
       throw commandError("INVALID_MESSAGE", "An exclude CSS selector is invalid");
     }
@@ -1171,17 +1239,19 @@
 
       const tagName = node.tagName.toLowerCase();
       const sensitive = isSensitiveElement(node);
-      const attributes = [...node.attributes].map((attribute) => {
-        let attributeValue = attribute.value;
-        if (
-          (sensitive && attribute.name.toLowerCase() === "value")
-          || /(?:password|secret|token|authorization|cookie|api[-_]?key)/i.test(attribute.name)
-        ) {
-          attributeValue = "[REDACTED]";
-          redacted = true;
-        }
-        return ` ${attribute.name}="${escapeAttribute(attributeValue)}"`;
-      }).join("");
+      const attributes = [...node.attributes]
+        .map((attribute) => {
+          let attributeValue = attribute.value;
+          if (
+            (sensitive && attribute.name.toLowerCase() === "value") ||
+            /(?:password|secret|token|authorization|cookie|api[-_]?key)/i.test(attribute.name)
+          ) {
+            attributeValue = "[REDACTED]";
+            redacted = true;
+          }
+          return ` ${attribute.name}="${escapeAttribute(attributeValue)}"`;
+        })
+        .join("");
       append(`<${tagName}${attributes}>`);
       if (VOID_ELEMENTS.has(tagName)) return;
 
@@ -1219,7 +1289,9 @@
       element.id,
       element.getAttribute?.("name"),
       element.getAttribute?.("autocomplete"),
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     return /(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(identity);
   }
 
@@ -1252,14 +1324,13 @@
   }
 
   function normalizeText(value) {
-    return String(value || "").replace(/\s+/g, " ").trim();
+    return String(value || "")
+      .replace(/\s+/g, " ")
+      .trim();
   }
 
   function escapeHTML(value) {
-    return String(value)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;");
+    return String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
   }
 
   function escapeAttribute(value) {
@@ -1295,7 +1366,19 @@
   }
 
   const VOID_ELEMENTS = new Set([
-    "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
-    "param", "source", "track", "wbr",
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
   ]);
 })();

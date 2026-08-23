@@ -115,12 +115,23 @@ test("router dispatches every allowlisted command to its domain handler", async 
     "page.blur": { locator: { css: "#save" } },
     "page.type": { locator: { css: "#email" }, text: "hello", delayMs: 0 },
     "page.clear": { locator: { css: "#email" } },
-    "page.press": { locator: { css: "#email" }, key: "Enter", modifiers: ["Control"] },
+    "page.press": {
+      locator: { css: "#email" },
+      key: "Enter",
+      modifiers: ["Control"],
+    },
     "page.select": { locator: { css: "#country" }, values: ["US"] },
     "page.setChecked": { locator: { css: "#terms" }, checked: true },
     "page.scroll": { deltaY: 500, behavior: "auto" },
-    "page.drag": { source: { css: "#card" }, targetLocator: { css: "#column" } },
-    "page.dispatch": { locator: { css: "#save" }, eventType: "app:save", detail: {} },
+    "page.drag": {
+      source: { css: "#card" },
+      targetLocator: { css: "#column" },
+    },
+    "page.dispatch": {
+      locator: { css: "#save" },
+      eventType: "app:save",
+      detail: {},
+    },
     "page.submit": { locator: { css: "#form" }, waitForNavigation: false },
     "page.wait": {
       condition: "element",
@@ -136,7 +147,11 @@ test("router dispatches every allowlisted command to its domain handler", async 
       maxHeight: 1_080,
       maxBytes: 1_000_000,
     },
-    "console.start": { bufferSize: 500, captureConsole: true, captureErrors: true },
+    "console.start": {
+      bufferSize: 500,
+      captureConsole: true,
+      captureErrors: true,
+    },
     "console.stop": {},
     "console.clear": {},
     "console.read": {
@@ -154,10 +169,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
     if (["windows.get", "windows.update", "windows.focus", "windows.close"].includes(command)) {
       request.target = { browserId, windowId: 3 };
     }
-    const accepted = await router.execute(
-      request,
-      (outcome) => outcomes.push(outcome),
-    );
+    const accepted = await router.execute(request, (outcome) => outcomes.push(outcome));
     assert.equal(accepted, true);
     assert.deepEqual(outcomes, [{ success: true, result: { command } }]);
   }
@@ -181,55 +193,137 @@ test("router validates target and command params before invoking handlers", asyn
   let calls = 0;
   const router = createRouter({
     handlers: {
-      browser: { ping: () => { calls += 1; } },
-      windows: {
-        list: () => { calls += 1; },
-        get: () => { calls += 1; },
-        create: () => { calls += 1; },
-        update: () => { calls += 1; },
-        focus: () => { calls += 1; },
-        close: () => { calls += 1; },
+      browser: {
+        ping: () => {
+          calls += 1;
+        },
       },
-      tabs: tabHandlers(() => { calls += 1; }),
+      windows: {
+        list: () => {
+          calls += 1;
+        },
+        get: () => {
+          calls += 1;
+        },
+        create: () => {
+          calls += 1;
+        },
+        update: () => {
+          calls += 1;
+        },
+        focus: () => {
+          calls += 1;
+        },
+        close: () => {
+          calls += 1;
+        },
+      },
+      tabs: tabHandlers(() => {
+        calls += 1;
+      }),
       tabGroups: {
-        group: () => { calls += 1; },
-        ungroup: () => { calls += 1; },
-        update: () => { calls += 1; },
+        group: () => {
+          calls += 1;
+        },
+        ungroup: () => {
+          calls += 1;
+        },
+        update: () => {
+          calls += 1;
+        },
       },
       sessions: {
-        recentlyClosed: () => { calls += 1; },
-        restore: () => { calls += 1; },
+        recentlyClosed: () => {
+          calls += 1;
+        },
+        restore: () => {
+          calls += 1;
+        },
       },
       console: {
-        start: () => { calls += 1; },
-        stop: () => { calls += 1; },
-        clear: () => { calls += 1; },
-        read: () => { calls += 1; },
+        start: () => {
+          calls += 1;
+        },
+        stop: () => {
+          calls += 1;
+        },
+        clear: () => {
+          calls += 1;
+        },
+        read: () => {
+          calls += 1;
+        },
       },
       page: {
-        info: () => { calls += 1; },
-        getHTML: () => { calls += 1; },
-        getHTMLBySelector: () => { calls += 1; },
-        getText: () => { calls += 1; },
-        query: () => { calls += 1; },
-        getElement: () => { calls += 1; },
-        snapshot: () => { calls += 1; },
-        click: () => { calls += 1; },
-        fill: () => { calls += 1; },
-        hover: () => { calls += 1; },
-        focus: () => { calls += 1; },
-        blur: () => { calls += 1; },
-        type: () => { calls += 1; },
-        clear: () => { calls += 1; },
-        press: () => { calls += 1; },
-        select: () => { calls += 1; },
-        setChecked: () => { calls += 1; },
-        scroll: () => { calls += 1; },
-        drag: () => { calls += 1; },
-        dispatch: () => { calls += 1; },
-        submit: () => { calls += 1; },
-        wait: () => { calls += 1; },
-        screenshot: () => { calls += 1; },
+        info: () => {
+          calls += 1;
+        },
+        getHTML: () => {
+          calls += 1;
+        },
+        getHTMLBySelector: () => {
+          calls += 1;
+        },
+        getText: () => {
+          calls += 1;
+        },
+        query: () => {
+          calls += 1;
+        },
+        getElement: () => {
+          calls += 1;
+        },
+        snapshot: () => {
+          calls += 1;
+        },
+        click: () => {
+          calls += 1;
+        },
+        fill: () => {
+          calls += 1;
+        },
+        hover: () => {
+          calls += 1;
+        },
+        focus: () => {
+          calls += 1;
+        },
+        blur: () => {
+          calls += 1;
+        },
+        type: () => {
+          calls += 1;
+        },
+        clear: () => {
+          calls += 1;
+        },
+        press: () => {
+          calls += 1;
+        },
+        select: () => {
+          calls += 1;
+        },
+        setChecked: () => {
+          calls += 1;
+        },
+        scroll: () => {
+          calls += 1;
+        },
+        drag: () => {
+          calls += 1;
+        },
+        dispatch: () => {
+          calls += 1;
+        },
+        submit: () => {
+          calls += 1;
+        },
+        wait: () => {
+          calls += 1;
+        },
+        screenshot: () => {
+          calls += 1;
+        },
       },
     },
   });
@@ -243,27 +337,55 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.getElement", { locator: {}, maxHTMLChars: 1_000 }),
     createRequest("page.snapshot", { maxNodes: 0 }),
     createRequest("page.snapshot", { interactiveOnly: "yes" }),
-    createRequest("page.click", { selector: "button", coordinates: { x: 1, y: 2 } }),
+    createRequest("page.click", {
+      selector: "button",
+      coordinates: { x: 1, y: 2 },
+    }),
     createRequest("page.click", { coordinates: { x: -1, y: 2 } }),
     createRequest("page.click", { coordinates: { x: 1, y: 2 }, index: 0 }),
-    createRequest("page.click", { locator: { css: "button", unexpected: true } }),
+    createRequest("page.click", {
+      locator: { css: "button", unexpected: true },
+    }),
     createRequest("page.fill", { selector: "input" }),
     createRequest("page.fill", { selector: "input", value: "x", clear: "yes" }),
     createRequest("page.type", { locator: { css: "input" }, text: "" }),
-    createRequest("page.press", { locator: { css: "input" }, key: "A", modifiers: ["Bad"] }),
+    createRequest("page.press", {
+      locator: { css: "input" },
+      key: "A",
+      modifiers: ["Bad"],
+    }),
     createRequest("page.select", { locator: { css: "select" }, values: [] }),
     createRequest("page.scroll", { deltaY: 0 }),
     createRequest("page.drag", { source: { css: "#a" } }),
-    createRequest("page.dispatch", { locator: { css: "#a" }, eventType: "bad event" }),
+    createRequest("page.dispatch", {
+      locator: { css: "#a" },
+      eventType: "bad event",
+    }),
     createRequest("page.hover", { locator: { css: "#a" }, backend: "native" }),
     createRequest("page.wait", { condition: "delay" }),
     createRequest("page.wait", { condition: "url", url: "a", urlPattern: "*" }),
-    createRequest("page.wait", { condition: "element", locator: { css: "#a" } }),
-    createRequest("page.wait", { condition: "attribute", locator: { css: "#a" }, attribute: "bad name", attributeState: "present" }),
-    createRequest("page.wait", { condition: "attribute", locator: { css: "#a" }, attribute: "data-token", attributeState: "present" }),
+    createRequest("page.wait", {
+      condition: "element",
+      locator: { css: "#a" },
+    }),
+    createRequest("page.wait", {
+      condition: "attribute",
+      locator: { css: "#a" },
+      attribute: "bad name",
+      attributeState: "present",
+    }),
+    createRequest("page.wait", {
+      condition: "attribute",
+      locator: { css: "#a" },
+      attribute: "data-token",
+      attributeState: "present",
+    }),
     createRequest("page.screenshot", { format: "png", quality: 80 }),
     createRequest("page.screenshot", { format: "jpeg", maxBytes: 2_000_001 }),
-    createRequest("console.start", { captureConsole: false, captureErrors: false }),
+    createRequest("console.start", {
+      captureConsole: false,
+      captureErrors: false,
+    }),
     createRequest("console.read", { levels: ["error", "error"] }),
     createRequest("console.read", { kinds: ["network"] }),
     createRequest("console.read", { cursor: "-1" }),
@@ -312,11 +434,35 @@ test("router accepts every bounded wait condition shape", async () => {
     { condition: "delay", delayMs: 0 },
     { condition: "loadState", readyState: "complete", mode: "event" },
     { condition: "url", url: "https://example.com/" },
-    { condition: "url", urlPattern: "https://*.example.com/*", mode: "polling", pollIntervalMs: 50 },
-    { condition: "element", locator: { css: "#save" }, elementState: "visible" },
-    { condition: "text", expected: "Saved", matchOperator: "contains", caseSensitive: false },
-    { condition: "value", locator: { css: "input" }, expected: "", matchOperator: "equals" },
-    { condition: "count", locator: { role: "button" }, count: 2, countOperator: "atLeast" },
+    {
+      condition: "url",
+      urlPattern: "https://*.example.com/*",
+      mode: "polling",
+      pollIntervalMs: 50,
+    },
+    {
+      condition: "element",
+      locator: { css: "#save" },
+      elementState: "visible",
+    },
+    {
+      condition: "text",
+      expected: "Saved",
+      matchOperator: "contains",
+      caseSensitive: false,
+    },
+    {
+      condition: "value",
+      locator: { css: "input" },
+      expected: "",
+      matchOperator: "equals",
+    },
+    {
+      condition: "count",
+      locator: { role: "button" },
+      count: 2,
+      countOperator: "atLeast",
+    },
     { condition: "navigation" },
     { condition: "networkIdle", idleMs: 500 },
     {
@@ -341,7 +487,10 @@ test("router emits one cancellation response and suppresses duplicate request ID
   const router = createRouter({
     handlers: {
       browser: {
-        ping: () => new Promise((resolve) => { resolveHandler = resolve; }),
+        ping: () =>
+          new Promise((resolve) => {
+            resolveHandler = resolve;
+          }),
       },
       windows: {},
       tabs: {},
@@ -481,7 +630,9 @@ function createRequest(command, params, requestId = "request-1") {
 
 async function execute(router, request) {
   let received;
-  await router.execute(request, (outcome) => { received = outcome; });
+  await router.execute(request, (outcome) => {
+    received = outcome;
+  });
   return received;
 }
 

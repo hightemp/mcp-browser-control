@@ -64,6 +64,22 @@ func WithWriteTimeout(timeout time.Duration) Option {
 	}
 }
 
+// WithMaxMessageBytes changes the browser message size limit.
+func WithMaxMessageBytes(maxBytes int64) Option {
+	return func(server *Server) {
+		if maxBytes > 0 {
+			server.maxMessageBytes = maxBytes
+		}
+	}
+}
+
+// WithOriginAllowlist restricts accepted safe origins to exact values.
+func WithOriginAllowlist(origins []string) Option {
+	return func(server *Server) {
+		server.originAllowlist = append([]string(nil), origins...)
+	}
+}
+
 // WithAuthenticator configures the browser pairing authenticator.
 func WithAuthenticator(authenticator Authenticator) Option {
 	return func(server *Server) {
@@ -83,6 +99,7 @@ type Server struct {
 	handshakeTimeout time.Duration
 	writeTimeout     time.Duration
 	maxMessageBytes  int64
+	originAllowlist  []string
 	upgrader         gorilla.Upgrader
 }
 
@@ -103,12 +120,12 @@ func NewServer(
 		upgrader: gorilla.Upgrader{
 			ReadBufferSize:  4096,
 			WriteBufferSize: 4096,
-			CheckOrigin:     allowedOrigin,
 		},
 	}
 	for _, option := range options {
 		option(server)
 	}
+	server.upgrader.CheckOrigin = server.checkOrigin
 	return server
 }
 
@@ -452,6 +469,22 @@ func allowedOrigin(request *http.Request) bool {
 	default:
 		return false
 	}
+}
+
+func (s *Server) checkOrigin(request *http.Request) bool {
+	if !allowedOrigin(request) {
+		return false
+	}
+	origin := request.Header.Get("Origin")
+	if origin == "" || len(s.originAllowlist) == 0 {
+		return true
+	}
+	for _, allowed := range s.originAllowlist {
+		if origin == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 func loopbackHost(hostPort string) bool {

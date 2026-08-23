@@ -4,14 +4,11 @@ package app
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
@@ -30,18 +27,6 @@ const (
 	serverVersion = "0.3.0"
 )
 
-// Config contains process-level server configuration.
-type Config struct {
-	Transport      string
-	MCPHost        string
-	MCPPort        string
-	WebSocketHost  string
-	WebSocketPort  string
-	CommandTimeout time.Duration
-	CredentialFile string
-	PairingTTL     time.Duration
-}
-
 // Run parses args, assembles the application, and blocks until shutdown.
 func Run(
 	ctx context.Context,
@@ -58,55 +43,6 @@ func Run(
 	return run(ctx, config, stdin, stdout, logger)
 }
 
-func parseConfig(args []string, stderr io.Writer) (Config, error) {
-	config := Config{CredentialFile: defaultCredentialFile()}
-	flags := flag.NewFlagSet(serverName, flag.ContinueOnError)
-	flags.SetOutput(stderr)
-	flags.StringVar(
-		&config.Transport,
-		"t",
-		"streamable-http",
-		"Transport type: streamable-http, stdio, or sse",
-	)
-	flags.StringVar(&config.MCPHost, "h", "127.0.0.1", "MCP HTTP host")
-	flags.StringVar(&config.MCPPort, "p", "8896", "MCP HTTP port")
-	flags.StringVar(&config.WebSocketHost, "ws_host", "127.0.0.1", "Browser WebSocket host")
-	flags.StringVar(&config.WebSocketPort, "ws_port", "8090", "Browser WebSocket port")
-	flags.DurationVar(
-		&config.CommandTimeout,
-		"command_timeout",
-		15*time.Second,
-		"Default browser command timeout",
-	)
-	flags.StringVar(
-		&config.CredentialFile,
-		"credential_file",
-		config.CredentialFile,
-		"Persistent browser credential store; empty uses memory only",
-	)
-	flags.DurationVar(
-		&config.PairingTTL,
-		"pairing_ttl",
-		10*time.Minute,
-		"Lifetime of each one-time browser pairing code",
-	)
-	if err := flags.Parse(args); err != nil {
-		return Config{}, fmt.Errorf("parse flags: %w", err)
-	}
-	if config.CommandTimeout <= 0 {
-		return Config{}, fmt.Errorf("command_timeout must be positive")
-	}
-	if config.PairingTTL <= 0 {
-		return Config{}, fmt.Errorf("pairing_ttl must be positive")
-	}
-	switch config.Transport {
-	case "streamable-http", "http", "stdio", "sse":
-	default:
-		return Config{}, fmt.Errorf("unsupported transport %q", config.Transport)
-	}
-	return config, nil
-}
-
 func run(
 	ctx context.Context,
 	config Config,
@@ -114,11 +50,15 @@ func run(
 	stdout io.Writer,
 	logger *log.Logger,
 ) error {
+	if err := config.Validate(); err != nil {
+		return fmt.Errorf("validate config: %w", err)
+	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	authenticator, err := pairing.NewManager(
 		pairing.WithStorePath(config.CredentialFile),
 		pairing.WithCodeTTL(config.PairingTTL),
+		pairing.WithAttemptLimit(config.PairingMaxAttempts, config.PairingAttemptWindow),
 		pairing.WithCodeObserver(func(code string, expiresAt time.Time) {
 			logger.Printf(
 				"Browser pairing code: %s (expires at %s)",
@@ -157,6 +97,10 @@ func run(
 		requestRouter,
 		websockettransport.WithLogger(log.New(logger.Writer(), "[WebSocket] ", log.LstdFlags)),
 		websockettransport.WithAuthenticator(authenticator),
+		websockettransport.WithHandshakeTimeout(config.WebSocketHandshakeTimeout),
+		websockettransport.WithWriteTimeout(config.WebSocketWriteTimeout),
+		websockettransport.WithMaxMessageBytes(config.WebSocketMaxMessageBytes),
+		websockettransport.WithOriginAllowlist(config.OriginAllowlist),
 	)
 	websocketMux := http.NewServeMux()
 	websocketMux.Handle(websockettransport.DefaultPath, websocketHandler)
@@ -201,7 +145,7 @@ func run(
 			server.WithSessionIdManager(sessionManager),
 		)
 		mux := http.NewServeMux()
-		mux.Handle("/mcp", netguard.LocalOnly(streamable))
+		mux.Handle("/mcp", guardedMCPHandler(config, streamable))
 		mcpHTTP = newHTTPServer(config, mux)
 		listener, listenErr := net.Listen("tcp", mcpHTTP.Addr)
 		if listenErr != nil {
@@ -215,7 +159,7 @@ func run(
 	case "sse":
 		baseURL := fmt.Sprintf("http://%s", net.JoinHostPort(config.MCPHost, config.MCPPort))
 		sse := server.NewSSEServer(mcpServer, server.WithBaseURL(baseURL))
-		mcpHTTP = newHTTPServer(config, netguard.LocalOnly(sse))
+		mcpHTTP = newHTTPServer(config, guardedMCPHandler(config, sse))
 		listener, listenErr := net.Listen("tcp", mcpHTTP.Addr)
 		if listenErr != nil {
 			closeServer(websocketHTTP, logger)
@@ -239,7 +183,7 @@ func run(
 
 	cancel()
 	requestRouter.Close()
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), config.ShutdownTimeout)
 	defer shutdownCancel()
 
 	if mcpHTTP != nil {
@@ -253,14 +197,6 @@ func run(
 	return runErr
 }
 
-func defaultCredentialFile() string {
-	configurationDirectory, err := os.UserConfigDir()
-	if err != nil || configurationDirectory == "" {
-		return filepath.Join(".mcp-browser-control", "credentials.json")
-	}
-	return filepath.Join(configurationDirectory, "mcp-browser-control", "credentials.json")
-}
-
 func newHTTPServer(config Config, handler http.Handler) *http.Server {
 	return &http.Server{
 		Addr:              net.JoinHostPort(config.MCPHost, config.MCPPort),
@@ -268,6 +204,11 @@ func newHTTPServer(config Config, handler http.Handler) *http.Server {
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       90 * time.Second,
 	}
+}
+
+func guardedMCPHandler(config Config, handler http.Handler) http.Handler {
+	local := netguard.LocalOnlyWithOrigins(handler, config.OriginAllowlist)
+	return http.MaxBytesHandler(local, config.MCPMaxRequestBytes)
 }
 
 func normalizeServerError(err error) error {

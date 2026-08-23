@@ -86,6 +86,10 @@ Options:
   operating system's user configuration directory
 - `-pairing_ttl` — lifetime of each one-time pairing code; default `10m`
 
+Flags, `MCP_BROWSER_*` environment variables, JSON configuration files,
+payload limits, origin allowlists, profiles, artifacts, and logging settings
+are documented in [docs/configuration.md](docs/configuration.md).
+
 ## Pair a Browser
 
 The server prints an eight-digit one-time code during startup:

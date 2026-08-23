@@ -7,6 +7,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -23,30 +25,17 @@ func TestParseConfig(t *testing.T) {
 	}{
 		{
 			name: "defaults",
-			want: Config{
-				Transport:      "streamable-http",
-				MCPHost:        "127.0.0.1",
-				MCPPort:        "8896",
-				WebSocketHost:  "127.0.0.1",
-				WebSocketPort:  "8090",
-				CommandTimeout: 15 * time.Second,
-				CredentialFile: defaultCredentialFile(),
-				PairingTTL:     10 * time.Minute,
-			},
+			want: defaultConfig(),
 		},
 		{
 			name: "stdio override",
 			args: []string{"-t", "stdio", "-command_timeout", "3s"},
-			want: Config{
-				Transport:      "stdio",
-				MCPHost:        "127.0.0.1",
-				MCPPort:        "8896",
-				WebSocketHost:  "127.0.0.1",
-				WebSocketPort:  "8090",
-				CommandTimeout: 3 * time.Second,
-				CredentialFile: defaultCredentialFile(),
-				PairingTTL:     10 * time.Minute,
-			},
+			want: func() Config {
+				config := defaultConfig()
+				config.Transport = "stdio"
+				config.CommandTimeout = 3 * time.Second
+				return config
+			}(),
 		},
 		{
 			name:      "bad transport",
@@ -69,7 +58,7 @@ func TestParseConfig(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			got, err := parseConfig(test.args, io.Discard)
+			got, err := parseConfigWithEnvironment(test.args, io.Discard, emptyEnvironment)
 			if test.wantError {
 				if err == nil {
 					t.Fatal("parseConfig() error = nil")
@@ -79,7 +68,7 @@ func TestParseConfig(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parseConfig() error = %v", err)
 			}
-			if got != test.want {
+			if !reflect.DeepEqual(got, test.want) {
 				t.Errorf("parseConfig() = %#v, want %#v", got, test.want)
 			}
 		})
@@ -92,14 +81,12 @@ func TestRunStopsCleanlyForEveryTransport(t *testing.T) {
 		t.Run(transport, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
-			config := Config{
-				Transport:      transport,
-				MCPHost:        "127.0.0.1",
-				MCPPort:        "0",
-				WebSocketHost:  "127.0.0.1",
-				WebSocketPort:  "0",
-				CommandTimeout: time.Second,
-			}
+			config := defaultConfig()
+			config.Transport = transport
+			config.MCPPort = "0"
+			config.WebSocketPort = "0"
+			config.CommandTimeout = time.Second
+			config.CredentialFile = ""
 			if err := run(
 				ctx,
 				config,
@@ -126,16 +113,17 @@ func TestRunRejectsOccupiedWebSocketAddress(t *testing.T) {
 		t.Fatalf("SplitHostPort() error = %v", err)
 	}
 
+	config := defaultConfig()
+	config.Transport = "stdio"
+	config.MCPHost = "127.0.0.1"
+	config.MCPPort = "0"
+	config.WebSocketHost = host
+	config.WebSocketPort = port
+	config.CommandTimeout = time.Second
+	config.CredentialFile = ""
 	runErr := run(
 		context.Background(),
-		Config{
-			Transport:      "stdio",
-			MCPHost:        "127.0.0.1",
-			MCPPort:        "0",
-			WebSocketHost:  host,
-			WebSocketPort:  port,
-			CommandTimeout: time.Second,
-		},
+		config,
 		bytes.NewReader(nil),
 		io.Discard,
 		log.New(io.Discard, "", 0),
@@ -162,6 +150,27 @@ func TestHTTPServerHelpers(t *testing.T) {
 	}
 }
 
+func TestGuardedMCPHandlerLimitsRequests(t *testing.T) {
+	t.Parallel()
+
+	config := defaultConfig()
+	config.MCPMaxRequestBytes = 4
+	next := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if _, err := io.ReadAll(request.Body); err != nil {
+			http.Error(writer, err.Error(), http.StatusRequestEntityTooLarge)
+			return
+		}
+		writer.WriteHeader(http.StatusNoContent)
+	})
+	handler := guardedMCPHandler(config, next)
+	request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8896/mcp", strings.NewReader("12345"))
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("status = %d, want %d", response.Code, http.StatusRequestEntityTooLarge)
+	}
+}
+
 func TestRunReportsFlagErrors(t *testing.T) {
 	t.Parallel()
 
@@ -175,4 +184,8 @@ func TestRunReportsFlagErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("Run() error = nil")
 	}
+}
+
+func emptyEnvironment(string) (string, bool) {
+	return "", false
 }

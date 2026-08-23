@@ -46,3 +46,33 @@ func TestLocalOnly(t *testing.T) {
 		})
 	}
 }
+
+func TestLocalOnlyWithOrigins(t *testing.T) {
+	t.Parallel()
+
+	next := http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusNoContent)
+	})
+	handler := LocalOnlyWithOrigins(next, []string{"http://localhost:3000"})
+	tests := []struct {
+		name       string
+		origin     string
+		wantStatus int
+	}{
+		{name: "native client", wantStatus: http.StatusNoContent},
+		{name: "allowlisted", origin: "http://localhost:3000", wantStatus: http.StatusNoContent},
+		{name: "other loopback", origin: "http://127.0.0.1:3000", wantStatus: http.StatusForbidden},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			request := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:8896/mcp", nil)
+			request.Header.Set("Origin", test.origin)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != test.wantStatus {
+				t.Errorf("status = %d, want %d", response.Code, test.wantStatus)
+			}
+		})
+	}
+}

@@ -293,12 +293,17 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 		WithLogger(nil),
 		WithHandshakeTimeout(250*time.Millisecond),
 		WithWriteTimeout(300*time.Millisecond),
+		WithMaxMessageBytes(1024),
+		WithOriginAllowlist([]string{"chrome-extension://allowed"}),
 	)
 	if transport.handshakeTimeout != 250*time.Millisecond {
 		t.Errorf("handshakeTimeout = %v", transport.handshakeTimeout)
 	}
 	if transport.writeTimeout != 300*time.Millisecond {
 		t.Errorf("writeTimeout = %v", transport.writeTimeout)
+	}
+	if transport.maxMessageBytes != 1024 {
+		t.Errorf("maxMessageBytes = %d", transport.maxMessageBytes)
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/not-ws", nil)
@@ -326,6 +331,18 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 		request.Header.Set("Origin", test.origin)
 		if got := allowedOrigin(request); got != test.want {
 			t.Errorf("allowedOrigin(%q) = %v, want %v", test.origin, got, test.want)
+		}
+	}
+	for origin, want := range map[string]bool{
+		"":                           true,
+		"chrome-extension://allowed": true,
+		"chrome-extension://other":   false,
+		"https://example.com":        false,
+	} {
+		request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/ws", nil)
+		request.Header.Set("Origin", origin)
+		if got := transport.checkOrigin(request); got != want {
+			t.Errorf("checkOrigin(%q) = %v, want %v", origin, got, want)
 		}
 	}
 }

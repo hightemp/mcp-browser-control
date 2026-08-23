@@ -11,14 +11,32 @@ import (
 // LocalOnly rejects non-loopback Host and Origin headers. Native MCP clients
 // commonly omit Origin, which is accepted.
 func LocalOnly(next http.Handler) http.Handler {
+	return LocalOnlyWithOrigins(next, nil)
+}
+
+// LocalOnlyWithOrigins additionally restricts browser-originated requests to
+// an exact allowlist. Requests without Origin remain valid for native clients.
+func LocalOnlyWithOrigins(next http.Handler, allowedOrigins []string) http.Handler {
+	allowlist := make(map[string]struct{}, len(allowedOrigins))
+	for _, origin := range allowedOrigins {
+		allowlist[origin] = struct{}{}
+	}
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if !IsLoopbackHost(request.Host) {
 			http.Error(writer, "forbidden host", http.StatusForbidden)
 			return
 		}
-		if origin := request.Header.Get("Origin"); origin != "" && !IsLoopbackOrigin(origin) {
-			http.Error(writer, "forbidden origin", http.StatusForbidden)
-			return
+		if origin := request.Header.Get("Origin"); origin != "" {
+			if !IsLoopbackOrigin(origin) {
+				http.Error(writer, "forbidden origin", http.StatusForbidden)
+				return
+			}
+			if len(allowlist) > 0 {
+				if _, ok := allowlist[origin]; !ok {
+					http.Error(writer, "forbidden origin", http.StatusForbidden)
+					return
+				}
+			}
 		}
 		next.ServeHTTP(writer, request)
 	})

@@ -189,7 +189,7 @@ Target и Locator синхронизированы в Go, JavaScript и JSON Sch
 
 - Приоритет: P0
 - Зависимости: T-010
-- Статус: `[~]`
+- Статус: `[x]`
 
 Поддержать flags/env/config file для:
 
@@ -203,6 +203,8 @@ Target и Locator синхронизированы в Go, JavaScript и JSON Sch
 - log level и redaction.
 
 По умолчанию оба сетевых endpoint слушают loopback.
+
+Реализован приоритет defaults → JSON file → environment → flags, строгая валидация, обязательный loopback bind, origin allowlist и применение настраиваемых timeout/payload/pairing limits. Все параметры и имена переменных окружения описаны в `docs/configuration.md`.
 
 ## 7. Этап 2 — сервер: соединения, registry и routing
 

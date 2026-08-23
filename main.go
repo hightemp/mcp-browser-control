@@ -19,13 +19,13 @@ import (
 // WebSocket upgrader
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Разрешаем подключения с любых источников
+		return true // Allow connections from any origin
 	},
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
 
-// Обновленная структура для хранения WebSocket соединений
+// WebSocketManager stores and manages WebSocket connections.
 type WebSocketManager struct {
 	connections     map[string]*ConnectionInfo
 	pendingRequests map[string]*PendingRequest
@@ -33,30 +33,30 @@ type WebSocketManager struct {
 	logger          *log.Logger
 }
 
-// Структура для хранения информации о соединении
+// ConnectionInfo stores information about a connection.
 type ConnectionInfo struct {
 	conn     *websocket.Conn
 	lastPing time.Time
 	stopChan chan bool
 }
 
-// Структура для ожидания ответов
+// PendingRequest tracks a request awaiting a response.
 type PendingRequest struct {
 	ID       string
 	Response chan WebSocketMessage
 	Timeout  time.Time
 }
 
-// Глобальный менеджер WebSocket соединений
+// Global WebSocket connection manager.
 var wsManager *WebSocketManager
 
-// Структуры для сообщений
+// Message structures.
 type WebSocketMessage struct {
-	Command string                 `json:"command"`
-	Params  map[string]interface{} `json:"params,omitempty"`
-	Data    interface{}            `json:"data,omitempty"`
-	TabID   int                    `json:"tabId,omitempty"`
-	ID      string                 `json:"id,omitempty"`
+	Command string                 `json:"Command"`
+	Params  map[string]interface{} `json:"Params,omitempty"`
+	Data    interface{}            `json:"Data,omitempty"`
+	TabID   int                    `json:"TabID,omitempty"`
+	ID      string                 `json:"ID,omitempty"`
 }
 
 type BrowserResponse struct {
@@ -67,7 +67,7 @@ type BrowserResponse struct {
 	Timestamp string      `json:"timestamp"`
 }
 
-// Типизированные структуры для аргументов инструментов
+// Typed tool argument structures.
 type GetHtmlArgs struct {
 	TabID *int `json:"tabId,omitempty"`
 }
@@ -107,7 +107,7 @@ type SendCommandArgs struct {
 }
 
 type GetTabsArgs struct {
-	// Пустая структура - команда не требует параметров
+	// Empty because this command takes no parameters.
 }
 
 func main() {
@@ -121,56 +121,56 @@ func main() {
 	flag.StringVar(&port, "p", "8896", "Port of sse server")
 	flag.Parse()
 
-	// Инициализируем WebSocket менеджер
+	// Initialize the WebSocket manager.
 	wsManager = &WebSocketManager{
 		connections:     make(map[string]*ConnectionInfo),
 		pendingRequests: make(map[string]*PendingRequest),
 		logger:          log.New(log.Writer(), "[WebSocket] ", log.LstdFlags),
 	}
 
-	// Запускаем WebSocket сервер в отдельной горутине
+	// Start the WebSocket server in a separate goroutine.
 	go startWebSocketServer(wsPort)
 
-	// Создаем MCP сервер
+	// Create the MCP server.
 	mcpServer := server.NewMCPServer(
 		"go_mcp_browser_ext_tool",
 		"1.0.0",
 	)
 
-	// Добавляем все инструменты для работы с браузером
+	// Register all browser tools.
 	registerBrowserTools(mcpServer)
 
-	log.Printf("MCP Browser Extension Tool Server запущен")
-	log.Printf("WebSocket сервер: ws://localhost:%s/ws", wsPort)
+	log.Printf("MCP Browser Extension Tool Server started")
+	log.Printf("WebSocket server: ws://localhost:%s/ws", wsPort)
 
 	if transport == "sse" {
 		sseServer := server.NewSSEServer(mcpServer, server.WithBaseURL(fmt.Sprintf("http://localhost:%s", port)))
-		log.Printf("MCP SSE сервер: http://127.0.0.1:%s/sse", port)
+		log.Printf("MCP SSE server: http://127.0.0.1:%s/sse", port)
 		if err := sseServer.Start(fmt.Sprintf("%s:%s", host, port)); err != nil {
-			log.Fatalf("Ошибка SSE сервера: %v", err)
+			log.Fatalf("SSE server error: %v", err)
 		}
 	} else {
 		if err := server.ServeStdio(mcpServer); err != nil {
-			log.Fatalf("Ошибка STDIO сервера: %v", err)
+			log.Fatalf("STDIO server error: %v", err)
 		}
 	}
 }
 
-// Запуск WebSocket сервера
+// startWebSocketServer starts the WebSocket server.
 func startWebSocketServer(port string) {
 	http.HandleFunc("/ws", handleWebSocket)
 
-	wsManager.logger.Printf("WebSocket сервер запущен на порту %s", port)
+	wsManager.logger.Printf("WebSocket server started on port %s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
-		log.Fatalf("Ошибка запуска WebSocket сервера: %v", err)
+		log.Fatalf("Failed to start WebSocket server: %v", err)
 	}
 }
 
-// Обработчик WebSocket соединений
+// handleWebSocket handles WebSocket connections.
 func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		wsManager.logger.Printf("Ошибка обновления соединения: %v", err)
+		wsManager.logger.Printf("Failed to upgrade connection: %v", err)
 		return
 	}
 	defer conn.Close()
@@ -179,62 +179,62 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	wsManager.addConnection(clientID, conn)
 	defer wsManager.removeConnection(clientID)
 
-	wsManager.logger.Printf("Новое WebSocket соединение: %s", clientID)
+	wsManager.logger.Printf("New WebSocket connection: %s", clientID)
 
-	// Устанавливаем обработчики ping/pong
+	// Set up ping/pong handlers.
 	conn.SetPingHandler(func(appData string) error {
-		wsManager.logger.Printf("Получен ping от %s", clientID)
+		wsManager.logger.Printf("Received ping from %s", clientID)
 		return conn.WriteMessage(websocket.PongMessage, []byte{})
 	})
 
 	conn.SetPongHandler(func(appData string) error {
-		wsManager.logger.Printf("Получен pong от %s", clientID)
+		wsManager.logger.Printf("Received pong from %s", clientID)
 		return nil
 	})
 
-	// Читаем сообщения от клиента
+	// Read messages from the client.
 	for {
 		messageType, data, err := conn.ReadMessage()
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				wsManager.logger.Printf("Ошибка чтения сообщения от %s: %v", clientID, err)
+				wsManager.logger.Printf("Failed to read message from %s: %v", clientID, err)
 			}
 			break
 		}
 
-		// Обработка ping сообщений
+		// Handle ping messages.
 		if messageType == websocket.TextMessage && string(data) == "ping" {
-			wsManager.logger.Printf("Получен ping от %s", clientID)
+			wsManager.logger.Printf("Received ping from %s", clientID)
 			err = conn.WriteMessage(websocket.TextMessage, []byte("pong"))
 			if err != nil {
-				wsManager.logger.Printf("Ошибка отправки pong клиенту %s: %v", clientID, err)
+				wsManager.logger.Printf("Failed to send pong to client %s: %v", clientID, err)
 				break
 			}
 			continue
 		}
 
-		// Обработка обычных JSON сообщений
+		// Handle regular JSON messages.
 		if messageType == websocket.TextMessage {
 			var msg WebSocketMessage
 			err := json.Unmarshal(data, &msg)
 			if err != nil {
-				wsManager.logger.Printf("Ошибка парсинга JSON от %s: %v", clientID, err)
+				wsManager.logger.Printf("Failed to parse JSON from %s: %v", clientID, err)
 				continue
 			}
 
-			wsManager.logger.Printf("Получено сообщение от %s: %+v", clientID, msg)
+			wsManager.logger.Printf("Received message from %s: %+v", clientID, msg)
 
-			// Обработка ответов от расширения
+			// Handle responses from the extension.
 			if msg.ID != "" {
 				wsManager.handleResponse(msg)
 			}
 		}
 	}
 
-	wsManager.logger.Printf("WebSocket соединение закрыто: %s", clientID)
+	wsManager.logger.Printf("WebSocket connection closed: %s", clientID)
 }
 
-// Методы WebSocketManager
+// WebSocketManager methods.
 func (wsm *WebSocketManager) addConnection(id string, conn *websocket.Conn) {
 	wsm.mutex.Lock()
 	defer wsm.mutex.Unlock()
@@ -256,7 +256,7 @@ func (wsm *WebSocketManager) sendToAll(message WebSocketMessage) error {
 	defer wsm.mutex.RUnlock()
 
 	if len(wsm.connections) == 0 {
-		return errors.New("нет активных WebSocket соединений")
+		return errors.New("no active WebSocket connections")
 	}
 
 	var lastError error
@@ -265,16 +265,16 @@ func (wsm *WebSocketManager) sendToAll(message WebSocketMessage) error {
 	for clientID, connInfo := range wsm.connections {
 		err := connInfo.conn.WriteJSON(message)
 		if err != nil {
-			wsm.logger.Printf("Ошибка отправки сообщения клиенту %s: %v", clientID, err)
+			wsm.logger.Printf("Failed to send message to client %s: %v", clientID, err)
 			lastError = err
 		} else {
 			sentCount++
-			wsm.logger.Printf("Сообщение отправлено клиенту %s: %+v", clientID, message)
+			wsm.logger.Printf("Message sent to client %s: %+v", clientID, message)
 		}
 	}
 
 	if sentCount == 0 {
-		return fmt.Errorf("не удалось отправить сообщение ни одному клиенту: %v", lastError)
+		return fmt.Errorf("failed to send message to any client: %v", lastError)
 	}
 
 	return nil
@@ -287,13 +287,13 @@ func (wsm *WebSocketManager) handleResponse(msg WebSocketMessage) {
 	if pendingReq, exists := wsm.pendingRequests[msg.ID]; exists {
 		select {
 		case pendingReq.Response <- msg:
-			wsm.logger.Printf("Ответ доставлен для запроса %s", msg.ID)
+			wsm.logger.Printf("Response delivered for request %s", msg.ID)
 		default:
-			wsm.logger.Printf("Канал ответа заблокирован для запроса %s", msg.ID)
+			wsm.logger.Printf("Response channel blocked for request %s", msg.ID)
 		}
 		delete(wsm.pendingRequests, msg.ID)
 	} else {
-		wsm.logger.Printf("Получен ответ для неизвестного запроса %s", msg.ID)
+		wsm.logger.Printf("Received response for unknown request %s", msg.ID)
 	}
 }
 
@@ -302,7 +302,7 @@ func (wsm *WebSocketManager) sendAndWait(message WebSocketMessage, timeout time.
 		message.ID = generateMessageID()
 	}
 
-	// Создаем канал для ответа
+	// Create the response channel.
 	responseChan := make(chan WebSocketMessage, 1)
 	pendingReq := &PendingRequest{
 		ID:       message.ID,
@@ -314,7 +314,7 @@ func (wsm *WebSocketManager) sendAndWait(message WebSocketMessage, timeout time.
 	wsm.pendingRequests[message.ID] = pendingReq
 	wsm.mutex.Unlock()
 
-	// Отправляем сообщение
+	// Send the message.
 	err := wsm.sendToAll(message)
 	if err != nil {
 		wsm.mutex.Lock()
@@ -323,7 +323,7 @@ func (wsm *WebSocketManager) sendAndWait(message WebSocketMessage, timeout time.
 		return nil, err
 	}
 
-	// Ждем ответ с тайм-аутом
+	// Wait for a response until the timeout expires.
 	select {
 	case response := <-responseChan:
 		return &response, nil
@@ -331,128 +331,128 @@ func (wsm *WebSocketManager) sendAndWait(message WebSocketMessage, timeout time.
 		wsm.mutex.Lock()
 		delete(wsm.pendingRequests, message.ID)
 		wsm.mutex.Unlock()
-		return nil, fmt.Errorf("тайм-аут ожидания ответа от расширения")
+		return nil, fmt.Errorf("timed out waiting for a response from the extension")
 	}
 }
 
-// Регистрация всех инструментов браузера
+// registerBrowserTools registers all browser tools.
 func registerBrowserTools(mcpServer *server.MCPServer) {
-	// 1. Получение HTML страницы
+	// 1. Get page HTML.
 	getHtmlTool := mcp.NewTool("browser_get_html",
-		mcp.WithDescription("Получить HTML содержимое текущей страницы браузера"),
+		mcp.WithDescription("Get the HTML content of the current browser page"),
 		mcp.WithNumber("tabId",
-			mcp.Description("ID вкладки браузера (опционально)"),
+			mcp.Description("Browser tab ID (optional)"),
 		),
 	)
 	mcpServer.AddTool(getHtmlTool, mcp.NewTypedToolHandler(browserGetHtmlHandler))
 
-	// 2. Получение HTML по селектору
+	// 2. Get HTML by selector.
 	getHtmlBySelectorTool := mcp.NewTool("browser_get_html_by_selector",
-		mcp.WithDescription("Получить HTML элементов по CSS селектору"),
+		mcp.WithDescription("Get the HTML of elements matching a CSS selector"),
 		mcp.WithString("selector",
 			mcp.Required(),
-			mcp.Description("CSS селектор для поиска элементов"),
+			mcp.Description("CSS selector used to find elements"),
 		),
 		mcp.WithNumber("tabId",
-			mcp.Description("ID вкладки браузера (опционально)"),
+			mcp.Description("Browser tab ID (optional)"),
 		),
 	)
 	mcpServer.AddTool(getHtmlBySelectorTool, mcp.NewTypedToolHandler(browserGetHtmlBySelectorHandler))
 
-	// 3. Клик по элементу
+	// 3. Click an element.
 	clickElementTool := mcp.NewTool("browser_click_element",
-		mcp.WithDescription("Кликнуть по элементу на странице"),
+		mcp.WithDescription("Click an element on the page"),
 		mcp.WithString("selector",
-			mcp.Description("CSS селектор элемента для клика"),
+			mcp.Description("CSS selector of the element to click"),
 		),
 		mcp.WithNumber("index",
-			mcp.Description("Индекс элемента, если найдено несколько (по умолчанию 0)"),
+			mcp.Description("Element index when multiple matches are found (default: 0)"),
 		),
 		mcp.WithObject("coordinates",
-			mcp.Description("Координаты для клика"),
+			mcp.Description("Click coordinates"),
 			mcp.Properties(map[string]any{
 				"x": map[string]any{
 					"type":        "number",
-					"description": "X координата",
+					"description": "X coordinate",
 				},
 				"y": map[string]any{
 					"type":        "number",
-					"description": "Y координата",
+					"description": "Y coordinate",
 				},
 			}),
 		),
 		mcp.WithNumber("tabId",
-			mcp.Description("ID вкладки браузера (опционально)"),
+			mcp.Description("Browser tab ID (optional)"),
 		),
 	)
 	mcpServer.AddTool(clickElementTool, mcp.NewTypedToolHandler(browserClickElementHandler))
 
-	// 4. Ввод данных
+	// 4. Enter data.
 	inputDataTool := mcp.NewTool("browser_input_data",
-		mcp.WithDescription("Ввести данные в поле ввода на странице"),
+		mcp.WithDescription("Enter data into an input field on the page"),
 		mcp.WithString("selector",
 			mcp.Required(),
-			mcp.Description("CSS селектор поля ввода"),
+			mcp.Description("CSS selector of the input field"),
 		),
 		mcp.WithString("value",
 			mcp.Required(),
-			mcp.Description("Значение для ввода"),
+			mcp.Description("Value to enter"),
 		),
 		mcp.WithNumber("index",
-			mcp.Description("Индекс элемента, если найдено несколько (по умолчанию 0)"),
+			mcp.Description("Element index when multiple matches are found (default: 0)"),
 		),
 		mcp.WithBoolean("clear",
-			mcp.Description("Очистить поле перед вводом (по умолчанию true)"),
+			mcp.Description("Clear the field before entering data (default: true)"),
 			mcp.DefaultBool(true),
 		),
 		mcp.WithNumber("tabId",
-			mcp.Description("ID вкладки браузера (опционально)"),
+			mcp.Description("Browser tab ID (optional)"),
 		),
 	)
 	mcpServer.AddTool(inputDataTool, mcp.NewTypedToolHandler(browserInputDataHandler))
 
-	// 5. Получение логов консоли
+	// 5. Get console logs.
 	getConsoleLogTool := mcp.NewTool("browser_get_console_log",
-		mcp.WithDescription("Получить логи консоли браузера"),
+		mcp.WithDescription("Get browser console logs"),
 		mcp.WithNumber("tabId",
-			mcp.Description("ID вкладки браузера (опционально)"),
+			mcp.Description("Browser tab ID (optional)"),
 		),
 	)
 	mcpServer.AddTool(getConsoleLogTool, mcp.NewTypedToolHandler(browserGetConsoleLogHandler))
 
-	// 6. Получение network логов
+	// 6. Get network logs.
 	getNetworkLogTool := mcp.NewTool("browser_get_network_log",
-		mcp.WithDescription("Получить network логи браузера"),
+		mcp.WithDescription("Get browser network logs"),
 		mcp.WithNumber("tabId",
-			mcp.Description("ID вкладки браузера (опционально)"),
+			mcp.Description("Browser tab ID (optional)"),
 		),
 	)
 	mcpServer.AddTool(getNetworkLogTool, mcp.NewTypedToolHandler(browserGetNetworkLogHandler))
 
-	// 7. Отправка произвольной команды
+	// 7. Send an arbitrary command.
 	sendCommandTool := mcp.NewTool("browser_send_command",
-		mcp.WithDescription("Отправить произвольную команду в расширение браузера"),
+		mcp.WithDescription("Send an arbitrary command to the browser extension"),
 		mcp.WithString("command",
 			mcp.Required(),
-			mcp.Description("Название команды"),
+			mcp.Description("Command name"),
 		),
 		mcp.WithObject("data",
-			mcp.Description("Данные команды"),
+			mcp.Description("Command data"),
 		),
 		mcp.WithNumber("tabId",
-			mcp.Description("ID вкладки браузера (опционально)"),
+			mcp.Description("Browser tab ID (optional)"),
 		),
 	)
 	mcpServer.AddTool(sendCommandTool, mcp.NewTypedToolHandler(browserSendCommandHandler))
 
-	// 8. Получение списка вкладок
+	// 8. Get the list of tabs.
 	getTabsTool := mcp.NewTool("browser_get_tabs",
-		mcp.WithDescription("Получить список всех открытых вкладок браузера с указанием активной"),
+		mcp.WithDescription("Get all open browser tabs and identify the active tab"),
 	)
 	mcpServer.AddTool(getTabsTool, mcp.NewTypedToolHandler(browserGetTabsHandler))
 }
 
-// Типизированные обработчики инструментов
+// Typed tool handlers.
 
 func browserGetHtmlHandler(ctx context.Context, request mcp.CallToolRequest, args GetHtmlArgs) (*mcp.CallToolResult, error) {
 	params := make(map[string]interface{})
@@ -466,13 +466,13 @@ func browserGetHtmlHandler(ctx context.Context, request mcp.CallToolRequest, arg
 		ID:      generateMessageID(),
 	}
 
-	// Отправляем команду и ждем ответ
+	// Send the command and wait for a response.
 	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_get_html", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_get_html", "HTML успешно получен", response.Data), nil
+	return createSuccessResult("browser_get_html", "HTML retrieved successfully", response.Data), nil
 }
 
 func browserGetHtmlBySelectorHandler(ctx context.Context, request mcp.CallToolRequest, args GetHtmlBySelectorArgs) (*mcp.CallToolResult, error) {
@@ -489,12 +489,13 @@ func browserGetHtmlBySelectorHandler(ctx context.Context, request mcp.CallToolRe
 		ID:      generateMessageID(),
 	}
 
-	err := wsManager.sendToAll(message)
+	// Send the command and wait for a response.
+	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_get_html_by_selector", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_get_html_by_selector", "Команда получения HTML по селектору отправлена в браузер", params), nil
+	return createSuccessResult("browser_get_html_by_selector", "HTML retrieved successfully by selector", response.Data), nil
 }
 
 func browserClickElementHandler(ctx context.Context, request mcp.CallToolRequest, args ClickElementArgs) (*mcp.CallToolResult, error) {
@@ -513,9 +514,9 @@ func browserClickElementHandler(ctx context.Context, request mcp.CallToolRequest
 		params["tabId"] = *args.TabID
 	}
 
-	// Проверяем наличие селектора или координат
+	// Require either a selector or coordinates.
 	if args.Selector == nil && args.Coordinates == nil {
-		return createErrorResult("browser_click_element", "Необходимо указать 'selector' или 'coordinates'"), nil
+		return createErrorResult("browser_click_element", "either 'selector' or 'coordinates' must be provided"), nil
 	}
 
 	message := WebSocketMessage{
@@ -524,12 +525,13 @@ func browserClickElementHandler(ctx context.Context, request mcp.CallToolRequest
 		ID:      generateMessageID(),
 	}
 
-	err := wsManager.sendToAll(message)
+	// Send the command and wait for a response.
+	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_click_element", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_click_element", "Команда клика по элементу отправлена в браузер", params), nil
+	return createSuccessResult("browser_click_element", "Element clicked successfully", response.Data), nil
 }
 
 func browserInputDataHandler(ctx context.Context, request mcp.CallToolRequest, args InputDataArgs) (*mcp.CallToolResult, error) {
@@ -544,7 +546,7 @@ func browserInputDataHandler(ctx context.Context, request mcp.CallToolRequest, a
 	if args.Clear != nil {
 		params["clear"] = *args.Clear
 	} else {
-		params["clear"] = true // значение по умолчанию
+		params["clear"] = true // Default value.
 	}
 	if args.TabID != nil {
 		params["tabId"] = *args.TabID
@@ -556,12 +558,13 @@ func browserInputDataHandler(ctx context.Context, request mcp.CallToolRequest, a
 		ID:      generateMessageID(),
 	}
 
-	err := wsManager.sendToAll(message)
+	// Send the command and wait for a response.
+	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_input_data", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_input_data", "Команда ввода данных отправлена в браузер", params), nil
+	return createSuccessResult("browser_input_data", "Data entered successfully", response.Data), nil
 }
 
 func browserGetConsoleLogHandler(ctx context.Context, request mcp.CallToolRequest, args GetConsoleLogArgs) (*mcp.CallToolResult, error) {
@@ -576,12 +579,13 @@ func browserGetConsoleLogHandler(ctx context.Context, request mcp.CallToolReques
 		ID:      generateMessageID(),
 	}
 
-	err := wsManager.sendToAll(message)
+	// Send the command and wait for a response.
+	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_get_console_log", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_get_console_log", "Команда получения логов консоли отправлена в браузер", params), nil
+	return createSuccessResult("browser_get_console_log", "Console logs retrieved successfully", response.Data), nil
 }
 
 func browserGetNetworkLogHandler(ctx context.Context, request mcp.CallToolRequest, args GetNetworkLogArgs) (*mcp.CallToolResult, error) {
@@ -596,12 +600,13 @@ func browserGetNetworkLogHandler(ctx context.Context, request mcp.CallToolReques
 		ID:      generateMessageID(),
 	}
 
-	err := wsManager.sendToAll(message)
+	// Send the command and wait for a response.
+	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_get_network_log", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_get_network_log", "Команда получения network логов отправлена в браузер", params), nil
+	return createSuccessResult("browser_get_network_log", "Network logs retrieved successfully", response.Data), nil
 }
 
 func browserSendCommandHandler(ctx context.Context, request mcp.CallToolRequest, args SendCommandArgs) (*mcp.CallToolResult, error) {
@@ -622,12 +627,13 @@ func browserSendCommandHandler(ctx context.Context, request mcp.CallToolRequest,
 		ID:      generateMessageID(),
 	}
 
-	err := wsManager.sendToAll(message)
+	// Send the command and wait for a response.
+	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_send_command", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_send_command", fmt.Sprintf("Команда '%s' отправлена в браузер", args.Command), params), nil
+	return createSuccessResult("browser_send_command", fmt.Sprintf("Command '%s' completed successfully", args.Command), response.Data), nil
 }
 
 func browserGetTabsHandler(ctx context.Context, request mcp.CallToolRequest, args GetTabsArgs) (*mcp.CallToolResult, error) {
@@ -637,16 +643,16 @@ func browserGetTabsHandler(ctx context.Context, request mcp.CallToolRequest, arg
 		ID:      generateMessageID(),
 	}
 
-	// Отправляем команду и ждем ответ
+	// Send the command and wait for a response.
 	response, err := wsManager.sendAndWait(message, 10*time.Second)
 	if err != nil {
 		return createErrorResult("browser_get_tabs", err.Error()), nil
 	}
 
-	return createSuccessResult("browser_get_tabs", "Список вкладок успешно получен", response.Data), nil
+	return createSuccessResult("browser_get_tabs", "Tab list retrieved successfully", response.Data), nil
 }
 
-// Вспомогательные функции
+// Helper functions.
 
 func createSuccessResult(tool, message string, data interface{}) *mcp.CallToolResult {
 	result := BrowserResponse{

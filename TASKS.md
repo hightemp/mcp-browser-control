@@ -531,7 +531,7 @@ Capabilities формируются из:
 
 - Приоритет: P0
 - Зависимости: T-011, T-043
-- Статус: `[~]`
+- Статус: `[x]`
 
 Критерии:
 
@@ -543,6 +543,8 @@ Capabilities формируются из:
 - structured error mapping;
 - target validation перед выполнением;
 - неизвестная команда возвращает `CAPABILITY_UNAVAILABLE` или `INVALID_COMMAND`.
+
+Router вынесен в чистый тестируемый модуль с явным allowlist и command-specific validation параметров. Browser, tabs и page handlers разделены по доменам; capability и target проверяются до вызова handler. Активные request IDs защищены от повторного выполнения, cancellation завершается единым structured response, а ошибки нормализуются без утечки stack trace.
 
 ### T-046 — Реализовать content-script bridge
 

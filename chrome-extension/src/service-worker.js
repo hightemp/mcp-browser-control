@@ -1,9 +1,7 @@
 import {
   ErrorCode,
   MessageType,
-  assertFreshDocument,
   createMessage,
-  mapChromeError,
   normalizeError,
   normalizePairingCode,
   protocolError,
@@ -17,6 +15,10 @@ import {
 } from "./identity.js";
 import { badgeForStatus, permissionProfilesFor } from "./status.js";
 import { detectCapabilities } from "./capabilities.js";
+import { CommandRouter } from "./command-router.js";
+import { createBrowserHandlers } from "./handlers/browser.js";
+import { createPageHandlers } from "./handlers/page.js";
+import { createTabHandlers } from "./handlers/tabs.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   endpoint: "ws://127.0.0.1:8090/ws",
@@ -41,7 +43,15 @@ let authenticationBlocked = false;
 let pendingRevocation = null;
 let lastError = "";
 let lastPingSentAt = 0;
-const activeRequests = new Map();
+const commandRouter = new CommandRouter({
+  getBrowserId: getIdentity,
+  getCapabilities: getCurrentCapabilities,
+  handlers: {
+    browser: createBrowserHandlers(),
+    page: createPageHandlers(chrome),
+    tabs: createTabHandlers(chrome),
+  },
+});
 
 void connect();
 
@@ -342,7 +352,7 @@ async function handleSocketMessage(currentSocket, rawMessage) {
       void executeRequest(message);
       break;
     case MessageType.CANCEL:
-      activeRequests.get(message.requestId)?.abort();
+      commandRouter.cancel(message.requestId);
       break;
     case MessageType.PING:
       sendMessage(createMessage(MessageType.PONG, {
@@ -359,181 +369,15 @@ async function handleSocketMessage(currentSocket, rawMessage) {
 }
 
 async function executeRequest(request) {
-  const controller = new AbortController();
-  activeRequests.set(request.requestId, controller);
-
-  try {
-    const result = await dispatchCommand(request, controller.signal);
-    if (controller.signal.aborted) {
-      throw protocolError(ErrorCode.CANCELLED, "Command was cancelled", true);
-    }
+  await commandRouter.execute(request, async (outcome) => {
     sendMessage(createMessage(MessageType.RESPONSE, {
       requestId: request.requestId,
       browserId: await getIdentity(),
       connectionId,
       target: request.target,
-      success: true,
-      result,
+      ...outcome,
     }));
-  } catch (error) {
-    sendMessage(createMessage(MessageType.RESPONSE, {
-      requestId: request.requestId,
-      browserId: await getIdentity(),
-      connectionId,
-      target: request.target,
-      success: false,
-      error: normalizeError(error, { requestId: request.requestId, target: request.target }),
-    }));
-  } finally {
-    activeRequests.delete(request.requestId);
-  }
-}
-
-async function dispatchCommand(request, signal) {
-  if (signal.aborted) {
-    throw protocolError(ErrorCode.CANCELLED, "Command was cancelled", true);
-  }
-
-  switch (request.command) {
-    case "browser.ping":
-      return { pong: true, time: new Date().toISOString() };
-    case "tabs.list":
-      return listTabs();
-    case "page.getHTML":
-    case "page.getHTMLBySelector":
-    case "page.click":
-    case "page.fill":
-      return sendPageCommand(request, signal);
-    default:
-      throw protocolError(
-        ErrorCode.CAPABILITY_UNAVAILABLE,
-        `The extension does not support command "${request.command}"`,
-      );
-  }
-}
-
-async function listTabs() {
-  let tabs;
-  try {
-    tabs = await chrome.tabs.query({});
-  } catch (error) {
-    throw mapChromeError(error);
-  }
-  return {
-    tabs: tabs.map((tab) => ({
-      id: tab.id,
-      windowId: tab.windowId,
-      index: tab.index,
-      active: tab.active,
-      pinned: tab.pinned,
-      muted: Boolean(tab.mutedInfo?.muted),
-      status: tab.status,
-      title: tab.title,
-      url: tab.url,
-      favIconUrl: tab.favIconUrl,
-      incognito: tab.incognito,
-    })),
-    totalCount: tabs.length,
-  };
-}
-
-async function sendPageCommand(request, signal) {
-  const tab = await resolveTab(request.target?.tabId);
-  await assertPageAccess(tab);
-  const frameId = request.target?.frameId ?? 0;
-  await assertCurrentDocument(request, tab.id, frameId);
-  const payload = {
-    type: "MCP_BROWSER_COMMAND",
-    command: request.command,
-    params: request.params || {},
-  };
-
-  if (signal.aborted) {
-    throw protocolError(ErrorCode.CANCELLED, "Command was cancelled", true);
-  }
-
-  let response;
-  try {
-    response = await chrome.tabs.sendMessage(tab.id, payload, { frameId });
-  } catch {
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId: tab.id, frameIds: [frameId] },
-        files: ["src/content.js"],
-      });
-      response = await chrome.tabs.sendMessage(tab.id, payload, { frameId });
-    } catch (error) {
-      throw mapChromeError(error);
-    }
-  }
-  return unwrapPageResponse(response);
-}
-
-async function assertCurrentDocument(request, tabId, frameId) {
-  const expectedDocumentId =
-    request.target?.documentId || request.params?.locator?.element?.documentId;
-  if (!expectedDocumentId) {
-    return;
-  }
-
-  let frame;
-  try {
-    frame = await chrome.webNavigation.getFrame({ tabId, frameId });
-  } catch (error) {
-    throw mapChromeError(error);
-  }
-  if (!frame) {
-    throw protocolError(ErrorCode.FRAME_NOT_FOUND, "The target frame is no longer available", true);
-  }
-  assertFreshDocument(expectedDocumentId, frame.documentId);
-}
-
-function unwrapPageResponse(response) {
-  if (response?.error) {
-    throw protocolError(
-      response.error.code || ErrorCode.INTERNAL_ERROR,
-      response.error.message || "Page command failed",
-      Boolean(response.error.retryable),
-    );
-  }
-  return response;
-}
-
-async function resolveTab(explicitTabId) {
-  if (Number.isInteger(explicitTabId)) {
-    try {
-      return await chrome.tabs.get(explicitTabId);
-    } catch {
-      throw protocolError(ErrorCode.TAB_NOT_FOUND, `Tab ${explicitTabId} was not found`);
-    }
-  }
-  const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  if (!tabs[0]) {
-    throw protocolError(ErrorCode.TAB_NOT_FOUND, "No active tab was found");
-  }
-  return tabs[0];
-}
-
-async function assertPageAccess(tab) {
-  let parsed;
-  try {
-    parsed = new URL(tab.url);
-  } catch {
-    throw protocolError(ErrorCode.RESTRICTED_URL, "The tab URL cannot be accessed");
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw protocolError(ErrorCode.RESTRICTED_URL, `Cannot access ${parsed.protocol} pages`);
-  }
-  const originPattern = `${parsed.protocol}//${parsed.host}/*`;
-  const granted = await chrome.permissions.contains({ origins: [originPattern] });
-  if (!granted) {
-    throw protocolError(
-      ErrorCode.PERMISSION_REQUIRED,
-      "Site access is required. Grant it from the extension popup.",
-      false,
-      { origin: parsed.origin },
-    );
-  }
+  });
 }
 
 function sendMessage(message) {
@@ -589,6 +433,14 @@ async function sendCapabilitiesChanged() {
       permissions: [...(permissions.permissions || []), ...(permissions.origins || [])],
     },
   }));
+}
+
+async function getCurrentCapabilities() {
+  const [settings, permissions] = await Promise.all([
+    getSettings(),
+    chrome.permissions.getAll(),
+  ]);
+  return capabilitiesFor(permissions, settings.featureFlags);
 }
 
 function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFlags) {

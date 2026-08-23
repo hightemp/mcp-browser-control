@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { detectCapabilities } from "../src/capabilities.js";
+import { COMMAND_NAMES } from "../src/command-router.js";
 
 test("capability detection uses browser version, APIs, and permissions", () => {
   assert.deepEqual(
@@ -11,14 +12,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
       permissions: { permissions: ["tabs", "scripting"], origins: ["https://example.com/*"] },
       featureFlags: { pageAutomation: true },
     }),
-    [
-      "browser.ping",
-      "tabs.list",
-      "page.getHTML",
-      "page.getHTMLBySelector",
-      "page.click",
-      "page.fill",
-    ],
+    COMMAND_NAMES,
   );
 });
 

@@ -137,6 +137,9 @@ const (
 	// CommandPageSubmit submits a form or an element's owning form.
 	CommandPageSubmit = "page.submit"
 
+	// CommandPageWait waits for a bounded page or browser condition.
+	CommandPageWait = "page.wait"
+
 	// CommandConsoleRead reads captured console entries.
 	CommandConsoleRead = "console.read"
 

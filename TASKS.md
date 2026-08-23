@@ -703,9 +703,20 @@ deadline. `backend: auto|content` работает сейчас; явный `bac
 
 - Приоритет: P0
 - Зависимости: T-024, T-053
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Поддержать условия FR-8, context cancellation, polling/event modes и общий deadline. Добавить тесты navigation, disappearing element и timeout.
+
+Добавлен типизированный `browser_wait`/`page.wait` с единым command deadline и
+условиями delay, ready state, exact/wildcard URL, element state
+(attached/detached/visible/hidden/enabled/disabled), text, value, match count,
+navigation, network idle и безопасным attribute predicate без JavaScript eval.
+DOM-условия поддерживают polling, event и auto modes; navigation использует
+`webNavigation`, а network idle — bounded per-tab observer на optional
+`webRequest` из Observe profile. MCP cancellation передаётся активной операции
+content script и освобождает timers, MutationObserver и listeners. Тесты
+покрывают все формы условий, navigation, disappearing element, network quiet
+interval, timeout и cancellation cleanup.
 
 ### T-058 — Реализовать screenshots
 

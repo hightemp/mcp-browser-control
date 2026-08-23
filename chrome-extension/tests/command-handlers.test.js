@@ -219,7 +219,7 @@ test("page handlers preserve addressing and structured content errors", async ()
       sendMessage: async (...args) => {
         sent.push(args);
         if (args[1].type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.4" };
+          return { ready: true, bridgeVersion: "1.5" };
         }
         if (args[1].command === "page.info") {
           return { success: true, result: { url: "https://example.com/page" } };
@@ -302,7 +302,7 @@ test("page interaction optionally waits for the addressed frame navigation", asy
       get: async () => ({ id: 7, url: "https://example.com/start" }),
       sendMessage: async (_tabId, message) => {
         if (message.type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.4" };
+          return { ready: true, bridgeVersion: "1.5" };
         }
         queueMicrotask(() => completed.emit({
           tabId: 7,
@@ -344,6 +344,144 @@ test("page interaction optionally waits for the addressed frame navigation", asy
   assert.equal(failed.listenerCount(), 0);
 });
 
+test("page navigation wait resolves on same-document history updates", async () => {
+  const completed = fakeChromeEvent();
+  const history = fakeChromeEvent();
+  const failed = fakeChromeEvent();
+  const chromeAPI = {
+    tabs: {
+      get: async () => ({ id: 7, url: "https://example.com/start" }),
+      sendMessage: async () => assert.fail("navigation wait must not enter the content bridge"),
+    },
+    permissions: { contains: async () => true },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "document-1" }),
+      onCompleted: completed,
+      onHistoryStateUpdated: history,
+      onErrorOccurred: failed,
+    },
+  };
+  const page = createPageHandlers(chromeAPI);
+  const waiting = page.wait({
+    requestId: "wait-navigation",
+    command: "page.wait",
+    target: { tabId: 7, frameId: 0, documentId: "document-1" },
+    params: { condition: "navigation" },
+    timeoutMs: 100,
+  }, new AbortController().signal);
+  await waitForCondition(() => history.listenerCount() === 1);
+  history.emit({
+    tabId: 7,
+    frameId: 0,
+    documentId: "document-1",
+    url: "https://example.com/next",
+  });
+
+  const result = await waiting;
+  assert.equal(result.condition, "navigation");
+  assert.equal(result.matched, true);
+  assert.equal(result.navigation.sameDocument, true);
+  assert.equal(history.listenerCount(), 0);
+});
+
+test("page URL wait survives a cross-document navigation", async () => {
+  const committed = fakeChromeEvent();
+  const completed = fakeChromeEvent();
+  const chromeAPI = {
+    tabs: {
+      get: async () => ({ id: 7, url: "https://example.com/start" }),
+      sendMessage: async () => assert.fail("URL wait must not enter the content bridge"),
+    },
+    permissions: { contains: async () => true },
+    webNavigation: {
+      getFrame: async () => ({
+        documentId: "document-1",
+        url: "https://example.com/start",
+      }),
+      onCommitted: committed,
+      onCompleted: completed,
+    },
+  };
+  const page = createPageHandlers(chromeAPI);
+  const waiting = page.wait({
+    requestId: "wait-url",
+    command: "page.wait",
+    target: { tabId: 7 },
+    params: {
+      condition: "url",
+      urlPattern: "https://example.com/result/*",
+      mode: "event",
+    },
+    timeoutMs: 100,
+  }, new AbortController().signal);
+  await waitForCondition(() => committed.listenerCount() === 1);
+  committed.emit({
+    tabId: 7,
+    frameId: 0,
+    documentId: "document-2",
+    url: "https://example.com/result/42",
+  });
+
+  const result = await waiting;
+  assert.equal(result.matched, true);
+  assert.equal(result.documentId, "document-2");
+  assert.equal(result.url, "https://example.com/result/42");
+  assert.equal(committed.listenerCount(), 0);
+  assert.equal(completed.listenerCount(), 0);
+});
+
+test("page delay wait is cancelled by the shared command signal", async () => {
+  const chromeAPI = {
+    tabs: {
+      get: async () => ({ id: 7, url: "https://example.com/start" }),
+      sendMessage: async () => assert.fail("delay wait must not enter the content bridge"),
+    },
+    permissions: { contains: async () => true },
+    webNavigation: { getFrame: async () => ({ documentId: "document-1" }) },
+  };
+  const page = createPageHandlers(chromeAPI);
+  const controller = new AbortController();
+  const waiting = page.wait({
+    requestId: "wait-delay",
+    command: "page.wait",
+    target: { tabId: 7 },
+    params: { condition: "delay", delayMs: 1_000 },
+  }, controller.signal);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  controller.abort();
+
+  await assert.rejects(waiting, (error) => error.code === ErrorCode.CANCELLED);
+});
+
+test("page network-idle wait requires and uses the activity observer", async () => {
+  let observed;
+  const chromeAPI = {
+    tabs: { get: async () => ({ id: 7, url: "https://example.com/start" }) },
+    permissions: { contains: async () => true },
+    webNavigation: { getFrame: async () => ({ documentId: "document-1" }) },
+  };
+  const page = createPageHandlers(chromeAPI, {
+    networkActivity: {
+      available: true,
+      waitForIdle: async (options) => {
+        observed = options;
+        return { condition: "networkIdle", matched: true, idleMs: options.idleMs };
+      },
+    },
+  });
+  const result = await page.wait({
+    requestId: "wait-network",
+    command: "page.wait",
+    target: { tabId: 7 },
+    params: { condition: "networkIdle", idleMs: 500 },
+  }, new AbortController().signal);
+
+  assert.equal(result.matched, true);
+  assert.equal(observed.tabId, 7);
+  assert.equal(observed.idleMs, 500);
+  assert.equal(observed.signal instanceof AbortSignal, true);
+});
+
 function fakeChromeEvent() {
   const listeners = new Set();
   return {
@@ -354,4 +492,12 @@ function fakeChromeEvent() {
     },
     listenerCount() { return listeners.size; },
   };
+}
+
+async function waitForCondition(predicate) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (predicate()) return;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("Condition was not reached");
 }

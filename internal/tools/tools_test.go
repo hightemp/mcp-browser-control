@@ -389,6 +389,8 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 	delayMS := 15
 	checked := true
 	waitForNavigation := true
+	waitExpected := "Saved"
+	waitPollInterval := 50
 	roleLocator := &protocol.Locator{Role: "button", Name: "Save", IncludeShadowDOM: true}
 	inputLocator := protocol.Locator{CSS: "#name"}
 	targetLocator := &protocol.Locator{CSS: "#target"}
@@ -683,6 +685,24 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			},
 		},
 		{
+			name:        "wait for text",
+			wantCommand: protocol.CommandPageWait,
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
+			wantParams: map[string]any{
+				"condition": "text", "mode": "event", "pollIntervalMs": float64(waitPollInterval),
+				"locator": map[string]any{"css": "#name"}, "expected": "Saved",
+				"matchOperator": "contains", "caseSensitive": false,
+			},
+			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
+				caseSensitive := false
+				return service.browserWaitHandler(ctx, mcp.CallToolRequest{}, waitArgs{
+					BrowserID: "browser-a", TabID: &tabID, Condition: "text", Mode: "event",
+					PollIntervalMS: &waitPollInterval, Locator: &inputLocator,
+					Expected: &waitExpected, MatchOperator: "contains", CaseSensitive: &caseSensitive,
+				})
+			},
+		},
+		{
 			name:        "console",
 			wantCommand: protocol.CommandConsoleRead,
 			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
@@ -867,6 +887,20 @@ func TestCommandHandlerValidation(t *testing.T) {
 		})
 	}
 
+	invalidWaits := []waitArgs{
+		{BrowserID: "browser-a", Condition: "delay"},
+		{BrowserID: "browser-a", Condition: "url"},
+		{BrowserID: "browser-a", Condition: "element", Locator: &locator},
+		{BrowserID: "browser-a", Condition: "networkIdle"},
+		{BrowserID: "browser-a", Condition: "attribute", Locator: &locator, Attribute: "bad name", AttributeState: "present"},
+	}
+	for index, args := range invalidWaits {
+		result, callErr := service.browserWaitHandler(context.Background(), mcp.CallToolRequest{}, args)
+		if callErr != nil || result == nil || !result.IsError {
+			t.Fatalf("invalid wait %d = (%v, %v), want tool error", index, result, callErr)
+		}
+	}
+
 	invalidTimeout := 0
 	badTimeout, err := service.browserPingHandler(
 		context.Background(),
@@ -921,6 +955,7 @@ func newTestService(
 					protocol.CommandPageDrag,
 					protocol.CommandPageDispatch,
 					protocol.CommandPageSubmit,
+					protocol.CommandPageWait,
 					protocol.CommandPageInfo,
 					protocol.CommandPageGetText,
 					protocol.CommandPageQuery,

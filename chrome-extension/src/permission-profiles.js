@@ -14,11 +14,13 @@ const PROFILE_DEFINITIONS = Object.freeze([
     id: "observe",
     name: "Observe",
     description: "Reads and interacts with HTTP and HTTPS pages.",
-    permissions: Object.freeze([]),
+    permissions: Object.freeze(["webRequest"]),
     origins: Object.freeze(["http://*/*", "https://*/*"]),
     dependencies: Object.freeze([]),
-    tools: Object.freeze(["page inspection", "page actions", "tab stop", "console metadata"]),
-    warning: "Chrome will ask to read and change data on visited websites.",
+    tools: Object.freeze([
+      "page inspection", "page actions", "page waits", "tab stop", "console metadata",
+    ]),
+    warning: "Chrome will ask to read and change data on visited websites and observe network activity.",
     optional: true,
   }),
   Object.freeze({

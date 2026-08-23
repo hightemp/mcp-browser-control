@@ -23,9 +23,9 @@ The first multi-browser vertical slice is implemented:
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-General wait conditions, screenshots, trusted CDP input, console capture, and
-network capture are planned but not complete. Remote mode is not implemented;
-do not expose either server port outside the local machine.
+Screenshots, trusted CDP input, console capture, and full network capture are
+planned but not complete. Remote mode is not implemented; do not expose either
+server port outside the local machine.
 
 ## Architecture
 
@@ -129,9 +129,10 @@ local copy.
 Follow [chrome-extension/INSTALL.md](chrome-extension/INSTALL.md). Install the
 extension in each browser profile that should be independently selectable.
 
-The extension requests website host access separately from installation. Tab
-discovery works without it; page inspection and interaction require the user to
-click **Grant access to websites** in the popup.
+The extension requests the Observe profile separately from installation. Tab
+discovery works without it; page inspection, interaction, waits, and bounded
+network-activity observation require the user to click **Grant access to
+websites** in the popup.
 
 ## Select a Browser
 
@@ -253,6 +254,7 @@ needed. The store never includes original secret values in redaction metadata.
 - `browser_drag_and_drop`
 - `browser_dispatch_event`
 - `browser_submit`
+- `browser_wait`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
 accept optional `tabId`, `frameId`, and `documentId`; when `tabId` is omitted,
@@ -289,6 +291,17 @@ manager. Actions that can navigate accept `waitForNavigation: true` and then
 wait for the addressed frame to complete either a document or same-document
 navigation within the command deadline. Password values remain redacted in
 every interaction result.
+
+`browser_wait` shares the command deadline and supports delay, document ready
+state, exact or wildcard URL, element state, text, value, match count,
+navigation, network idle, and a safe attribute predicate. `mode` can be
+`polling`, `event`, or `auto`, which combines DOM/browser events with bounded
+polling. Cancellation propagates into the content script and releases timers,
+listeners, and observers. Network idle uses the optional Observe
+`webRequest` grant, ignores long-lived WebSockets, and requires an idle interval
+after tracked requests finish. Wait results report match metadata but never
+echo field values; value waits on sensitive fields and predicates on
+sensitive-looking attribute names are rejected.
 
 Page inspection never returns unrestricted raw DOM by default. HTML defaults to
 100,000 characters and depth 50, supports include/exclude CSS filters, and has

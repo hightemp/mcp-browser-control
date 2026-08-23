@@ -55,6 +55,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
         drag: handler,
         dispatch: handler,
         submit: handler,
+        wait: handler,
       },
     },
   });
@@ -114,6 +115,12 @@ test("router dispatches every allowlisted command to its domain handler", async 
     "page.drag": { source: { css: "#card" }, targetLocator: { css: "#column" } },
     "page.dispatch": { locator: { css: "#save" }, eventType: "app:save", detail: {} },
     "page.submit": { locator: { css: "#form" }, waitForNavigation: false },
+    "page.wait": {
+      condition: "element",
+      locator: { css: "#save" },
+      elementState: "visible",
+      mode: "event",
+    },
   };
 
   for (const [index, command] of COMMAND_NAMES.entries()) {
@@ -190,6 +197,7 @@ test("router validates target and command params before invoking handlers", asyn
         drag: () => { calls += 1; },
         dispatch: () => { calls += 1; },
         submit: () => { calls += 1; },
+        wait: () => { calls += 1; },
       },
     },
   });
@@ -216,6 +224,11 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.drag", { source: { css: "#a" } }),
     createRequest("page.dispatch", { locator: { css: "#a" }, eventType: "bad event" }),
     createRequest("page.hover", { locator: { css: "#a" }, backend: "native" }),
+    createRequest("page.wait", { condition: "delay" }),
+    createRequest("page.wait", { condition: "url", url: "a", urlPattern: "*" }),
+    createRequest("page.wait", { condition: "element", locator: { css: "#a" } }),
+    createRequest("page.wait", { condition: "attribute", locator: { css: "#a" }, attribute: "bad name", attributeState: "present" }),
+    createRequest("page.wait", { condition: "attribute", locator: { css: "#a" }, attribute: "data-token", attributeState: "present" }),
     createRequest("windows.get", {}),
     createRequest("windows.create", { urls: [] }),
     createRequest("tabs.create", { index: -1 }),
@@ -252,6 +265,36 @@ test("router validates target and command params before invoking handlers", asyn
     assert.equal(outcome.error.code, ErrorCode.INVALID_MESSAGE);
   }
   assert.equal(calls, 0);
+});
+
+test("router accepts every bounded wait condition shape", async () => {
+  const router = createRouter();
+  const conditions = [
+    { condition: "delay", delayMs: 0 },
+    { condition: "loadState", readyState: "complete", mode: "event" },
+    { condition: "url", url: "https://example.com/" },
+    { condition: "url", urlPattern: "https://*.example.com/*", mode: "polling", pollIntervalMs: 50 },
+    { condition: "element", locator: { css: "#save" }, elementState: "visible" },
+    { condition: "text", expected: "Saved", matchOperator: "contains", caseSensitive: false },
+    { condition: "value", locator: { css: "input" }, expected: "", matchOperator: "equals" },
+    { condition: "count", locator: { role: "button" }, count: 2, countOperator: "atLeast" },
+    { condition: "navigation" },
+    { condition: "networkIdle", idleMs: 500 },
+    {
+      condition: "attribute",
+      locator: { css: "#save" },
+      attribute: "aria-busy",
+      attributeState: "absent",
+    },
+  ];
+
+  for (const [index, params] of conditions.entries()) {
+    const outcome = await execute(
+      router,
+      createRequest("page.wait", params, `wait-condition-${index}`),
+    );
+    assert.equal(outcome.success, true, JSON.stringify(outcome.error));
+  }
 });
 
 test("router emits one cancellation response and suppresses duplicate request IDs", async () => {
@@ -354,6 +397,7 @@ function defaultHandlers() {
       drag: () => ({ dragged: true }),
       dispatch: () => ({ dispatched: true }),
       submit: () => ({ submitted: true }),
+      wait: () => ({ matched: true }),
     },
   };
 }

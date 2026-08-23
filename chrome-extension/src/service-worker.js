@@ -22,6 +22,7 @@ import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
 import { createSessionHandlers } from "./handlers/sessions.js";
 import { createWindowHandlers } from "./handlers/windows.js";
+import { createNetworkActivityObserver } from "./network-activity.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   endpoint: "ws://127.0.0.1:8090/ws",
@@ -46,12 +47,13 @@ let authenticationBlocked = false;
 let pendingRevocation = null;
 let lastError = "";
 let lastPingSentAt = 0;
+const networkActivity = createNetworkActivityObserver(chrome);
 const commandRouter = new CommandRouter({
   getBrowserId: getIdentity,
   getCapabilities: getCurrentCapabilities,
   handlers: {
     browser: createBrowserHandlers(),
-    page: createPageHandlers(chrome),
+    page: createPageHandlers(chrome, { networkActivity }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
     tabGroups: createTabGroupHandlers(chrome),
@@ -60,6 +62,7 @@ const commandRouter = new CommandRouter({
 });
 
 void connect();
+void activateNetworkActivity();
 
 chrome.runtime.onStartup.addListener(() => {
   void connect();
@@ -76,10 +79,12 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.permissions.onAdded.addListener(() => {
+  void activateNetworkActivity();
   void sendCapabilitiesChanged();
 });
 
-chrome.permissions.onRemoved.addListener(() => {
+chrome.permissions.onRemoved.addListener((removed) => {
+  if (removed.permissions?.includes("webRequest")) networkActivity.reset();
   void sendCapabilitiesChanged();
 });
 
@@ -165,6 +170,12 @@ async function handleRuntimeMessage(message) {
 
 async function initializeSettings() {
   await initializeStoredState(chrome.storage.local, DEFAULT_SETTINGS);
+}
+
+async function activateNetworkActivity() {
+  if (await chrome.permissions.contains({ permissions: ["webRequest"] })) {
+    networkActivity.start();
+  }
 }
 
 async function getIdentity() {

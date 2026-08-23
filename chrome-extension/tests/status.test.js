@@ -21,7 +21,7 @@ test("permission profile summary reflects enabled optional profiles", () => {
   assert.deepEqual(permissionProfilesFor({ permissions: core }), ["Core"]);
   assert.deepEqual(
     permissionProfilesFor({
-      permissions: [...core, "debugger"],
+      permissions: [...core, "debugger", "webRequest"],
       origins: ["http://*/*", "https://*/*"],
     }),
     ["Core", "Observe", "Debug"],

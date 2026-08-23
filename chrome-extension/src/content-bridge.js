@@ -1,6 +1,6 @@
 import { ErrorCode, mapChromeError, protocolError } from "./protocol.js";
 
-export const CONTENT_BRIDGE_VERSION = "1.4";
+export const CONTENT_BRIDGE_VERSION = "1.5";
 
 const READY_MESSAGE = Object.freeze({
   type: "MCP_BROWSER_BRIDGE_READY",
@@ -14,6 +14,8 @@ const CONTENT_ERROR_CODES = new Set([
   ErrorCode.STALE_TARGET,
   ErrorCode.RESTRICTED_URL,
   ErrorCode.CAPABILITY_UNAVAILABLE,
+  ErrorCode.TIMEOUT,
+  ErrorCode.CANCELLED,
   ErrorCode.INTERNAL_ERROR,
 ]);
 
@@ -22,21 +24,32 @@ export class ContentScriptBridge {
     this.chromeAPI = chromeAPI;
   }
 
-  async execute({ tabId, frameId, documentId, command, params, signal }) {
+  async execute({ tabId, frameId, documentId, operationId, command, params, signal }) {
     const options = messageOptions(frameId, documentId);
+    const currentOperationId = operationId || globalThis.crypto.randomUUID();
     await this.ensureReady(tabId, frameId, options, signal);
     const response = await abortable(
       this.chromeAPI.tabs.sendMessage(tabId, {
         type: "MCP_BROWSER_COMMAND",
         bridgeVersion: CONTENT_BRIDGE_VERSION,
+        operationId: currentOperationId,
         command,
         params,
         frameId,
         documentId,
       }, options),
       signal,
+      () => this.cancel(tabId, currentOperationId, options),
     );
     return unwrapResponse(response);
+  }
+
+  cancel(tabId, operationId, options) {
+    void this.chromeAPI.tabs.sendMessage(tabId, {
+      type: "MCP_BROWSER_CANCEL",
+      bridgeVersion: CONTENT_BRIDGE_VERSION,
+      operationId,
+    }, options).catch(() => undefined);
   }
 
   async ensureReady(tabId, frameId, options, signal) {
@@ -117,13 +130,16 @@ function unwrapResponse(response) {
   );
 }
 
-function abortable(promise, signal) {
+function abortable(promise, signal, onAbort = undefined) {
   throwIfAborted(signal);
   return new Promise((resolve, reject) => {
-    const onAbort = () => reject(abortReason(signal));
-    signal.addEventListener("abort", onAbort, { once: true });
+    const handleAbort = () => {
+      onAbort?.();
+      reject(abortReason(signal));
+    };
+    signal.addEventListener("abort", handleAbort, { once: true });
     Promise.resolve(promise).then(resolve, reject).finally(() => {
-      signal.removeEventListener("abort", onAbort);
+      signal.removeEventListener("abort", handleAbort);
     });
   });
 }

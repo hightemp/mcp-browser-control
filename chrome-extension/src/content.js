@@ -1,5 +1,5 @@
 (() => {
-  const BRIDGE_VERSION = "1.4";
+  const BRIDGE_VERSION = "1.5";
   const DEFAULT_MAX_CHARS = 100_000;
   const DEFAULT_MAX_DEPTH = 50;
   const DEFAULT_QUERY_LIMIT = 25;
@@ -7,6 +7,7 @@
   const NON_TEXT_INPUT_TYPES = new Set([
     "button", "checkbox", "file", "hidden", "image", "radio", "reset", "submit",
   ]);
+  const activeOperations = new Map();
   if (globalThis.__mcpBrowserControlVersion === BRIDGE_VERSION) {
     return;
   }
@@ -31,8 +32,20 @@
       return false;
     }
     if (
+      message?.type === "MCP_BROWSER_CANCEL"
+      && message.bridgeVersion === BRIDGE_VERSION
+      && typeof message.operationId === "string"
+    ) {
+      const controller = activeOperations.get(message.operationId);
+      controller?.abort();
+      sendResponse({ cancelled: Boolean(controller) });
+      return false;
+    }
+    if (
       message?.type !== "MCP_BROWSER_COMMAND"
       || message.bridgeVersion !== BRIDGE_VERSION
+      || typeof message.operationId !== "string"
+      || message.operationId.length > 200
       || !message.params
       || typeof message.params !== "object"
       || Array.isArray(message.params)
@@ -40,10 +53,25 @@
       return false;
     }
 
+    if (activeOperations.has(message.operationId)) {
+      sendResponse({
+        success: false,
+        error: {
+          code: "INVALID_MESSAGE",
+          message: "The page operation ID is already active",
+          retryable: false,
+        },
+      });
+      return false;
+    }
+    const controller = new AbortController();
+    activeOperations.set(message.operationId, controller);
+
     Promise.resolve()
       .then(() => dispatch(message.command, message.params || {}, {
         frameId: Number.isInteger(message.frameId) ? message.frameId : 0,
         documentId: message.documentId || "",
+        signal: controller.signal,
       }))
       .then((result) => sendResponse({ success: true, result }))
       .catch((error) => {
@@ -58,7 +86,8 @@
               : {}),
           },
         });
-      });
+      })
+      .finally(() => activeOperations.delete(message.operationId));
     return true;
   });
 
@@ -106,6 +135,8 @@
         return dispatchEvent(params, context);
       case "page.submit":
         return submitForm(params, context);
+      case "page.wait":
+        return waitForCondition(params, context);
       default:
         throw commandError("INVALID_COMMAND", `Unknown page command "${command}"`);
     }
@@ -685,6 +716,306 @@
     if (typeof form.requestSubmit === "function") form.requestSubmit();
     else form.submit();
     return interactionResult(element, resolved, context, { submitted: true });
+  }
+
+  function waitForCondition(params, context) {
+    const startedAt = Date.now();
+    const requestedTimeout = Number.isInteger(params.internalTimeoutMs)
+      ? params.internalTimeoutMs
+      : 30_000;
+    const timeoutMs = Math.min(Math.max(requestedTimeout, 1), 120_000);
+    const requestedMode = params.mode || "auto";
+    const pollIntervalMs = params.pollIntervalMs || 100;
+    if (context.signal.aborted) {
+      return Promise.reject(waitError("CANCELLED", "Wait was cancelled", true));
+    }
+    const initial = evaluateWaitCondition(params, context);
+    if (initial.matched) {
+      return Promise.resolve(waitConditionResult(params, context, initial, startedAt, "immediate"));
+    }
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let checking = false;
+      let observer = null;
+      let pollTimer = null;
+      const eventTargets = [];
+      const timeout = setTimeout(() => finish(() => reject(waitError(
+        "TIMEOUT",
+        `Wait condition timed out after ${timeoutMs} ms`,
+        true,
+        { condition: params.condition, elapsedMs: Date.now() - startedAt },
+      ))), timeoutMs);
+
+      const cleanup = () => {
+        clearTimeout(timeout);
+        if (pollTimer !== null) clearInterval(pollTimer);
+        observer?.disconnect();
+        for (const [target, event, listener] of eventTargets) {
+          target.removeEventListener?.(event, listener);
+        }
+        context.signal.removeEventListener("abort", onAbort);
+      };
+      const finish = (operation) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        operation();
+      };
+      const check = () => {
+        if (settled || checking) return;
+        checking = true;
+        queueMicrotask(() => {
+          try {
+            const observation = evaluateWaitCondition(params, context);
+            if (observation.matched) {
+              finish(() => resolve(waitConditionResult(
+                params,
+                context,
+                observation,
+                startedAt,
+                requestedMode,
+              )));
+            }
+          } catch (error) {
+            finish(() => reject(error));
+          } finally {
+            checking = false;
+          }
+        });
+      };
+      const onAbort = () => finish(() => reject(waitError(
+        "CANCELLED",
+        "Wait was cancelled",
+        true,
+      )));
+      context.signal.addEventListener("abort", onAbort, { once: true });
+
+      if (requestedMode !== "polling") {
+        if (typeof MutationObserver === "function" && document.documentElement) {
+          observer = new MutationObserver(check);
+          observer.observe(document.documentElement, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+            characterData: true,
+          });
+        }
+        for (const [target, events] of [
+          [document, ["readystatechange", "input", "change"]],
+          [window, ["popstate", "hashchange"]],
+        ]) {
+          for (const event of events) {
+            target.addEventListener?.(event, check);
+            eventTargets.push([target, event, check]);
+          }
+        }
+      }
+      if (requestedMode !== "event") {
+        pollTimer = setInterval(check, pollIntervalMs);
+      }
+      check();
+    });
+  }
+
+  function evaluateWaitCondition(params, context) {
+    switch (params.condition) {
+      case "loadState": {
+        const ranks = { loading: 0, interactive: 1, complete: 2 };
+        return {
+          matched: (ranks[document.readyState] ?? -1) >= ranks[params.readyState],
+          readyState: document.readyState,
+        };
+      }
+      case "url": {
+        const url = String(window.location.href);
+        return {
+          matched: params.url !== undefined
+            ? url === params.url
+            : wildcardMatch(url, params.urlPattern),
+          url: url.slice(0, 4_096),
+        };
+      }
+      case "element":
+        return elementStateObservation(params, context);
+      case "text":
+        return stringObservation(params, context, "text");
+      case "value":
+        return stringObservation(params, context, "value");
+      case "count": {
+        const matches = waitLocatorMatches(params.locator, context);
+        const operator = params.countOperator || "equals";
+        return {
+          matched: compareCount(matches.length, params.count, operator),
+          matchCount: matches.length,
+        };
+      }
+      case "attribute":
+        return attributeObservation(params, context);
+      default:
+        throw waitError("INVALID_MESSAGE", "Unsupported content wait condition");
+    }
+  }
+
+  function elementStateObservation(params, context) {
+    let matches;
+    try {
+      matches = waitLocatorMatches(params.locator, context);
+    } catch (error) {
+      if (
+        ["detached", "hidden"].includes(params.elementState)
+        && ["ELEMENT_NOT_FOUND", "STALE_TARGET"].includes(error.code)
+      ) {
+        matches = [];
+      } else {
+        throw error;
+      }
+    }
+    const state = params.elementState;
+    let matched = false;
+    let element;
+    if (state === "attached") {
+      matched = matches.length > 0;
+      [element] = matches;
+    } else if (state === "detached") {
+      matched = matches.length === 0;
+    } else if (state === "visible") {
+      element = matches.find((candidate) => locatorEngine.isVisible(candidate));
+      matched = Boolean(element);
+    } else if (state === "hidden") {
+      matched = matches.length === 0 || matches.every((candidate) => !locatorEngine.isVisible(candidate));
+      [element] = matches;
+    } else if (state === "enabled") {
+      element = matches.find((candidate) => locatorEngine.isEnabled(candidate));
+      matched = Boolean(element);
+    } else if (state === "disabled") {
+      element = matches.find((candidate) => !locatorEngine.isEnabled(candidate));
+      matched = matches.length > 0 && matches.every((candidate) => !locatorEngine.isEnabled(candidate));
+    }
+    return {
+      matched,
+      matchCount: matches.length,
+      element,
+      index: element ? matches.indexOf(element) : undefined,
+    };
+  }
+
+  function stringObservation(params, context, property) {
+    const elements = params.locator
+      ? waitLocatorMatches(params.locator, context)
+      : [document.body || document.documentElement];
+    if (property === "value" && elements.some((element) => isSensitiveElement(element))) {
+      throw waitError(
+        "INVALID_MESSAGE",
+        "Sensitive field values cannot be used in wait conditions",
+      );
+    }
+    const values = elements.map((element) => property === "value"
+      ? String(element.value ?? "")
+      : normalizeText(element.textContent));
+    const expected = property === "text" ? normalizeText(params.expected) : params.expected;
+    const matchingIndex = values.findIndex((value) => stringMatches(
+      value,
+      expected,
+      params.matchOperator || "contains",
+      params.caseSensitive ?? true,
+    ));
+    return {
+      matched: matchingIndex >= 0,
+      matchCount: elements.length,
+      element: matchingIndex >= 0 && params.locator ? elements[matchingIndex] : undefined,
+      index: matchingIndex >= 0 ? matchingIndex : undefined,
+    };
+  }
+
+  function attributeObservation(params, context) {
+    const elements = waitLocatorMatches(params.locator, context);
+    if (elements.some((element) => isSensitiveWaitAttribute(element, params.attribute))) {
+      throw waitError(
+        "INVALID_MESSAGE",
+        "Sensitive attributes cannot be used in wait conditions",
+      );
+    }
+    const values = elements.map((element) => element.getAttribute?.(params.attribute));
+    let matchingIndex = -1;
+    if (params.attributeState === "present") {
+      matchingIndex = values.findIndex((value) => value !== null && value !== undefined);
+    } else if (params.attributeState === "absent") {
+      matchingIndex = elements.length > 0 && values.every((value) => value === null || value === undefined)
+        ? 0
+        : -1;
+    } else {
+      matchingIndex = values.findIndex((value) => value !== null && value !== undefined && stringMatches(
+        String(value),
+        params.expected,
+        params.attributeState,
+        params.caseSensitive ?? true,
+      ));
+    }
+    return {
+      matched: matchingIndex >= 0,
+      matchCount: elements.length,
+      element: matchingIndex >= 0 ? elements[matchingIndex] : undefined,
+      index: matchingIndex >= 0 ? matchingIndex : undefined,
+    };
+  }
+
+  function waitLocatorMatches(locator, context) {
+    return locatorEngine.query(locator, { documentId: context.documentId }).matches;
+  }
+
+  function isSensitiveWaitAttribute(element, attribute) {
+    return /(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(attribute)
+      || (attribute.toLowerCase() === "value" && isSensitiveElement(element));
+  }
+
+  function waitConditionResult(params, context, observation, startedAt, mode) {
+    return {
+      condition: params.condition,
+      matched: true,
+      mode,
+      elapsedMs: Math.max(0, Date.now() - startedAt),
+      ...(observation.readyState ? { readyState: observation.readyState } : {}),
+      ...(observation.url ? { url: observation.url } : {}),
+      ...(Number.isInteger(observation.matchCount)
+        ? { matchCount: observation.matchCount }
+        : {}),
+      ...(observation.element ? {
+        element: locatorEngine.describeElement(
+          observation.element,
+          observation.index ?? 0,
+          context.documentId,
+        ),
+      } : {}),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  function stringMatches(actual, expected, operator, caseSensitive) {
+    const left = caseSensitive ? String(actual) : String(actual).toLowerCase();
+    const right = caseSensitive ? String(expected) : String(expected).toLowerCase();
+    return operator === "equals" ? left === right : left.includes(right);
+  }
+
+  function compareCount(actual, expected, operator) {
+    if (operator === "atLeast") return actual >= expected;
+    if (operator === "atMost") return actual <= expected;
+    return actual === expected;
+  }
+
+  function wildcardMatch(value, pattern) {
+    const expression = String(pattern)
+      .split("*")
+      .map((part) => part.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"))
+      .join(".*");
+    return new RegExp(`^${expression}$`).test(value);
+  }
+
+  function waitError(code, message, retryable = false, details = undefined) {
+    const error = commandError(code, message);
+    error.retryable = retryable;
+    error.details = details;
+    return error;
   }
 
   function resolveElement(params, context, strictDefault) {

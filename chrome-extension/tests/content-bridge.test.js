@@ -131,6 +131,44 @@ test("bridge cancellation stops delivery before the page command", async () => {
   assert.equal(commands, 0);
 });
 
+test("bridge forwards cancellation to an active content operation", async () => {
+  let resolveCommand;
+  let commandStarted = false;
+  const messages = [];
+  const bridge = new ContentScriptBridge({
+    tabs: {
+      sendMessage: async (_tabId, message) => {
+        messages.push(message);
+        if (message.type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: CONTENT_BRIDGE_VERSION };
+        }
+        if (message.type === "MCP_BROWSER_CANCEL") {
+          return { cancelled: true };
+        }
+        commandStarted = true;
+        return new Promise((resolve) => { resolveCommand = resolve; });
+      },
+    },
+    scripting: { executeScript: async () => undefined },
+  });
+  const controller = new AbortController();
+  const execution = bridge.execute({
+    ...command(),
+    operationId: "operation-1",
+    signal: controller.signal,
+  });
+  await waitFor(() => commandStarted);
+  controller.abort();
+
+  await assert.rejects(execution, (error) => error.code === ErrorCode.CANCELLED);
+  assert.equal(
+    messages.some((message) => message.type === "MCP_BROWSER_CANCEL"
+      && message.operationId === "operation-1"),
+    true,
+  );
+  resolveCommand({ success: true, result: {} });
+});
+
 function bridgeWithResponses(responses) {
   return new ContentScriptBridge({
     tabs: { sendMessage: async () => responses.shift() },

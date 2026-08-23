@@ -18,6 +18,7 @@ test("permission profiles expose the fixed Core, Observe, Debug, and Personal ma
   );
   assert.equal(permissionProfileDefinitions()[0].optional, false);
   assert.deepEqual(permissionProfileDefinitions()[1].origins, ["http://*/*", "https://*/*"]);
+  assert.deepEqual(permissionProfileDefinitions()[1].permissions, ["webRequest"]);
   assert.deepEqual(permissionProfileDefinitions()[2].permissions, ["debugger"]);
   assert.equal(permissionProfileDefinitions()[3].dependencies.includes("observe"), true);
 });
@@ -52,6 +53,7 @@ test("profile state distinguishes disabled, partial, and enabled grants", () => 
         "history",
         "sessions",
         "tabGroups",
+        "webRequest",
       ],
       origins: ["http://*/*", "https://*/*"],
     }),
@@ -64,6 +66,7 @@ test("Personal data requests Observe dependency but removes only its own grants"
   assert.deepEqual(request.origins, ["http://*/*", "https://*/*"]);
   assert.equal(request.permissions.includes("cookies"), true);
   assert.equal(request.permissions.includes("history"), true);
+  assert.equal(request.permissions.includes("webRequest"), true);
 
   const removal = permissionRemovalFor("personal");
   assert.equal("origins" in removal, false);

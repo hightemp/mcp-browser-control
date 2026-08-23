@@ -274,6 +274,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerTabTools(mcpServer)
 	s.registerTabGroupAndSessionTools(mcpServer)
 	s.registerInteractionTools(mcpServer)
+	s.registerWaitTool(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",

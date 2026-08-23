@@ -96,6 +96,7 @@ export function detectCapabilities({
       "page.drag",
       "page.dispatch",
       "page.submit",
+      "page.wait",
     );
   }
   return capabilities;

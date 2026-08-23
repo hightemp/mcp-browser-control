@@ -148,6 +148,7 @@ const COMMANDS = Object.freeze({
     validate: validateDispatch,
   }),
   "page.submit": Object.freeze({ domain: "page", handler: "submit", validate: validateSimpleAction }),
+  "page.wait": Object.freeze({ domain: "page", handler: "wait", validate: validateWait }),
 });
 
 export const COMMAND_NAMES = Object.freeze(Object.keys(COMMANDS));
@@ -711,6 +712,137 @@ function validateDispatch(params, target) {
 function validateInteractionOptions(params) {
   validateEnum(params.backend, "params.backend", ["auto", "content", "cdp"]);
   validateOptionalBoolean(params.waitForNavigation, "params.waitForNavigation");
+}
+
+function validateWait(params, target) {
+  validateParamsObject(params);
+  const common = ["condition", "mode", "pollIntervalMs"];
+  validateEnum(params.condition, "params.condition", [
+    "delay", "loadState", "url", "element", "text", "value", "count",
+    "navigation", "networkIdle", "attribute",
+  ]);
+  if (typeof params.condition !== "string") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.condition is required");
+  }
+  validateEnum(params.mode, "params.mode", ["auto", "polling", "event"]);
+  validateIntegerRange(params.pollIntervalMs, "params.pollIntervalMs", 25, 1_000);
+
+  switch (params.condition) {
+    case "delay":
+      assertAllowedProperties(params, [...common, "delayMs"]);
+      requireIntegerRange(params.delayMs, "params.delayMs", 0, 120_000);
+      break;
+    case "loadState":
+      assertAllowedProperties(params, [...common, "readyState"]);
+      validateEnum(params.readyState, "params.readyState", ["interactive", "complete"]);
+      if (params.readyState === undefined) {
+        throw protocolError(ErrorCode.INVALID_MESSAGE, "params.readyState is required");
+      }
+      break;
+    case "url": {
+      assertAllowedProperties(params, [...common, "url", "urlPattern"]);
+      const addresses = [params.url, params.urlPattern].filter((value) => value !== undefined);
+      if (addresses.length !== 1) {
+        throw protocolError(
+          ErrorCode.INVALID_MESSAGE,
+          "Exactly one of params.url or params.urlPattern is required",
+        );
+      }
+      assertBoundedString(addresses[0], "URL wait value", 4_096);
+      break;
+    }
+    case "element":
+      assertAllowedProperties(params, [...common, "locator", "elementState"]);
+      validateLocator(params.locator, target);
+      validateEnum(params.elementState, "params.elementState", [
+        "attached", "detached", "visible", "hidden", "enabled", "disabled",
+      ]);
+      if (params.elementState === undefined) {
+        throw protocolError(ErrorCode.INVALID_MESSAGE, "params.elementState is required");
+      }
+      break;
+    case "text":
+      assertAllowedProperties(params, [
+        ...common, "locator", "expected", "matchOperator", "caseSensitive",
+      ]);
+      if (params.locator !== undefined) validateLocator(params.locator, target);
+      validateStringWait(params);
+      break;
+    case "value":
+      assertAllowedProperties(params, [
+        ...common, "locator", "expected", "matchOperator", "caseSensitive",
+      ]);
+      validateLocator(params.locator, target);
+      validateStringWait(params);
+      break;
+    case "count":
+      assertAllowedProperties(params, [...common, "locator", "count", "countOperator"]);
+      validateLocator(params.locator, target);
+      requireIntegerRange(params.count, "params.count", 0, 1_000_000);
+      validateEnum(params.countOperator, "params.countOperator", ["equals", "atLeast", "atMost"]);
+      break;
+    case "navigation":
+      assertAllowedProperties(params, common);
+      break;
+    case "networkIdle":
+      assertAllowedProperties(params, [...common, "idleMs"]);
+      requireIntegerRange(params.idleMs, "params.idleMs", 100, 30_000);
+      break;
+    case "attribute":
+      assertAllowedProperties(params, [
+        ...common, "locator", "attribute", "attributeState", "expected", "caseSensitive",
+      ]);
+      validateLocator(params.locator, target);
+      if (typeof params.attribute !== "string" || !/^[A-Za-z0-9:_-]{1,200}$/.test(params.attribute)) {
+        throw protocolError(ErrorCode.INVALID_MESSAGE, "params.attribute is invalid");
+      }
+      if (/(?:password|secret|token|credential|authorization|cookie|api[-_]?key)/i.test(params.attribute)) {
+        throw protocolError(ErrorCode.INVALID_MESSAGE, "params.attribute is sensitive");
+      }
+      validateEnum(params.attributeState, "params.attributeState", [
+        "present", "absent", "equals", "contains",
+      ]);
+      if (params.attributeState === undefined) {
+        throw protocolError(ErrorCode.INVALID_MESSAGE, "params.attributeState is required");
+      }
+      if (["equals", "contains"].includes(params.attributeState)) {
+        assertBoundedString(params.expected, "params.expected", 100_000, true);
+      } else if (params.expected !== undefined) {
+        throw protocolError(
+          ErrorCode.INVALID_MESSAGE,
+          "params.expected is only valid for equals or contains attribute waits",
+        );
+      }
+      validateOptionalBoolean(params.caseSensitive, "params.caseSensitive");
+      break;
+    default:
+      throw protocolError(ErrorCode.INVALID_MESSAGE, "params.condition is invalid");
+  }
+}
+
+function validateStringWait(params) {
+  assertBoundedString(params.expected, "params.expected", 100_000, true);
+  validateEnum(params.matchOperator, "params.matchOperator", ["equals", "contains"]);
+  validateOptionalBoolean(params.caseSensitive, "params.caseSensitive");
+}
+
+function requireIntegerRange(value, path, minimum, maximum) {
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be between ${minimum} and ${maximum}`);
+  }
+}
+
+function assertBoundedString(value, path, maximum, allowEmpty = false) {
+  if (
+    typeof value !== "string"
+    || value.length > maximum
+    || (!allowEmpty && value.trim() === "")
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `${path} must be a${allowEmpty ? "" : " non-empty"} string no longer than ${maximum}`,
+    );
+  }
 }
 
 function validateOptionalElementAddress(params, target) {

@@ -46,6 +46,7 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   globalThis.KeyboardEvent = FakeEvent;
   globalThis.InputEvent = FakeEvent;
   globalThis.DragEvent = FakeEvent;
+  globalThis.MutationObserver = FakeMutationObserver;
   globalThis.HTMLInputElement = class {};
   globalThis.HTMLTextAreaElement = class {};
   Object.defineProperty(globalThis.HTMLInputElement.prototype, "value", {
@@ -129,6 +130,43 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   assert.equal(truncatedSnapshot.result.truncated, true);
   assert.equal(truncatedSnapshot.result.warnings.length, 1);
 
+  const immediateWaits = [
+    { condition: "loadState", readyState: "complete" },
+    { condition: "url", urlPattern: "https://example.com/*" },
+    { condition: "element", locator: { css: "#save" }, elementState: "visible" },
+    { condition: "text", expected: "Save settings", matchOperator: "contains" },
+    {
+      condition: "value",
+      locator: { css: "#country" },
+      expected: "",
+      matchOperator: "equals",
+    },
+    { condition: "count", locator: { css: "input" }, count: 2, countOperator: "equals" },
+    {
+      condition: "attribute",
+      locator: { css: "#save" },
+      attribute: "id",
+      attributeState: "equals",
+      expected: "save",
+    },
+  ];
+  for (const params of immediateWaits) {
+    const waited = await command(listener, "page.wait", { ...params, internalTimeoutMs: 100 });
+    assert.equal(waited.success, true, JSON.stringify(waited.error));
+    assert.equal(waited.result.matched, true);
+    assert.equal(waited.result.mode, "immediate");
+    assert.equal(JSON.stringify(waited.result).includes("top-secret"), false);
+  }
+  const sensitiveWait = await command(listener, "page.wait", {
+    condition: "value",
+    locator: { css: "#password" },
+    expected: "top-secret",
+    matchOperator: "equals",
+    internalTimeoutMs: 100,
+  });
+  assert.equal(sensitiveWait.success, false);
+  assert.equal(sensitiveWait.error.code, "INVALID_MESSAGE");
+
   const typed = await command(listener, "page.type", {
     locator: { css: "#password" },
     text: "abc",
@@ -209,6 +247,54 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   assert.equal(dragged.result.source.id, "drag-source");
   assert.equal(dragTarget.events.includes("drop"), true);
 
+  const disappearing = command(listener, "page.wait", {
+    condition: "element",
+    locator: { css: "#drag-target" },
+    elementState: "detached",
+    mode: "event",
+    internalTimeoutMs: 100,
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(FakeMutationObserver.activeCount(), 1);
+  main.children = main.children.filter((child) => child !== dragTarget);
+  main.childNodes = main.childNodes.filter((child) => child !== dragTarget);
+  dragTarget.isConnected = false;
+  FakeMutationObserver.flush();
+  const disappeared = await disappearing;
+  assert.equal(disappeared.success, true);
+  assert.equal(disappeared.result.mode, "event");
+  assert.equal(disappeared.result.matchCount, 0);
+
+  const timedOut = await command(listener, "page.wait", {
+    condition: "element",
+    locator: { css: "#missing" },
+    elementState: "attached",
+    mode: "event",
+    internalTimeoutMs: 5,
+  });
+  assert.equal(timedOut.success, false);
+  assert.equal(timedOut.error.code, "TIMEOUT");
+  assert.equal(timedOut.error.retryable, true);
+
+  const cancelledOperation = "cancelled-wait";
+  const cancelledWait = command(listener, "page.wait", {
+    condition: "element",
+    locator: { css: "#missing" },
+    elementState: "attached",
+    mode: "event",
+    internalTimeoutMs: 1_000,
+  }, cancelledOperation);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  listener({
+    type: "MCP_BROWSER_CANCEL",
+    bridgeVersion: "1.5",
+    operationId: cancelledOperation,
+  }, { id: "extension-id" }, () => undefined);
+  const cancelled = await cancelledWait;
+  assert.equal(cancelled.success, false);
+  assert.equal(cancelled.error.code, "CANCELLED");
+  assert.equal(FakeMutationObserver.activeCount(), 0);
+
   const dispatched = await command(listener, "page.dispatch", {
     locator: { css: "#save" },
     eventType: "app:save",
@@ -231,11 +317,12 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   assert.equal(unavailable.error.code, "CAPABILITY_UNAVAILABLE");
 });
 
-function command(listener, name, params) {
+function command(listener, name, params, operationId = `${name}-${Date.now()}-${Math.random()}`) {
   return new Promise((resolve, reject) => {
     const handled = listener({
       type: "MCP_BROWSER_COMMAND",
-      bridgeVersion: "1.4",
+      bridgeVersion: "1.5",
+      operationId,
       command: name,
       params,
       frameId: 0,
@@ -254,6 +341,7 @@ class FakeDocument {
     this.readyState = "complete";
     this.contentType = "text/html";
     this.characterSet = "UTF-8";
+    this.listeners = new Map();
     documentElement.scrollWidth = 1_280;
     documentElement.scrollHeight = 2_000;
     setRoot(documentElement, this);
@@ -275,6 +363,16 @@ class FakeDocument {
 
   querySelector(selector) {
     return this.querySelectorAll(selector)[0] || null;
+  }
+
+  addEventListener(event, listener) {
+    const listeners = this.listeners.get(event) || new Set();
+    listeners.add(listener);
+    this.listeners.set(event, listeners);
+  }
+
+  removeEventListener(event, listener) {
+    this.listeners.get(event)?.delete(listener);
   }
 }
 
@@ -365,6 +463,7 @@ function setRoot(element, root) {
 }
 
 function fakeWindow() {
+  const listeners = new Map();
   const window = {
     location: { href: "https://example.com/settings" },
     name: "",
@@ -379,6 +478,14 @@ function fakeWindow() {
       this.scrollX += left;
       this.scrollY += top;
     },
+    addEventListener(event, listener) {
+      const current = listeners.get(event) || new Set();
+      current.add(listener);
+      listeners.set(event, current);
+    },
+    removeEventListener(event, listener) {
+      listeners.get(event)?.delete(listener);
+    },
   };
   window.top = window;
   return window;
@@ -389,5 +496,29 @@ class FakeEvent {
     this.type = type;
     this.defaultPrevented = false;
     Object.assign(this, init);
+  }
+}
+
+class FakeMutationObserver {
+  static active = new Set();
+
+  constructor(callback) {
+    this.callback = callback;
+  }
+
+  observe() {
+    FakeMutationObserver.active.add(this);
+  }
+
+  disconnect() {
+    FakeMutationObserver.active.delete(this);
+  }
+
+  static flush() {
+    for (const observer of [...FakeMutationObserver.active]) observer.callback([]);
+  }
+
+  static activeCount() {
+    return FakeMutationObserver.active.size;
   }
 }

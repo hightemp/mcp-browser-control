@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -99,6 +100,61 @@ func TestRegistryConcurrentAccess(t *testing.T) {
 	wg.Wait()
 	if got := registry.Count(); got != browserCount {
 		t.Errorf("Count() = %d, want %d", got, browserCount)
+	}
+}
+
+func TestRegistryConcurrentConnectDisconnectStress(t *testing.T) {
+	const (
+		browserCount = 64
+		cycleCount   = 100
+	)
+
+	registry := New()
+	errors := make(chan error, browserCount*cycleCount*5)
+	var group sync.WaitGroup
+	for browserIndex := range browserCount {
+		browserIndex := browserIndex
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			browserID := fmt.Sprintf("stress-browser-%d", browserIndex)
+			for cycle := range cycleCount {
+				connection := &testConnection{id: fmt.Sprintf("connection-%d-%d", browserIndex, cycle)}
+				replaced, err := registry.Register(
+					Registration{BrowserID: browserID, Capabilities: []string{"tabs.list"}},
+					connection,
+				)
+				if err != nil {
+					errors <- fmt.Errorf("Register(%s, %d): %w", browserID, cycle, err)
+					continue
+				}
+				if replaced != nil {
+					errors <- fmt.Errorf("Register(%s, %d) replaced an active connection", browserID, cycle)
+				}
+				if !registry.Touch(browserID, connection.ID()) {
+					errors <- fmt.Errorf("Touch(%s, %d) = false", browserID, cycle)
+				}
+				if !registry.RecordLatency(browserID, connection.ID(), time.Duration(cycle)*time.Millisecond) {
+					errors <- fmt.Errorf("RecordLatency(%s, %d) = false", browserID, cycle)
+				}
+				registry.List()
+				registry.ListAll()
+				if !registry.Disconnect(browserID, connection.ID(), "stress cycle") {
+					errors <- fmt.Errorf("Disconnect(%s, %d) = false", browserID, cycle)
+				}
+			}
+		}()
+	}
+	group.Wait()
+	close(errors)
+	for err := range errors {
+		t.Error(err)
+	}
+	if got := registry.Count(); got != 0 {
+		t.Fatalf("Count() = %d, want 0", got)
+	}
+	if got := len(registry.ListAll()); got != browserCount {
+		t.Fatalf("ListAll() count = %d, want %d", got, browserCount)
 	}
 }
 

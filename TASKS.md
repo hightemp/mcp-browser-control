@@ -999,13 +999,13 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 
 Покрыть registry, duplicate connection, router, selection, pending requests, timeout, cancellation, disconnect cleanup, error mapping, redaction и config.
 
-Реализовано; суммарное statement coverage `internal/...` в atomic-режиме — 82,9%. Redaction дополнительно проверяется extension protocol tests.
+Реализовано; суммарное statement coverage `internal/...` в atomic-режиме — 82,3%. Redaction дополнительно проверяется extension protocol tests.
 
 ### T-091 — Race и stress tests
 
 - Приоритет: P0
 - Зависимости: T-090
-- Статус: `[~]`
+- Статус: `[x]`
 
 Сценарии:
 
@@ -1016,6 +1016,13 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 - reconnect с тем же browserId;
 - shutdown под нагрузкой;
 - 10 000 команд без cross-routing.
+
+`go test -race` покрывает одновременные registry connect/touch/list/disconnect
+циклы, 128+ parallel pending requests, duplicate и late responses, timeout и
+dead writer, reconnect с тем же browserId и отбрасывание stale connection,
+WebSocket shutdown, а также закрытие Router с 256 активными командами. Отдельный
+stress test маршрутизирует 10 000 команд через четыре браузера и 128 workers,
+проверяя owner каждого ответа и нулевой pending count после завершения.
 
 ### T-092 — Protocol contract tests
 

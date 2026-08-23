@@ -74,6 +74,11 @@ await import("../src/service-worker.js");
 test("service worker pairs and reconnects with the stored credential", async () => {
   await waitFor(() => chromeMock.badgeTexts.at(-1)?.text === "OFF");
 
+  const rejectedReset = await chromeMock.sendRuntimeMessage({ type: "RESET_IDENTITY" });
+  assert.equal(rejectedReset.success, false);
+  assert.equal(rejectedReset.error.code, "CONFIRMATION_REQUIRED");
+  assert.equal(chromeMock.storageValues.browserId, browserId);
+
   const pairingResponse = await chromeMock.sendRuntimeMessage({
     type: "PAIR",
     pairingCode: "12345678",

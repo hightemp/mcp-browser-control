@@ -183,6 +183,34 @@ test("tab handler rejects missing site permission before page access", async () 
   assert.equal(scriptExecutions, 0);
 });
 
+test("tab handler rejects restricted URLs before permission or script access", async () => {
+  let permissionChecks = 0;
+  let scriptExecutions = 0;
+  const handlers = createTabHandlers({
+    tabs: {
+      get: async () => ({ id: 42, url: "chrome://settings/" }),
+    },
+    permissions: {
+      contains: async () => {
+        permissionChecks += 1;
+        return true;
+      },
+    },
+    scripting: {
+      executeScript: async () => {
+        scriptExecutions += 1;
+      },
+    },
+  });
+
+  await assert.rejects(
+    handlers.stop({ target: { tabId: 42 }, params: {} }),
+    (error) => error.code === ErrorCode.RESTRICTED_URL,
+  );
+  assert.equal(permissionChecks, 0);
+  assert.equal(scriptExecutions, 0);
+});
+
 test("window handlers support list, get, create, update, focus, and close", async () => {
   const calls = [];
   const window = {

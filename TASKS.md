@@ -1089,9 +1089,17 @@ service-worker harness выполняет полный pairing handshake, сох
 
 - Приоритет: P0
 - Зависимости: T-080–T-083
-- Статус: `[~]`
+- Статус: `[x]`
 
 Проверить bad Origin/Host, invalid token, replay, forbidden origin, restricted URL, missing confirm, secret redaction, message bomb и event flood.
+
+Негативный набор проверяет реальные HTTP/WebSocket boundary: bad Host и Origin,
+точный Bearer token, credential и pairing-code replay, а также фактический отказ
+WebSocket upgrade для forbidden origin. WebSocket read limit закрывает oversized
+frame с code 1009; flood из 5000 extension events не создаёт pending requests и
+не нарушает liveness соединения. Extension tests блокируют restricted scheme и
+missing site permission до Chrome API, требуют confirm для identity reset и
+проверяют redaction секретов в DOM, console и server logs.
 
 ### T-097 — Performance и soak tests
 

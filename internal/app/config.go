@@ -30,6 +30,9 @@ type Config struct {
 	CommandTimeout            time.Duration
 	WebSocketHandshakeTimeout time.Duration
 	WebSocketWriteTimeout     time.Duration
+	WebSocketReadTimeout      time.Duration
+	WebSocketPingInterval     time.Duration
+	WebSocketSendQueueSize    int
 	ShutdownTimeout           time.Duration
 	WebSocketMaxMessageBytes  int64
 	MCPMaxRequestBytes        int64
@@ -55,6 +58,9 @@ type fileConfig struct {
 	CommandTimeout            *string   `json:"commandTimeout"`
 	WebSocketHandshakeTimeout *string   `json:"webSocketHandshakeTimeout"`
 	WebSocketWriteTimeout     *string   `json:"webSocketWriteTimeout"`
+	WebSocketReadTimeout      *string   `json:"webSocketReadTimeout"`
+	WebSocketPingInterval     *string   `json:"webSocketPingInterval"`
+	WebSocketSendQueueSize    *int      `json:"webSocketSendQueueSize"`
 	ShutdownTimeout           *string   `json:"shutdownTimeout"`
 	WebSocketMaxMessageBytes  *int64    `json:"webSocketMaxMessageBytes"`
 	MCPMaxRequestBytes        *int64    `json:"mcpMaxRequestBytes"`
@@ -109,6 +115,9 @@ func defaultConfig() Config {
 		CommandTimeout:            15 * time.Second,
 		WebSocketHandshakeTimeout: 5 * time.Second,
 		WebSocketWriteTimeout:     5 * time.Second,
+		WebSocketReadTimeout:      60 * time.Second,
+		WebSocketPingInterval:     20 * time.Second,
+		WebSocketSendQueueSize:    64,
 		ShutdownTimeout:           5 * time.Second,
 		WebSocketMaxMessageBytes:  4 << 20,
 		MCPMaxRequestBytes:        4 << 20,
@@ -150,6 +159,8 @@ func (c Config) Validate() error {
 	for name, value := range map[string]time.Duration{
 		"ws_handshake_timeout": c.WebSocketHandshakeTimeout,
 		"ws_write_timeout":     c.WebSocketWriteTimeout,
+		"ws_read_timeout":      c.WebSocketReadTimeout,
+		"ws_ping_interval":     c.WebSocketPingInterval,
 		"shutdown_timeout":     c.ShutdownTimeout,
 		"pairing_ttl":          c.PairingTTL,
 		"pairing_window":       c.PairingAttemptWindow,
@@ -167,6 +178,12 @@ func (c Config) Validate() error {
 	}
 	if c.PairingMaxAttempts <= 0 {
 		return errors.New("pairing_max_attempts must be positive")
+	}
+	if c.WebSocketPingInterval >= c.WebSocketReadTimeout {
+		return errors.New("ws_ping_interval must be shorter than ws_read_timeout")
+	}
+	if c.WebSocketSendQueueSize <= 0 || c.WebSocketSendQueueSize > 65536 {
+		return errors.New("ws_send_queue_size must be between 1 and 65536")
 	}
 	if strings.TrimSpace(c.ArtifactDirectory) == "" {
 		return errors.New("artifact_dir must not be empty")
@@ -200,6 +217,9 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags.DurationVar(&config.CommandTimeout, "command_timeout", config.CommandTimeout, "Default browser command timeout")
 	flags.DurationVar(&config.WebSocketHandshakeTimeout, "ws_handshake_timeout", config.WebSocketHandshakeTimeout, "Browser handshake timeout")
 	flags.DurationVar(&config.WebSocketWriteTimeout, "ws_write_timeout", config.WebSocketWriteTimeout, "Browser write timeout")
+	flags.DurationVar(&config.WebSocketReadTimeout, "ws_read_timeout", config.WebSocketReadTimeout, "Maximum interval without browser activity")
+	flags.DurationVar(&config.WebSocketPingInterval, "ws_ping_interval", config.WebSocketPingInterval, "WebSocket control-ping interval")
+	flags.IntVar(&config.WebSocketSendQueueSize, "ws_send_queue_size", config.WebSocketSendQueueSize, "Per-browser send queue capacity")
 	flags.DurationVar(&config.ShutdownTimeout, "shutdown_timeout", config.ShutdownTimeout, "Graceful shutdown timeout")
 	flags.Int64Var(&config.WebSocketMaxMessageBytes, "ws_max_message_bytes", config.WebSocketMaxMessageBytes, "Maximum browser message size")
 	flags.Int64Var(&config.MCPMaxRequestBytes, "mcp_max_request_bytes", config.MCPMaxRequestBytes, "Maximum MCP HTTP request size")
@@ -253,6 +273,7 @@ func (f fileConfig) apply(config *Config) error {
 	assignInt64(&config.WebSocketMaxMessageBytes, f.WebSocketMaxMessageBytes)
 	assignInt64(&config.MCPMaxRequestBytes, f.MCPMaxRequestBytes)
 	assignInt(&config.PairingMaxAttempts, f.PairingMaxAttempts)
+	assignInt(&config.WebSocketSendQueueSize, f.WebSocketSendQueueSize)
 	if f.RedactLogs != nil {
 		config.RedactLogs = *f.RedactLogs
 	}
@@ -266,6 +287,8 @@ func (f fileConfig) apply(config *Config) error {
 		"commandTimeout":            {f.CommandTimeout, &config.CommandTimeout},
 		"webSocketHandshakeTimeout": {f.WebSocketHandshakeTimeout, &config.WebSocketHandshakeTimeout},
 		"webSocketWriteTimeout":     {f.WebSocketWriteTimeout, &config.WebSocketWriteTimeout},
+		"webSocketReadTimeout":      {f.WebSocketReadTimeout, &config.WebSocketReadTimeout},
+		"webSocketPingInterval":     {f.WebSocketPingInterval, &config.WebSocketPingInterval},
 		"shutdownTimeout":           {f.ShutdownTimeout, &config.ShutdownTimeout},
 		"pairingTTL":                {f.PairingTTL, &config.PairingTTL},
 		"pairingAttemptWindow":      {f.PairingAttemptWindow, &config.PairingAttemptWindow},
@@ -301,6 +324,8 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 		"COMMAND_TIMEOUT":      &config.CommandTimeout,
 		"WS_HANDSHAKE_TIMEOUT": &config.WebSocketHandshakeTimeout,
 		"WS_WRITE_TIMEOUT":     &config.WebSocketWriteTimeout,
+		"WS_READ_TIMEOUT":      &config.WebSocketReadTimeout,
+		"WS_PING_INTERVAL":     &config.WebSocketPingInterval,
 		"SHUTDOWN_TIMEOUT":     &config.ShutdownTimeout,
 		"PAIRING_TTL":          &config.PairingTTL,
 		"PAIRING_WINDOW":       &config.PairingAttemptWindow,
@@ -317,6 +342,9 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 		return err
 	}
 	if err := assignEnvInt(lookupEnv, "PAIRING_MAX_ATTEMPTS", &config.PairingMaxAttempts); err != nil {
+		return err
+	}
+	if err := assignEnvInt(lookupEnv, "WS_SEND_QUEUE_SIZE", &config.WebSocketSendQueueSize); err != nil {
 		return err
 	}
 	if value, ok := lookupEnv(environmentPrefix + "REDACT_LOGS"); ok {

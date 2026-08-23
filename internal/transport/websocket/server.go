@@ -24,7 +24,10 @@ import (
 
 const (
 	// DefaultPath is the browser extension WebSocket endpoint.
-	DefaultPath = "/ws"
+	DefaultPath          = "/ws"
+	defaultReadTimeout   = 60 * time.Second
+	defaultPingInterval  = 20 * time.Second
+	defaultSendQueueSize = 64
 )
 
 // Option configures a Server.
@@ -80,6 +83,33 @@ func WithOriginAllowlist(origins []string) Option {
 	}
 }
 
+// WithReadTimeout changes the maximum interval without browser activity.
+func WithReadTimeout(timeout time.Duration) Option {
+	return func(server *Server) {
+		if timeout > 0 {
+			server.readTimeout = timeout
+		}
+	}
+}
+
+// WithPingInterval changes the WebSocket control-ping interval.
+func WithPingInterval(interval time.Duration) Option {
+	return func(server *Server) {
+		if interval > 0 {
+			server.pingInterval = interval
+		}
+	}
+}
+
+// WithSendQueueSize changes the bounded per-connection send queue capacity.
+func WithSendQueueSize(size int) Option {
+	return func(server *Server) {
+		if size > 0 {
+			server.sendQueueSize = size
+		}
+	}
+}
+
 // WithAuthenticator configures the browser pairing authenticator.
 func WithAuthenticator(authenticator Authenticator) Option {
 	return func(server *Server) {
@@ -98,6 +128,9 @@ type Server struct {
 	logger           *log.Logger
 	handshakeTimeout time.Duration
 	writeTimeout     time.Duration
+	readTimeout      time.Duration
+	pingInterval     time.Duration
+	sendQueueSize    int
 	maxMessageBytes  int64
 	originAllowlist  []string
 	upgrader         gorilla.Upgrader
@@ -116,6 +149,9 @@ func NewServer(
 		logger:           log.New(log.Writer(), "[WebSocket] ", log.LstdFlags),
 		handshakeTimeout: 5 * time.Second,
 		writeTimeout:     5 * time.Second,
+		readTimeout:      defaultReadTimeout,
+		pingInterval:     defaultPingInterval,
+		sendQueueSize:    defaultSendQueueSize,
 		maxMessageBytes:  4 << 20,
 		upgrader: gorilla.Upgrader{
 			ReadBufferSize:  4096,
@@ -146,7 +182,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	connection := newConnection(socket, s.writeTimeout)
+	connection := newConnection(socket, s.writeTimeout, s.pingInterval, s.sendQueueSize)
 	connection.start()
 	defer func() {
 		if err := connection.Close(); err != nil {
@@ -204,8 +240,8 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if err := socket.SetReadDeadline(time.Time{}); err != nil {
-		s.logger.Printf("failed to clear handshake deadline: %v", err)
+	if err := socket.SetReadDeadline(time.Now().Add(s.readTimeout)); err != nil {
+		s.logger.Printf("failed to set browser read deadline: %v", err)
 		return
 	}
 
@@ -234,6 +270,10 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	disconnectReason := "connection closed"
+	socket.SetPongHandler(func(string) error {
+		s.registry.Touch(browserID, connection.ID())
+		return socket.SetReadDeadline(time.Now().Add(s.readTimeout))
+	})
 	defer func() {
 		s.registry.Disconnect(browserID, connection.ID(), disconnectReason)
 		s.router.FailConnection(browserID, connection.ID())
@@ -289,6 +329,11 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 			continue
 		}
 		s.registry.Touch(browserID, connection.ID())
+		if err := socket.SetReadDeadline(time.Now().Add(s.readTimeout)); err != nil {
+			disconnectReason = "failed to refresh read deadline"
+			s.logger.Printf("failed to refresh browser read deadline: %v", err)
+			return
+		}
 
 		switch message.Type {
 		case protocol.TypeResponse:
@@ -377,18 +422,29 @@ type connection struct {
 	id           string
 	socket       *gorilla.Conn
 	writeTimeout time.Duration
+	pingInterval time.Duration
 	outbound     chan outboundMessage
 	done         chan struct{}
-	closeOnce    sync.Once
+	pumpDone     chan struct{}
+	doneOnce     sync.Once
+	errMu        sync.Mutex
+	closeErr     error
 }
 
-func newConnection(socket *gorilla.Conn, writeTimeout time.Duration) *connection {
+func newConnection(
+	socket *gorilla.Conn,
+	writeTimeout time.Duration,
+	pingInterval time.Duration,
+	sendQueueSize int,
+) *connection {
 	return &connection{
 		id:           uuid.NewString(),
 		socket:       socket,
 		writeTimeout: writeTimeout,
-		outbound:     make(chan outboundMessage, 64),
+		pingInterval: pingInterval,
+		outbound:     make(chan outboundMessage, sendQueueSize),
 		done:         make(chan struct{}),
+		pumpDone:     make(chan struct{}),
 	}
 }
 
@@ -401,15 +457,27 @@ func (c *connection) start() {
 }
 
 func (c *connection) Send(ctx context.Context, message protocol.Message) error {
+	if ctx == nil {
+		return protocol.NewError(protocol.CodeInvalidMessage, "context is required", false)
+	}
 	result := make(chan error, 1)
 	outbound := outboundMessage{message: message, result: result}
 
 	select {
-	case c.outbound <- outbound:
 	case <-c.done:
 		return protocol.NewError(protocol.CodeBrowserDisconnected, "browser connection is closed", true)
 	case <-ctx.Done():
 		return ctx.Err()
+	default:
+	}
+	select {
+	case c.outbound <- outbound:
+	default:
+		return protocol.NewError(
+			protocol.CodeBackpressure,
+			"browser connection send queue is full",
+			true,
+		)
 	}
 
 	select {
@@ -423,39 +491,88 @@ func (c *connection) Send(ctx context.Context, message protocol.Message) error {
 }
 
 func (c *connection) Close() error {
-	var closeErr error
-	c.closeOnce.Do(func() {
-		close(c.done)
-		closeErr = c.socket.Close()
-	})
-	return closeErr
+	c.signalDone()
+	<-c.pumpDone
+	c.errMu.Lock()
+	defer c.errMu.Unlock()
+	return c.closeErr
 }
 
 func (c *connection) writePump() {
+	ticker := time.NewTicker(c.pingInterval)
+	defer ticker.Stop()
+	defer func() {
+		if err := c.socket.Close(); err != nil {
+			c.recordCloseError(fmt.Errorf("close WebSocket: %w", err))
+		}
+		c.signalDone()
+		close(c.pumpDone)
+	}()
+
 	for {
 		select {
+		case <-c.done:
+			c.writeCloseFrame()
+			return
+		default:
+		}
+		select {
 		case outbound := <-c.outbound:
-			if err := c.socket.SetWriteDeadline(time.Now().Add(c.writeTimeout)); err != nil {
-				writeErr := fmt.Errorf("set WebSocket write deadline: %w", err)
-				if closeErr := c.Close(); closeErr != nil {
-					writeErr = errors.Join(writeErr, fmt.Errorf("close WebSocket: %w", closeErr))
-				}
-				outbound.result <- writeErr
-				return
-			}
-			if err := c.socket.WriteJSON(outbound.message); err != nil {
-				writeErr := fmt.Errorf("write WebSocket message: %w", err)
-				if closeErr := c.Close(); closeErr != nil {
-					writeErr = errors.Join(writeErr, fmt.Errorf("close WebSocket: %w", closeErr))
-				}
-				outbound.result <- writeErr
+			if err := c.writeJSON(outbound.message); err != nil {
+				c.recordCloseError(err)
+				outbound.result <- err
 				return
 			}
 			outbound.result <- nil
+		case <-ticker.C:
+			if err := c.writePing(); err != nil {
+				c.recordCloseError(err)
+				return
+			}
 		case <-c.done:
+			c.writeCloseFrame()
 			return
 		}
 	}
+}
+
+func (c *connection) writeJSON(message protocol.Message) error {
+	if err := c.socket.SetWriteDeadline(time.Now().Add(c.writeTimeout)); err != nil {
+		return fmt.Errorf("set WebSocket write deadline: %w", err)
+	}
+	if err := c.socket.WriteJSON(message); err != nil {
+		return fmt.Errorf("write WebSocket message: %w", err)
+	}
+	return nil
+}
+
+func (c *connection) writePing() error {
+	deadline := time.Now().Add(c.writeTimeout)
+	if err := c.socket.WriteControl(gorilla.PingMessage, nil, deadline); err != nil {
+		return fmt.Errorf("write WebSocket ping: %w", err)
+	}
+	return nil
+}
+
+func (c *connection) writeCloseFrame() {
+	deadline := time.Now().Add(c.writeTimeout)
+	payload := gorilla.FormatCloseMessage(gorilla.CloseNormalClosure, "server closing")
+	if err := c.socket.WriteControl(gorilla.CloseMessage, payload, deadline); err != nil {
+		c.recordCloseError(fmt.Errorf("write WebSocket close frame: %w", err))
+	}
+}
+
+func (c *connection) signalDone() {
+	c.doneOnce.Do(func() { close(c.done) })
+}
+
+func (c *connection) recordCloseError(err error) {
+	if err == nil {
+		return
+	}
+	c.errMu.Lock()
+	c.closeErr = errors.Join(c.closeErr, err)
+	c.errMu.Unlock()
 }
 
 func allowedOrigin(request *http.Request) bool {

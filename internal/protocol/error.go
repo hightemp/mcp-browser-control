@@ -32,6 +32,7 @@ const (
 	CodePayloadTooLarge            ErrorCode = "PAYLOAD_TOO_LARGE"
 	CodeRestrictedURL              ErrorCode = "RESTRICTED_URL"
 	CodeConfirmationRequired       ErrorCode = "CONFIRMATION_REQUIRED"
+	CodeBackpressure               ErrorCode = "BACKPRESSURE"
 	CodeInternal                   ErrorCode = "INTERNAL_ERROR"
 )
 

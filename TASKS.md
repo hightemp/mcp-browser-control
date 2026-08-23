@@ -236,7 +236,7 @@ Registry атомарно заменяет подключения, хранит 
 
 - Приоритет: P0
 - Зависимости: T-015, T-020
-- Статус: `[~]`
+- Статус: `[x]`
 
 Добавить отдельные read/write pumps:
 
@@ -248,6 +248,8 @@ Registry атомарно заменяет подключения, хранит 
 - graceful close;
 - reconnect replacement;
 - backpressure error вместо зависания.
+
+Connection использует единственный write pump с bounded queue, немедленный `BACKPRESSURE`, write deadlines, control ping, pong/read deadline и graceful close frame. Ошибка writer закрывает соединение и разблокирует все ожидающие Send; stale connection не влияет на replacement.
 
 ### T-022 — Реализовать pairing и authentication
 

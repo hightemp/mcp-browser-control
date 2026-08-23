@@ -99,6 +99,9 @@ func run(
 		websockettransport.WithAuthenticator(authenticator),
 		websockettransport.WithHandshakeTimeout(config.WebSocketHandshakeTimeout),
 		websockettransport.WithWriteTimeout(config.WebSocketWriteTimeout),
+		websockettransport.WithReadTimeout(config.WebSocketReadTimeout),
+		websockettransport.WithPingInterval(config.WebSocketPingInterval),
+		websockettransport.WithSendQueueSize(config.WebSocketSendQueueSize),
 		websockettransport.WithMaxMessageBytes(config.WebSocketMaxMessageBytes),
 		websockettransport.WithOriginAllowlist(config.OriginAllowlist),
 	)

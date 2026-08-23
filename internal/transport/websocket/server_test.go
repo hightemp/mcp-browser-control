@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -293,6 +294,9 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 		WithLogger(nil),
 		WithHandshakeTimeout(250*time.Millisecond),
 		WithWriteTimeout(300*time.Millisecond),
+		WithReadTimeout(2*time.Second),
+		WithPingInterval(time.Second),
+		WithSendQueueSize(8),
 		WithMaxMessageBytes(1024),
 		WithOriginAllowlist([]string{"chrome-extension://allowed"}),
 	)
@@ -301,6 +305,12 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 	}
 	if transport.writeTimeout != 300*time.Millisecond {
 		t.Errorf("writeTimeout = %v", transport.writeTimeout)
+	}
+	if transport.readTimeout != 2*time.Second || transport.pingInterval != time.Second {
+		t.Errorf("liveness settings = (%v, %v)", transport.readTimeout, transport.pingInterval)
+	}
+	if transport.sendQueueSize != 8 {
+		t.Errorf("sendQueueSize = %d, want 8", transport.sendQueueSize)
 	}
 	if transport.maxMessageBytes != 1024 {
 		t.Errorf("maxMessageBytes = %d", transport.maxMessageBytes)
@@ -344,6 +354,48 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 		if got := transport.checkOrigin(request); got != want {
 			t.Errorf("checkOrigin(%q) = %v, want %v", origin, got, want)
 		}
+	}
+}
+
+func TestConnectionReturnsBackpressureWithoutBlocking(t *testing.T) {
+	t.Parallel()
+
+	connection := &connection{
+		id:       "connection-1",
+		outbound: make(chan outboundMessage, 1),
+		done:     make(chan struct{}),
+		pumpDone: make(chan struct{}),
+	}
+	firstResult := make(chan error, 1)
+	go func() {
+		firstResult <- connection.Send(context.Background(), protocol.NewMessage(protocol.TypePing))
+	}()
+	deadline := time.Now().Add(time.Second)
+	for len(connection.outbound) == 0 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	if len(connection.outbound) != 1 {
+		t.Fatal("first Send() did not fill the test queue")
+	}
+
+	started := time.Now()
+	err := connection.Send(context.Background(), protocol.NewMessage(protocol.TypePing))
+	if time.Since(started) > 100*time.Millisecond {
+		t.Fatal("backpressured Send() blocked")
+	}
+	var protocolErr *protocol.Error
+	if !errors.As(err, &protocolErr) || protocolErr.Code != protocol.CodeBackpressure || !protocolErr.Retryable {
+		t.Fatalf("Send() error = %#v, want retryable BACKPRESSURE", err)
+	}
+
+	close(connection.done)
+	select {
+	case err := <-firstResult:
+		if !errors.As(err, &protocolErr) || protocolErr.Code != protocol.CodeBrowserDisconnected {
+			t.Fatalf("first Send() error = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("first Send() remained blocked after close")
 	}
 }
 

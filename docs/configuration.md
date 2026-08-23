@@ -23,6 +23,9 @@ to bind either listener to a non-loopback interface is rejected.
   "commandTimeout": "15s",
   "webSocketHandshakeTimeout": "5s",
   "webSocketWriteTimeout": "5s",
+  "webSocketReadTimeout": "60s",
+  "webSocketPingInterval": "20s",
+  "webSocketSendQueueSize": 64,
   "shutdownTimeout": "5s",
   "webSocketMaxMessageBytes": 4194304,
   "mcpMaxRequestBytes": 4194304,
@@ -53,7 +56,7 @@ storage.
 | MCP host / port | `MCP_BROWSER_MCP_HOST`, `MCP_BROWSER_MCP_PORT` | `-h`, `-p` |
 | WebSocket host / port | `MCP_BROWSER_WS_HOST`, `MCP_BROWSER_WS_PORT` | `-ws_host`, `-ws_port` |
 | Command timeout | `MCP_BROWSER_COMMAND_TIMEOUT` | `-command_timeout` |
-| WebSocket timeouts | `MCP_BROWSER_WS_HANDSHAKE_TIMEOUT`, `MCP_BROWSER_WS_WRITE_TIMEOUT` | `-ws_handshake_timeout`, `-ws_write_timeout` |
+| WebSocket lifecycle | `MCP_BROWSER_WS_HANDSHAKE_TIMEOUT`, `MCP_BROWSER_WS_WRITE_TIMEOUT`, `MCP_BROWSER_WS_READ_TIMEOUT`, `MCP_BROWSER_WS_PING_INTERVAL`, `MCP_BROWSER_WS_SEND_QUEUE_SIZE` | `-ws_handshake_timeout`, `-ws_write_timeout`, `-ws_read_timeout`, `-ws_ping_interval`, `-ws_send_queue_size` |
 | Shutdown timeout | `MCP_BROWSER_SHUTDOWN_TIMEOUT` | `-shutdown_timeout` |
 | Payload limits | `MCP_BROWSER_WS_MAX_MESSAGE_BYTES`, `MCP_BROWSER_MCP_MAX_REQUEST_BYTES` | `-ws_max_message_bytes`, `-mcp_max_request_bytes` |
 | Credential store | `MCP_BROWSER_CREDENTIAL_FILE` | `-credential_file` |

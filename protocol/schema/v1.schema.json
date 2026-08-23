@@ -1,0 +1,225 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://mcp-browser-control.local/schema/protocol/v1.schema.json",
+  "title": "MCP Browser Control Protocol v1",
+  "description": "Wire contract shared by the Go server and Chromium extension.",
+  "type": "object",
+  "required": ["protocolVersion", "type"],
+  "properties": {
+    "protocolVersion": { "const": "1.0" },
+    "type": {
+      "enum": [
+        "hello",
+        "welcome",
+        "auth_error",
+        "revoke",
+        "request",
+        "response",
+        "cancel",
+        "event",
+        "ping",
+        "pong",
+        "capabilities_changed"
+      ]
+    },
+    "requestId": { "$ref": "#/$defs/nonEmptyString" },
+    "browserId": { "$ref": "#/$defs/browserId" },
+    "connectionId": { "$ref": "#/$defs/nonEmptyString" },
+    "command": { "$ref": "#/$defs/nonEmptyString" },
+    "target": { "$ref": "#/$defs/target" },
+    "params": true,
+    "timeoutMs": { "type": "integer", "minimum": 1, "maximum": 120000 },
+    "success": { "type": "boolean" },
+    "result": true,
+    "error": { "$ref": "#/$defs/error" },
+    "timestamp": { "type": "string", "minLength": 1 }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "const": "hello" } }, "required": ["type"] },
+      "then": {
+        "required": ["browserId", "params"],
+        "properties": { "params": { "$ref": "#/$defs/helloParams" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "welcome" } }, "required": ["type"] },
+      "then": {
+        "required": ["browserId", "connectionId", "result"],
+        "properties": { "result": { "$ref": "#/$defs/welcomeResult" } }
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "auth_error" } }, "required": ["type"] },
+      "then": { "required": ["browserId", "error"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "request" } }, "required": ["type"] },
+      "then": { "required": ["requestId", "browserId", "command", "params"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "response" } }, "required": ["type"] },
+      "then": {
+        "required": ["requestId", "browserId", "success"],
+        "allOf": [
+          {
+            "if": { "properties": { "success": { "const": false } }, "required": ["success"] },
+            "then": { "required": ["error"] }
+          }
+        ]
+      }
+    },
+    {
+      "if": { "properties": { "type": { "const": "cancel" } }, "required": ["type"] },
+      "then": { "required": ["requestId", "browserId"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "capabilities_changed" } }, "required": ["type"] },
+      "then": {
+        "required": ["browserId", "params"],
+        "properties": { "params": { "$ref": "#/$defs/capabilitiesChangedParams" } }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "type": { "enum": ["event", "ping", "pong"] }
+        },
+        "required": ["type"]
+      },
+      "then": { "required": ["browserId"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "revoke" } }, "required": ["type"] },
+      "then": {
+        "required": ["browserId"],
+        "allOf": [
+          {
+            "if": { "properties": { "success": { "const": false } }, "required": ["success"] },
+            "then": { "required": ["error"] }
+          }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "browserId": {
+      "type": "string",
+      "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$"
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "windowId": { "type": "integer", "minimum": 0 },
+        "tabId": { "type": "integer", "minimum": 0 },
+        "frameId": { "type": "integer", "minimum": 0 },
+        "documentId": { "$ref": "#/$defs/nonEmptyString" }
+      }
+    },
+    "browserMetadata": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "os": { "type": "string" },
+        "arch": { "type": "string" }
+      }
+    },
+    "helloParams": {
+      "type": "object",
+      "required": ["extensionVersion", "browser"],
+      "properties": {
+        "displayName": { "type": "string", "maxLength": 80 },
+        "extensionVersion": { "$ref": "#/$defs/nonEmptyString" },
+        "credential": { "type": "string", "minLength": 32, "maxLength": 256 },
+        "pairingCode": { "type": "string", "pattern": "^\\d{4}-?\\d{4}$" },
+        "browser": { "$ref": "#/$defs/browserMetadata" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        },
+        "permissions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        },
+        "incognito": { "type": "boolean" }
+      },
+      "oneOf": [
+        {
+          "required": ["credential"],
+          "not": { "required": ["pairingCode"] }
+        },
+        {
+          "required": ["pairingCode"],
+          "not": { "required": ["credential"] }
+        }
+      ]
+    },
+    "welcomeResult": {
+      "type": "object",
+      "required": ["browserId", "connectionId", "serverTime", "paired"],
+      "properties": {
+        "browserId": { "$ref": "#/$defs/browserId" },
+        "connectionId": { "$ref": "#/$defs/nonEmptyString" },
+        "serverTime": { "$ref": "#/$defs/nonEmptyString" },
+        "credential": { "type": "string", "minLength": 32, "maxLength": 256 },
+        "paired": { "const": true }
+      }
+    },
+    "capabilitiesChangedParams": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        },
+        "permissions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "retryable"],
+      "properties": {
+        "code": {
+          "enum": [
+            "NO_BROWSER_CONNECTED",
+            "AMBIGUOUS_BROWSER",
+            "BROWSER_NOT_FOUND",
+            "BROWSER_DISCONNECTED",
+            "TAB_NOT_FOUND",
+            "FRAME_NOT_FOUND",
+            "STALE_TARGET",
+            "ELEMENT_NOT_FOUND",
+            "STRICT_MODE_VIOLATION",
+            "PERMISSION_REQUIRED",
+            "CAPABILITY_UNAVAILABLE",
+            "PAIRING_REQUIRED",
+            "UNSUPPORTED_PROTOCOL_VERSION",
+            "INVALID_MESSAGE",
+            "INVALID_COMMAND",
+            "TIMEOUT",
+            "CANCELLED",
+            "PAYLOAD_TOO_LARGE",
+            "RESTRICTED_URL",
+            "CONFIRMATION_REQUIRED",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": { "$ref": "#/$defs/nonEmptyString" },
+        "retryable": { "type": "boolean" },
+        "details": { "type": "object" }
+      }
+    }
+  }
+}

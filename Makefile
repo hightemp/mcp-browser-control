@@ -37,6 +37,7 @@ help:
 deps:
 	$(GO) mod download
 	$(GO) mod tidy
+	$(NPM) ci --prefix chrome-extension
 
 fmt:
 	$(GO) fmt ./...

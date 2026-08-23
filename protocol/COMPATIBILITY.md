@@ -1,0 +1,19 @@
+# Protocol Compatibility Policy
+
+The canonical protocol contract is `schema/v1.schema.json`. Its
+`protocolVersion` value and major schema filename are versioned together.
+
+Changes within protocol v1 must be backward compatible:
+
+- new fields must be optional;
+- existing field names, JSON types, and meanings cannot change;
+- required fields cannot be added to existing message types;
+- enum values and error codes cannot be removed or renamed;
+- existing limits cannot be narrowed;
+- clients must ignore unknown optional fields;
+- servers must reject unsupported protocol versions before registration.
+
+Adding a required field, changing field semantics, or removing an accepted
+shape requires a new major schema and a new `protocolVersion`. Every schema
+change must update shared fixtures and pass both Go and JavaScript contract
+tests.

@@ -1,0 +1,16 @@
+{
+  "protocolVersion": "1.0",
+  "type": "hello",
+  "browserId": "11111111-1111-4111-8111-111111111111",
+  "params": {
+    "displayName": "Work Chrome",
+    "extensionVersion": "0.1.0",
+    "pairingCode": "1234-5678",
+    "browser": { "name": "Chrome", "version": "116", "os": "linux", "arch": "x86-64" },
+    "capabilities": ["browser.ping", "tabs.list"],
+    "permissions": ["tabs"],
+    "futureOptionalField": true
+  },
+  "timestamp": "2026-08-23T19:00:00Z",
+  "futureOptionalField": { "ignored": true }
+}

@@ -184,6 +184,11 @@ still enforces its command allowlist.
 
 ## Protocol v1
 
+The versioned Draft 2020-12 contract is maintained in
+[`protocol/schema/v1.schema.json`](protocol/schema/v1.schema.json). Shared
+golden fixtures are validated by both Go and JavaScript tests. Compatibility
+rules are documented in [`protocol/COMPATIBILITY.md`](protocol/COMPATIBILITY.md).
+
 The extension starts with a `hello` envelope:
 
 ```json
@@ -271,6 +276,7 @@ internal/
 ├── tools/                MCP tool definitions and handlers
 ├── transport/websocket/  browser WebSocket transport
 └── integration/          multi-browser end-to-end component tests
+protocol/                 versioned schema, fixtures, and compatibility policy
 ```
 
 The product requirements and execution plan are maintained in Russian in

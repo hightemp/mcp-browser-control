@@ -139,7 +139,7 @@ internal/artifacts/
 
 - Приоритет: P0
 - Зависимости: T-011
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Создать schema для всех envelope и общих payload. Настроить:
 
@@ -147,6 +147,8 @@ internal/artifacts/
 - проверку Go и JavaScript реализаций на одном наборе fixtures;
 - правило backward-compatible изменений;
 - версионирование schema.
+
+Добавлены Draft 2020-12 schema v1, политика совместимости и единый набор golden fixtures. Fixtures независимо проверяются `jsonschema/v6` в Go и Ajv 2020 в JavaScript.
 
 ### T-013 — Реализовать общую модель ошибок
 

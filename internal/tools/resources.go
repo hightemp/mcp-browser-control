@@ -73,7 +73,7 @@ func (s *Service) browserInstancesResource(
 	if request.Params.URI != browserInstancesURI {
 		return nil, fmt.Errorf("unsupported browser instances resource URI %q", request.Params.URI)
 	}
-	return jsonResource(request.Params.URI, map[string]any{
+	return s.jsonResource(request.Params.URI, map[string]any{
 		"instances":      s.registry.ListAll(),
 		"connectedCount": s.registry.Count(),
 		"timestamp":      resourceTimestamp(),
@@ -92,7 +92,7 @@ func (s *Service) browserInstanceResource(
 	if !ok {
 		return nil, protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false)
 	}
-	return jsonResource(request.Params.URI, map[string]any{
+	return s.jsonResource(request.Params.URI, map[string]any{
 		"instance":  browser,
 		"timestamp": resourceTimestamp(),
 	})
@@ -110,7 +110,7 @@ func (s *Service) browserCapabilitiesResource(
 	if !ok {
 		return nil, protocol.NewError(protocol.CodeBrowserNotFound, "browser not found", false)
 	}
-	return jsonResource(request.Params.URI, map[string]any{
+	return s.jsonResource(request.Params.URI, map[string]any{
 		"browserId":    browserID,
 		"browser":      browser.Browser,
 		"capabilities": browser.Capabilities,
@@ -131,13 +131,17 @@ func (s *Service) browserTabsResource(
 	if err != nil {
 		return nil, err
 	}
+	result, _, err = s.sanitizeBrowserResult(result)
+	if err != nil {
+		return nil, err
+	}
 	var tabs any
 	if len(result) > 0 {
 		if err := json.Unmarshal(result, &tabs); err != nil {
 			return nil, fmt.Errorf("decode browser tabs resource: %w", err)
 		}
 	}
-	return jsonResource(request.Params.URI, map[string]any{
+	return s.jsonResource(request.Params.URI, map[string]any{
 		"browserId": browserID,
 		"result":    tabs,
 		"timestamp": resourceTimestamp(),
@@ -166,10 +170,14 @@ func resourceBrowserID(request mcp.ReadResourceRequest, suffix string) (string, 
 	return browserID, nil
 }
 
-func jsonResource(uri string, value any) ([]mcp.ResourceContents, error) {
+func (s *Service) jsonResource(uri string, value any) ([]mcp.ResourceContents, error) {
 	payload, err := json.Marshal(value)
 	if err != nil {
 		return nil, fmt.Errorf("marshal browser resource: %w", err)
+	}
+	payload, _, err = s.sanitizeBrowserResult(payload)
+	if err != nil {
+		return nil, err
 	}
 	return []mcp.ResourceContents{mcp.TextResourceContents{
 		URI:      uri,

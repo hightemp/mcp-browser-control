@@ -63,7 +63,7 @@ func TestConfigFileFromEnvironment(t *testing.T) {
 	t.Parallel()
 
 	path := filepath.Join(t.TempDir(), "server.json")
-	if err := os.WriteFile(path, []byte(`{"redactLogs":false,"artifactTTL":"2h","artifactMaxBytes":1048576}`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{"redactLogs":false,"artifactTTL":"2h","artifactMaxBytes":1048576,"mcpMaxResultBytes":131072}`), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
 	}
 	lookup := func(name string) (string, bool) {
@@ -76,7 +76,8 @@ func TestConfigFileFromEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseConfigWithEnvironment() error = %v", err)
 	}
-	if config.RedactLogs || config.ArtifactTTL != 2*time.Hour || config.ArtifactMaxBytes != 1048576 {
+	if config.RedactLogs || config.ArtifactTTL != 2*time.Hour || config.ArtifactMaxBytes != 1048576 ||
+		config.MCPMaxResultBytes != 131072 {
 		t.Fatalf("config = %#v", config)
 	}
 }
@@ -97,6 +98,7 @@ func TestConfigRejectsInvalidSources(t *testing.T) {
 		{name: "invalid MCP rate", environment: map[string]string{environmentPrefix + "MCP_REQUESTS_PER_SECOND": "0"}, wantError: "mcp_requests_per_second"},
 		{name: "invalid browser burst", environment: map[string]string{environmentPrefix + "WS_MESSAGE_BURST": "1000001"}, wantError: "ws_message_burst"},
 		{name: "invalid artifact quota", environment: map[string]string{environmentPrefix + "ARTIFACT_MAX_BYTES": "0"}, wantError: "artifact_max_bytes"},
+		{name: "invalid result limit", environment: map[string]string{environmentPrefix + "MCP_MAX_RESULT_BYTES": "0"}, wantError: "payload limits"},
 		{name: "unsafe origin", environment: map[string]string{environmentPrefix + "ORIGIN_ALLOWLIST": "https://example.com"}, wantError: "allowed origin"},
 		{name: "ping not below read timeout", environment: map[string]string{environmentPrefix + "WS_READ_TIMEOUT": "10s", environmentPrefix + "WS_PING_INTERVAL": "10s"}, wantError: "shorter"},
 		{name: "HTTP without token file", environment: map[string]string{environmentPrefix + "MCP_TOKEN_FILE": ""}, wantError: "mcp_token_file"},

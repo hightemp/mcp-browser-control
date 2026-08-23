@@ -961,7 +961,7 @@ Origin, oversized frame, bounded event flood и превышение message rat
 
 - Приоритет: P0
 - Зависимости: T-013
-- Статус: `[~]`
+- Статус: `[x]`
 
 Редактировать:
 
@@ -974,6 +974,19 @@ Origin, oversized frame, bounded event flood и превышение message rat
 - локальные paths.
 
 Добавить лимиты HTML, text, DOM nodes, bodies, console args, events, artifacts и batch output.
+
+Добавлен независимый server-side redaction boundary для всех browser tool
+results, error details и JSON resources. Он повторно редактирует authorization
+и cookie headers, cookie values, password/credential fields, form/request data,
+clipboard, URL userinfo и чувствительные query-параметры, а также локальные
+пути, даже если расширение вернуло их по ошибке. Traversal ограничен depth,
+nodes и длиной строки; итоговый JSON ограничен настраиваемым
+`mcpMaxResultBytes` и при превышении возвращает `PAYLOAD_TOO_LARGE`. HTML/text,
+DOM snapshot, console entries/events, screenshots и artifact quota имеют более
+узкие domain limits. Network bodies и batch не доступны до T-062/T-05A и при
+реализации дополнительно останутся под общим result budget. Table-driven и
+сквозные tests подтверждают redaction каждого класса секретов, resource/tool
+границы, UTF-8 truncation и oversized response rejection.
 
 ### T-082 — Реализовать origin/action policy
 

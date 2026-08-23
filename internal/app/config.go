@@ -36,6 +36,7 @@ type Config struct {
 	ShutdownTimeout            time.Duration
 	WebSocketMaxMessageBytes   int64
 	MCPMaxRequestBytes         int64
+	MCPMaxResultBytes          int64
 	MCPRequestsPerSecond       int
 	MCPRequestBurst            int
 	WebSocketMessagesPerSecond int
@@ -71,6 +72,7 @@ type fileConfig struct {
 	ShutdownTimeout            *string   `json:"shutdownTimeout"`
 	WebSocketMaxMessageBytes   *int64    `json:"webSocketMaxMessageBytes"`
 	MCPMaxRequestBytes         *int64    `json:"mcpMaxRequestBytes"`
+	MCPMaxResultBytes          *int64    `json:"mcpMaxResultBytes"`
 	MCPRequestsPerSecond       *int      `json:"mcpRequestsPerSecond"`
 	MCPRequestBurst            *int      `json:"mcpRequestBurst"`
 	WebSocketMessagesPerSecond *int      `json:"webSocketMessagesPerSecond"`
@@ -135,6 +137,7 @@ func defaultConfig() Config {
 		ShutdownTimeout:            5 * time.Second,
 		WebSocketMaxMessageBytes:   4 << 20,
 		MCPMaxRequestBytes:         4 << 20,
+		MCPMaxResultBytes:          2 << 20,
 		MCPRequestsPerSecond:       100,
 		MCPRequestBurst:            200,
 		WebSocketMessagesPerSecond: 1_000,
@@ -190,10 +193,11 @@ func (c Config) Validate() error {
 			return fmt.Errorf("%s must be positive", name)
 		}
 	}
-	if c.WebSocketMaxMessageBytes <= 0 || c.MCPMaxRequestBytes <= 0 {
+	if c.WebSocketMaxMessageBytes <= 0 || c.MCPMaxRequestBytes <= 0 || c.MCPMaxResultBytes <= 0 {
 		return errors.New("payload limits must be positive")
 	}
-	if c.WebSocketMaxMessageBytes > 64<<20 || c.MCPMaxRequestBytes > 64<<20 {
+	if c.WebSocketMaxMessageBytes > 64<<20 || c.MCPMaxRequestBytes > 64<<20 ||
+		c.MCPMaxResultBytes > 64<<20 {
 		return errors.New("payload limits must not exceed 67108864 bytes")
 	}
 	for name, value := range map[string]int{
@@ -262,6 +266,7 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags.DurationVar(&config.ShutdownTimeout, "shutdown_timeout", config.ShutdownTimeout, "Graceful shutdown timeout")
 	flags.Int64Var(&config.WebSocketMaxMessageBytes, "ws_max_message_bytes", config.WebSocketMaxMessageBytes, "Maximum browser message size")
 	flags.Int64Var(&config.MCPMaxRequestBytes, "mcp_max_request_bytes", config.MCPMaxRequestBytes, "Maximum MCP HTTP request size")
+	flags.Int64Var(&config.MCPMaxResultBytes, "mcp_max_result_bytes", config.MCPMaxResultBytes, "Maximum sanitized MCP tool or resource result size")
 	flags.IntVar(&config.MCPRequestsPerSecond, "mcp_requests_per_second", config.MCPRequestsPerSecond, "Per-session MCP requests per second")
 	flags.IntVar(&config.MCPRequestBurst, "mcp_request_burst", config.MCPRequestBurst, "Per-session MCP request burst")
 	flags.IntVar(&config.WebSocketMessagesPerSecond, "ws_messages_per_second", config.WebSocketMessagesPerSecond, "Per-browser messages per second")
@@ -319,6 +324,7 @@ func (f fileConfig) apply(config *Config) error {
 	assignString(&config.LogLevel, f.LogLevel)
 	assignInt64(&config.WebSocketMaxMessageBytes, f.WebSocketMaxMessageBytes)
 	assignInt64(&config.MCPMaxRequestBytes, f.MCPMaxRequestBytes)
+	assignInt64(&config.MCPMaxResultBytes, f.MCPMaxResultBytes)
 	assignInt(&config.MCPRequestsPerSecond, f.MCPRequestsPerSecond)
 	assignInt(&config.MCPRequestBurst, f.MCPRequestBurst)
 	assignInt(&config.WebSocketMessagesPerSecond, f.WebSocketMessagesPerSecond)
@@ -395,6 +401,9 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 		return err
 	}
 	if err := assignEnvInt64(lookupEnv, "MCP_MAX_REQUEST_BYTES", &config.MCPMaxRequestBytes); err != nil {
+		return err
+	}
+	if err := assignEnvInt64(lookupEnv, "MCP_MAX_RESULT_BYTES", &config.MCPMaxResultBytes); err != nil {
 		return err
 	}
 	for name, destination := range map[string]*int{

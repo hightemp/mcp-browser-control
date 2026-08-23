@@ -415,6 +415,8 @@ acknowledged credential revocation exchange. Browser commands use
 - Website access is optional and user-granted.
 - Restricted browser pages are rejected.
 - Password values are redacted from page interaction results.
+- Browser results are redacted again at the server boundary and limited to
+  2 MiB of sanitized JSON by default.
 - WebSocket messages and command deadlines are bounded.
 
 Loopback binding remains mandatory as a defense-in-depth boundary.

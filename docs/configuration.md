@@ -29,6 +29,7 @@ to bind either listener to a non-loopback interface is rejected.
   "shutdownTimeout": "5s",
   "webSocketMaxMessageBytes": 4194304,
   "mcpMaxRequestBytes": 4194304,
+  "mcpMaxResultBytes": 2097152,
   "mcpRequestsPerSecond": 100,
   "mcpRequestBurst": 200,
   "webSocketMessagesPerSecond": 1000,
@@ -65,7 +66,7 @@ storage.
 | Command timeout | `MCP_BROWSER_COMMAND_TIMEOUT` | `-command_timeout` |
 | WebSocket lifecycle | `MCP_BROWSER_WS_HANDSHAKE_TIMEOUT`, `MCP_BROWSER_WS_WRITE_TIMEOUT`, `MCP_BROWSER_WS_READ_TIMEOUT`, `MCP_BROWSER_WS_PING_INTERVAL`, `MCP_BROWSER_WS_SEND_QUEUE_SIZE` | `-ws_handshake_timeout`, `-ws_write_timeout`, `-ws_read_timeout`, `-ws_ping_interval`, `-ws_send_queue_size` |
 | Shutdown timeout | `MCP_BROWSER_SHUTDOWN_TIMEOUT` | `-shutdown_timeout` |
-| Payload limits | `MCP_BROWSER_WS_MAX_MESSAGE_BYTES`, `MCP_BROWSER_MCP_MAX_REQUEST_BYTES` | `-ws_max_message_bytes`, `-mcp_max_request_bytes` |
+| Payload limits | `MCP_BROWSER_WS_MAX_MESSAGE_BYTES`, `MCP_BROWSER_MCP_MAX_REQUEST_BYTES`, `MCP_BROWSER_MCP_MAX_RESULT_BYTES` | `-ws_max_message_bytes`, `-mcp_max_request_bytes`, `-mcp_max_result_bytes` |
 | Rate limits | `MCP_BROWSER_MCP_REQUESTS_PER_SECOND`, `MCP_BROWSER_MCP_REQUEST_BURST`, `MCP_BROWSER_WS_MESSAGES_PER_SECOND`, `MCP_BROWSER_WS_MESSAGE_BURST` | `-mcp_requests_per_second`, `-mcp_request_burst`, `-ws_messages_per_second`, `-ws_message_burst` |
 | MCP Bearer token file | `MCP_BROWSER_MCP_TOKEN_FILE` | `-mcp_token_file` |
 | Credential store | `MCP_BROWSER_CREDENTIAL_FILE` | `-credential_file` |
@@ -90,6 +91,15 @@ configured burst and then refill at the configured per-second rate. Exceeding
 the MCP limit returns a JSON-RPC error; exceeding the browser limit closes that
 connection with WebSocket policy-violation code 1008. Session buckets are
 removed on normal cleanup and also have bounded count and idle lifetime.
+
+Every browser tool result and JSON browser resource passes through a second,
+server-side redaction boundary before reaching the MCP client. Authorization
+and cookie headers, cookie values, password/credential fields, form bodies,
+clipboard data, sensitive URL query values, URL userinfo, and local filesystem
+paths are replaced even if the extension failed to redact them. Traversal has
+fixed depth, node, and string budgets. The final sanitized JSON must fit
+`mcpMaxResultBytes` (2 MiB by default) or the operation returns
+`PAYLOAD_TOO_LARGE`.
 
 Legacy SSE is disabled by default. Both `transport: "sse"` and
 `legacySSEEnabled: true` are required to start it.

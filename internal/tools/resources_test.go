@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -165,7 +166,10 @@ func TestBrowserTabsResourceRoutesToURIInstance(t *testing.T) {
 		t.Fatalf("browser B received unexpected request: %#v", unexpected)
 	default:
 	}
-	wantResult := map[string]any{"tabs": []map[string]any{{"id": 7, "title": "Example"}}}
+	wantResult := map[string]any{"tabs": []map[string]any{{
+		"id": 7, "title": "Example",
+		"url": "https://example.test/?token=tabs-resource-secret&safe=yes",
+	}}}
 	response, err := protocol.NewResponse(request.RequestID, "browser-a", wantResult, nil)
 	if err != nil {
 		t.Fatalf("NewResponse() error = %v", err)
@@ -183,10 +187,20 @@ func TestBrowserTabsResourceRoutesToURIInstance(t *testing.T) {
 			t.Fatalf("browserId = %#v", resourceJSON["browserId"])
 		}
 		result, ok := resourceJSON["result"].(map[string]any)
-		if !ok || !reflect.DeepEqual(result["tabs"], []any{map[string]any{
-			"id": float64(7), "title": "Example",
-		}}) {
+		tabs, tabsOK := result["tabs"].([]any)
+		if !ok || !tabsOK || len(tabs) != 1 {
 			t.Fatalf("result = %#v", resourceJSON["result"])
+		}
+		tab, tabOK := tabs[0].(map[string]any)
+		if !tabOK || !reflect.DeepEqual(
+			map[string]any{"id": tab["id"], "title": tab["title"]},
+			map[string]any{"id": float64(7), "title": "Example"},
+		) {
+			t.Fatalf("tab = %#v", tabs[0])
+		}
+		url, urlOK := tab["url"].(string)
+		if !urlOK || strings.Contains(url, "tabs-resource-secret") || !strings.Contains(url, "safe=yes") {
+			t.Fatalf("redacted tab URL = %#v", tab["url"])
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for tabs resource")

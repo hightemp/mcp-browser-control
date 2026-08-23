@@ -5,12 +5,14 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/redaction"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/selection"
@@ -19,16 +21,18 @@ import (
 )
 
 const (
-	directSessionID = "direct"
-	maxToolTimeout  = 2 * time.Minute
+	directSessionID       = "direct"
+	maxToolTimeout        = 2 * time.Minute
+	defaultMaxResultBytes = 2 << 20
 )
 
 // Service owns MCP browser tool handlers.
 type Service struct {
-	registry   *registry.Registry
-	router     *router.Router
-	selections *selection.Store
-	artifacts  *artifacts.Store
+	registry     *registry.Registry
+	router       *router.Router
+	selections   *selection.Store
+	artifacts    *artifacts.Store
+	resultLimits redaction.Limits
 }
 
 // ServiceOption configures a browser MCP tool service.
@@ -41,6 +45,15 @@ func WithArtifactStore(store *artifacts.Store) ServiceOption {
 	}
 }
 
+// WithMaxResultBytes changes the sanitized MCP tool and resource result bound.
+func WithMaxResultBytes(maxBytes int64) ServiceOption {
+	return func(service *Service) {
+		if maxBytes > 0 && maxBytes <= 64<<20 {
+			service.resultLimits = redaction.DefaultLimits(int(maxBytes))
+		}
+	}
+}
+
 // NewService creates a browser MCP tool service.
 func NewService(
 	browserRegistry *registry.Registry,
@@ -49,9 +62,10 @@ func NewService(
 	options ...ServiceOption,
 ) *Service {
 	service := &Service{
-		registry:   browserRegistry,
-		router:     requestRouter,
-		selections: selections,
+		registry:     browserRegistry,
+		router:       requestRouter,
+		selections:   selections,
+		resultLimits: redaction.DefaultLimits(defaultMaxResultBytes),
 	}
 	for _, option := range options {
 		option(service)
@@ -913,7 +927,39 @@ func (s *Service) send(
 	if err != nil {
 		return errorResultWithDuration(err, duration)
 	}
-	return successResultWithTarget(browserID, resolvedTarget, result, duration)
+	sanitized, report, err := s.sanitizeBrowserResult(result)
+	if err != nil {
+		return errorResultWithDuration(err, duration)
+	}
+	return successResultWithTargetWarningsLimited(
+		browserID,
+		resolvedTarget,
+		sanitized,
+		duration,
+		report.Warnings(),
+		s.resultLimits.MaxOutputBytes,
+	)
+}
+
+func (s *Service) sanitizeBrowserResult(
+	result json.RawMessage,
+) (json.RawMessage, redaction.Report, error) {
+	sanitized, report, err := redaction.JSON(result, s.resultLimits)
+	if err == nil {
+		return sanitized, report, nil
+	}
+	if errors.Is(err, redaction.ErrInputTooLarge) || errors.Is(err, redaction.ErrOutputTooLarge) {
+		return nil, report, protocol.NewError(
+			protocol.CodePayloadTooLarge,
+			"the sanitized browser result exceeds the configured MCP result limit",
+			false,
+		)
+	}
+	return nil, report, protocol.NewError(
+		protocol.CodeInvalidMessage,
+		"the browser returned an invalid result payload",
+		false,
+	)
 }
 
 func (s *Service) sendRaw(
@@ -1106,7 +1152,36 @@ func successResultWithTarget(
 	data any,
 	duration time.Duration,
 ) (*mcp.CallToolResult, error) {
+	return successResultWithTargetWarnings(browserID, target, data, duration, nil)
+}
+
+func successResultWithTargetWarnings(
+	browserID string,
+	target *protocol.Target,
+	data any,
+	duration time.Duration,
+	additionalWarnings []string,
+) (*mcp.CallToolResult, error) {
+	return successResultWithTargetWarningsLimited(
+		browserID,
+		target,
+		data,
+		duration,
+		additionalWarnings,
+		0,
+	)
+}
+
+func successResultWithTargetWarningsLimited(
+	browserID string,
+	target *protocol.Target,
+	data any,
+	duration time.Duration,
+	additionalWarnings []string,
+	maxBytes int,
+) (*mcp.CallToolResult, error) {
 	warnings, nextCursor, artifactURI := resultHints(data)
+	warnings = appendUnique(warnings, additionalWarnings...)
 	response := toolResponse{
 		Success:     true,
 		BrowserID:   browserID,
@@ -1125,6 +1200,13 @@ func successResultWithTarget(
 	if err != nil {
 		return nil, fmt.Errorf("marshal MCP tool result: %w", err)
 	}
+	if maxBytes > 0 && len(payload) > maxBytes {
+		return errorResult(protocol.NewError(
+			protocol.CodePayloadTooLarge,
+			"the sanitized MCP tool result exceeds the configured result limit",
+			false,
+		))
+	}
 	return mcp.NewToolResultText(string(payload)), nil
 }
 
@@ -1133,7 +1215,7 @@ func errorResult(err error) (*mcp.CallToolResult, error) {
 }
 
 func errorResultWithDuration(err error, duration time.Duration) (*mcp.CallToolResult, error) {
-	resultError := protocol.ErrorFrom(err)
+	resultError := sanitizedProtocolError(err)
 	response := toolResponse{
 		Success:   false,
 		Target:    resolvedResultTarget("", resultError.Target),
@@ -1153,6 +1235,53 @@ func errorResultWithDuration(err error, duration time.Duration) (*mcp.CallToolRe
 		return nil, fmt.Errorf("marshal MCP tool error: %w", marshalErr)
 	}
 	return mcp.NewToolResultError(string(payload)), nil
+}
+
+func sanitizedProtocolError(err error) *protocol.Error {
+	result := protocol.ErrorFrom(err)
+	if result == nil {
+		return nil
+	}
+	result.Message, _ = redaction.String(result.Message, 4_000)
+	if result.Details == nil {
+		return result
+	}
+	limits := redaction.DefaultLimits(64 << 10)
+	limits.MaxInputBytes = 64 << 10
+	limits.MaxStringBytes = 8_000
+	sanitized, _, sanitizeErr := redaction.Value(result.Details, limits)
+	if sanitizeErr != nil {
+		result.Details = nil
+		return result
+	}
+	details, ok := sanitized.(map[string]any)
+	if !ok {
+		result.Details = nil
+		return result
+	}
+	encoded, marshalErr := json.Marshal(details)
+	if marshalErr != nil || len(encoded) > limits.MaxOutputBytes {
+		result.Details = nil
+		return result
+	}
+	result.Details = details
+	return result
+}
+
+func appendUnique(values []string, additional ...string) []string {
+	seen := make(map[string]struct{}, len(values)+len(additional))
+	result := make([]string, 0, len(values)+len(additional))
+	for _, value := range append(append([]string(nil), values...), additional...) {
+		if value == "" {
+			continue
+		}
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+	return result
 }
 
 func resolvedResultTarget(browserID string, target *protocol.Target) *protocol.Target {

@@ -132,6 +132,7 @@ func run(
 		requestRouter,
 		selections,
 		browsertools.WithArtifactStore(artifactStore),
+		browsertools.WithMaxResultBytes(config.MCPMaxResultBytes),
 	).Register(mcpServer)
 	artifactStore.RegisterResources(mcpServer)
 

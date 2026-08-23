@@ -439,7 +439,7 @@ Disk-backed store использует 256-bit cryptographically random URL-safe
 
 - Приоритет: P0
 - Зависимости: T-002, T-003
-- Статус: `[~]`
+- Статус: `[x]`
 
 Структура:
 
@@ -463,6 +463,15 @@ chrome-extension/
 - весь UI и код на английском;
 - нет remotely hosted code;
 - есть lint, unit test и build commands.
+
+Создано Manifest V3 расширение с service worker, popup и options UI. Постоянные
+permissions ограничены базовыми API управления вкладками и выполнения scripts;
+доступ к сайтам и чувствительным API запрашивается только через optional
+permissions. Весь runtime-код поставляется внутри расширения. Отдельный
+manifest contract test проверяет версию manifest, точный набор обязательных и
+optional permissions, локальные entrypoints, отсутствие remote imports и
+кириллицы в коде/UI. npm scripts и Makefile предоставляют format, lint, unit
+test и production build команды.
 
 ### T-041 — Реализовать постоянную identity браузера
 

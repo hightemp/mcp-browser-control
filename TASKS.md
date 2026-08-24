@@ -807,7 +807,7 @@ raw `browser_send_command` и рекурсивный batch. Результат �
 
 - Приоритет: P1
 - Зависимости: T-003, T-045, T-051
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Требования:
 
@@ -819,6 +819,22 @@ raw `browser_send_command` и рекурсивный batch. Результат �
 - автоматический detach;
 - allowlisted domains;
 - bounded event fan-out.
+
+В расширении реализован единый `CDPSessionManager`: конкурентные consumers
+одной вкладки разделяют один root `chrome.debugger.attach`, leases имеют
+reference counting, последний release автоматически вызывает detach, а
+disconnect MCP, отзыв Debug permission и browser `onDetach` принудительно
+инвалидируют все consumers. Добавлены fail-closed domain allowlist, лимиты root
+sessions/consumers/command payload/result и независимые bounded event queues с
+учётом dropped events. DevTools conflict и Chrome API errors преобразуются в
+стабильные безопасные ошибки. Chrome/Edge 116–124 поддерживают root session и
+same-process frame contexts; flat child sessions/OOPIF включаются только с 125,
+используют фиксированный recursive iframe-only `Target.setAutoAttach`, opaque
+session IDs и очистку stale contexts. Менеджер подключён к service-worker
+lifecycle, документирован в английском `docs/cdp-session-manager.md` и покрыт
+unit-тестами attach sharing, refcount, auto/forced detach, conflict, onDetach,
+allowlists, backpressure, cancellation, child/frame routing и cleanup. Новые
+CDP-backed MCP capabilities этой инфраструктурной задачей не рекламируются.
 
 ### T-061 — Реализовать console и page error capture
 

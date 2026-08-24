@@ -163,7 +163,7 @@ task can be marked complete:
 
 | Task | Outcome |
 | --- | --- |
-| T-060 CDP Session Manager | Approved as prerequisite; one session per target, reference counts, bounded consumers, forced detach |
+| T-060 CDP Session Manager | Implemented as documented in [`cdp-session-manager.md`](cdp-session-manager.md): one root session per tab, reference-counted leases, exact command/event allowlists, bounded fan-out, version-gated child sessions, and forced detach |
 | T-062 network capture | Conditional approval for metadata and bounded allowlisted bodies; interception remains prohibited |
 | T-063 emulation | Conditional approval through typed reversible settings with restore-on-detach |
 | T-064 accessibility | Approved with tree/node bounds and origin checks |

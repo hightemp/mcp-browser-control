@@ -21,6 +21,7 @@ import { createTabGroupHandlers } from "./handlers/tab-groups.js";
 import { createSessionHandlers } from "./handlers/sessions.js";
 import { createWindowHandlers } from "./handlers/windows.js";
 import { createNetworkActivityObserver } from "./network-activity.js";
+import { createCDPSessionManager } from "./cdp-session-manager.js";
 
 const DEFAULT_SETTINGS = Object.freeze({
   endpoint: "ws://127.0.0.1:8090/ws",
@@ -46,6 +47,7 @@ let pendingRevocation = null;
 let lastError = "";
 let lastPingSentAt = 0;
 const networkActivity = createNetworkActivityObserver(chrome);
+const cdpSessions = createCDPSessionManager(chrome, { browserVersion: getBrowserVersion() });
 const commandRouter = new CommandRouter({
   getBrowserId: getIdentity,
   getCapabilities: getCurrentCapabilities,
@@ -84,6 +86,7 @@ chrome.permissions.onAdded.addListener(() => {
 
 chrome.permissions.onRemoved.addListener((removed) => {
   if (removed.permissions?.includes("webRequest")) networkActivity.reset();
+  if (removed.permissions?.includes("debugger")) void cdpSessions.detachAll("permission_revoked");
   void sendCapabilitiesChanged();
 });
 
@@ -255,6 +258,7 @@ async function handleSocketClose(currentSocket) {
   socket = null;
   connectionId = "";
   stopKeepalive();
+  await cdpSessions.detachAll("server_disconnected");
   if (pendingRevocation) {
     clearTimeout(pendingRevocation.timeout);
     pendingRevocation.reject(
@@ -565,6 +569,7 @@ async function disconnect(manual, nextStatus = "disconnected") {
   if (currentSocket) {
     currentSocket.close(1000, "Disconnected by user");
   }
+  await cdpSessions.detachAll("server_disconnected");
   await chrome.alarms.clear(RECONNECT_ALARM);
   await updateStatus(nextStatus);
 }

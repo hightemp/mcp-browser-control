@@ -7,7 +7,7 @@ import { COMMAND_NAMES } from "../src/command-router.js";
 test("capability detection uses browser version, APIs, and permissions", () => {
   assert.deepEqual(
     detectCapabilities({
-      browserVersion: "116.0.0.0",
+      browserVersion: "130.0.0.0",
       apis: {
         tabs: true,
         captureVisibleTab: true,
@@ -16,6 +16,9 @@ test("capability detection uses browser version, APIs, and permissions", () => {
         tabGroups: true,
         sessions: true,
         downloads: true,
+        history: true,
+        bookmarks: true,
+        readingList: true,
         cookies: true,
         originStorage: true,
         scripting: true,
@@ -31,6 +34,9 @@ test("capability detection uses browser version, APIs, and permissions", () => {
           "tabGroups",
           "sessions",
           "downloads",
+          "history",
+          "bookmarks",
+          "readingList",
           "cookies",
           "browsingData",
         ],
@@ -239,6 +245,26 @@ test("capability detection removes unavailable or disabled commands", () => {
       apis: { downloads: true },
       permissions: { permissions: [], origins: [] },
     }).some((name) => name.startsWith("downloads.")),
+    false,
+  );
+
+  const personalData = detectCapabilities({
+    browserVersion: "130",
+    apis: { history: true, bookmarks: true, readingList: true },
+    permissions: {
+      permissions: ["history", "bookmarks", "readingList"],
+      origins: [],
+    },
+  });
+  assert.equal(personalData.includes("history.search"), true);
+  assert.equal(personalData.includes("bookmarks.create"), true);
+  assert.equal(personalData.includes("readingList.update"), true);
+  assert.equal(
+    detectCapabilities({
+      browserVersion: "119",
+      apis: { readingList: true },
+      permissions: { permissions: ["readingList"], origins: [] },
+    }).some((name) => name.startsWith("readingList.")),
     false,
   );
 });

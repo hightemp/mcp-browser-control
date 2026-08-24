@@ -231,4 +231,35 @@ const (
 	CommandDownloadsCancel = "downloads.cancel"
 	// CommandDownloadsErase erases one terminal download history entry.
 	CommandDownloadsErase = "downloads.erase"
+
+	// CommandHistorySearch searches bounded browser history metadata.
+	CommandHistorySearch = "history.search"
+	// CommandHistoryGetVisits lists bounded visits for one HTTP(S) URL.
+	CommandHistoryGetVisits = "history.getVisits"
+	// CommandHistoryDeleteURL removes every visit for one exact HTTP(S) URL.
+	CommandHistoryDeleteURL = "history.deleteUrl"
+	// CommandHistoryDeleteRange removes history visits in one confirmed time range.
+	CommandHistoryDeleteRange = "history.deleteRange"
+	// CommandHistoryDeleteAll clears browser history after explicit confirmation.
+	CommandHistoryDeleteAll = "history.deleteAll"
+
+	// CommandBookmarksList lists or searches bounded bookmark nodes.
+	CommandBookmarksList = "bookmarks.list"
+	// CommandBookmarksCreate creates one bookmark or folder.
+	CommandBookmarksCreate = "bookmarks.create"
+	// CommandBookmarksUpdate changes one bookmark or folder.
+	CommandBookmarksUpdate = "bookmarks.update"
+	// CommandBookmarksMove moves one bookmark or folder.
+	CommandBookmarksMove = "bookmarks.move"
+	// CommandBookmarksRemove removes one bookmark, empty folder, or confirmed folder tree.
+	CommandBookmarksRemove = "bookmarks.remove"
+
+	// CommandReadingListList lists bounded reading-list entries.
+	CommandReadingListList = "readingList.list"
+	// CommandReadingListAdd adds one reading-list entry.
+	CommandReadingListAdd = "readingList.add"
+	// CommandReadingListUpdate changes one reading-list entry.
+	CommandReadingListUpdate = "readingList.update"
+	// CommandReadingListRemove removes one reading-list entry.
+	CommandReadingListRemove = "readingList.remove"
 )

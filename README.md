@@ -18,9 +18,10 @@ The first multi-browser vertical slice is implemented:
   handshake is authenticated;
 - STDIO and authenticated Streamable HTTP transports are available; deprecated
   legacy SSE requires an explicit opt-in;
-- window, tab, tab-group, session, bounded page inspection, semantic snapshot,
-  locator, DOM and trusted-CDP interaction, waits, viewport/full-page/element screenshots, managed-CDP PDF
-  artifacts, bounded accessibility trees, reversible tab emulation,
+- window, tab, tab-group, session, history, bookmark, reading-list, bounded page
+  inspection, semantic snapshot, locator, DOM and trusted-CDP interaction,
+  waits, viewport/full-page/element screenshots, managed-CDP PDF artifacts,
+  bounded accessibility trees, reversible tab emulation,
   opt-in isolated-world JavaScript evaluation, a reviewed opt-in read-only CDP
   subset, bounded performance metrics/capture artifacts, and bridge/CDP console
   diagnostics work through the extension;
@@ -310,6 +311,20 @@ rejects stale output.
 - `browser_resume_download`
 - `browser_cancel_download`
 - `browser_erase_download_history`
+- `browser_search_history`
+- `browser_get_history_visits`
+- `browser_delete_history_url`
+- `browser_delete_history_range`
+- `browser_clear_history`
+- `browser_list_bookmarks`
+- `browser_create_bookmark`
+- `browser_update_bookmark`
+- `browser_move_bookmark`
+- `browser_remove_bookmark`
+- `browser_list_reading_list`
+- `browser_add_reading_list_entry`
+- `browser_update_reading_list_entry`
+- `browser_remove_reading_list_entry`
 - `browser_batch`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
@@ -495,6 +510,17 @@ custom filename, path, headers, method, or body is accepted. History erase
 requires `confirm: true` and never deletes the file. File reading, `removeFile`,
 danger acceptance, bulk erase, generic command, and batch paths are prohibited.
 See [`docs/downloads.md`](docs/downloads.md).
+
+History, bookmark, and reading-list tools are browser-scoped Personal data
+operations available only in MCP `full`. Reads scan at most 10,000 entries and
+return offset-paginated pages of at most 200. History deletion is split into
+exact-URL, range, and all-history tools and always requires `confirm: true`;
+recursive bookmark-folder removal also requires confirmation. Returned URLs
+drop credentials and fragments and replace sensitive query values with
+`[REDACTED]`. Audits contain metadata only, and none of these tools can be
+reached through generic commands or batch execution. Reading List is
+capability-gated because the extension API requires Chrome 120 or newer. See
+[`docs/personal-data.md`](docs/personal-data.md).
 
 `browser_batch` runs up to 25 typed commands sequentially against one resolved
 browser. It uses a shared 30-second deadline by default (configurable up to 120

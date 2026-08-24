@@ -20,6 +20,7 @@ const optionalPermissions = [
   "debugger",
   "downloads",
   "history",
+  "readingList",
   "sessions",
   "tabGroups",
   "webRequest",

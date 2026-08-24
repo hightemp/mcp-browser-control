@@ -57,6 +57,7 @@ test("profile state distinguishes disabled, partial, and enabled grants", () => 
         "cookies",
         "downloads",
         "history",
+        "readingList",
         "sessions",
         "tabGroups",
         "webRequest",
@@ -72,6 +73,7 @@ test("Personal data requests Observe dependency but removes only its own grants"
   assert.deepEqual(request.origins, ["http://*/*", "https://*/*"]);
   assert.equal(request.permissions.includes("cookies"), true);
   assert.equal(request.permissions.includes("history"), true);
+  assert.equal(request.permissions.includes("readingList"), true);
   assert.equal(request.permissions.includes("webRequest"), true);
 
   const removal = permissionRemovalFor("personal");

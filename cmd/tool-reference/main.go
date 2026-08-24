@@ -107,35 +107,49 @@ var toolCapabilities = map[string]string{
 	"browser_get_performance_metrics": protocol.CommandPerformanceMetrics,
 	"browser_capture_performance":     protocol.CommandPerformanceCapture,
 
-	"browser_start_console_capture":  protocol.CommandConsoleStart,
-	"browser_stop_console_capture":   protocol.CommandConsoleStop,
-	"browser_clear_console_log":      protocol.CommandConsoleClear,
-	"browser_get_console_log":        protocol.CommandConsoleRead,
-	"browser_start_network_capture":  protocol.CommandNetworkStart,
-	"browser_stop_network_capture":   protocol.CommandNetworkStop,
-	"browser_clear_network_log":      protocol.CommandNetworkClear,
-	"browser_get_network_log":        protocol.CommandNetworkRead,
-	"browser_get_network_body":       protocol.CommandNetworkGetBody,
-	"browser_export_network_har":     protocol.CommandNetworkExportHAR,
-	"browser_list_cookies":           protocol.CommandCookiesList,
-	"browser_get_cookie":             protocol.CommandCookiesGet,
-	"browser_set_cookie":             protocol.CommandCookiesSet,
-	"browser_remove_cookie":          protocol.CommandCookiesRemove,
-	"browser_list_storage_items":     protocol.CommandStorageList,
-	"browser_get_storage_item":       protocol.CommandStorageGet,
-	"browser_set_storage_item":       protocol.CommandStorageSet,
-	"browser_remove_storage_item":    protocol.CommandStorageRemove,
-	"browser_get_cache_metadata":     protocol.CommandStorageCacheMetadata,
-	"browser_get_indexeddb_metadata": protocol.CommandStorageIndexedDBMetadata,
-	"browser_clear_origin_storage":   protocol.CommandStorageClear,
-	"browser_list_downloads":         protocol.CommandDownloadsList,
-	"browser_get_download":           protocol.CommandDownloadsGet,
-	"browser_create_download":        protocol.CommandDownloadsCreate,
-	"browser_pause_download":         protocol.CommandDownloadsPause,
-	"browser_resume_download":        protocol.CommandDownloadsResume,
-	"browser_cancel_download":        protocol.CommandDownloadsCancel,
-	"browser_erase_download_history": protocol.CommandDownloadsErase,
-	"browser_send_command":           dynamicCapability,
+	"browser_start_console_capture":     protocol.CommandConsoleStart,
+	"browser_stop_console_capture":      protocol.CommandConsoleStop,
+	"browser_clear_console_log":         protocol.CommandConsoleClear,
+	"browser_get_console_log":           protocol.CommandConsoleRead,
+	"browser_start_network_capture":     protocol.CommandNetworkStart,
+	"browser_stop_network_capture":      protocol.CommandNetworkStop,
+	"browser_clear_network_log":         protocol.CommandNetworkClear,
+	"browser_get_network_log":           protocol.CommandNetworkRead,
+	"browser_get_network_body":          protocol.CommandNetworkGetBody,
+	"browser_export_network_har":        protocol.CommandNetworkExportHAR,
+	"browser_list_cookies":              protocol.CommandCookiesList,
+	"browser_get_cookie":                protocol.CommandCookiesGet,
+	"browser_set_cookie":                protocol.CommandCookiesSet,
+	"browser_remove_cookie":             protocol.CommandCookiesRemove,
+	"browser_list_storage_items":        protocol.CommandStorageList,
+	"browser_get_storage_item":          protocol.CommandStorageGet,
+	"browser_set_storage_item":          protocol.CommandStorageSet,
+	"browser_remove_storage_item":       protocol.CommandStorageRemove,
+	"browser_get_cache_metadata":        protocol.CommandStorageCacheMetadata,
+	"browser_get_indexeddb_metadata":    protocol.CommandStorageIndexedDBMetadata,
+	"browser_clear_origin_storage":      protocol.CommandStorageClear,
+	"browser_list_downloads":            protocol.CommandDownloadsList,
+	"browser_get_download":              protocol.CommandDownloadsGet,
+	"browser_create_download":           protocol.CommandDownloadsCreate,
+	"browser_pause_download":            protocol.CommandDownloadsPause,
+	"browser_resume_download":           protocol.CommandDownloadsResume,
+	"browser_cancel_download":           protocol.CommandDownloadsCancel,
+	"browser_erase_download_history":    protocol.CommandDownloadsErase,
+	"browser_search_history":            protocol.CommandHistorySearch,
+	"browser_get_history_visits":        protocol.CommandHistoryGetVisits,
+	"browser_delete_history_url":        protocol.CommandHistoryDeleteURL,
+	"browser_delete_history_range":      protocol.CommandHistoryDeleteRange,
+	"browser_clear_history":             protocol.CommandHistoryDeleteAll,
+	"browser_list_bookmarks":            protocol.CommandBookmarksList,
+	"browser_create_bookmark":           protocol.CommandBookmarksCreate,
+	"browser_update_bookmark":           protocol.CommandBookmarksUpdate,
+	"browser_move_bookmark":             protocol.CommandBookmarksMove,
+	"browser_remove_bookmark":           protocol.CommandBookmarksRemove,
+	"browser_list_reading_list":         protocol.CommandReadingListList,
+	"browser_add_reading_list_entry":    protocol.CommandReadingListAdd,
+	"browser_update_reading_list_entry": protocol.CommandReadingListUpdate,
+	"browser_remove_reading_list_entry": protocol.CommandReadingListRemove,
+	"browser_send_command":              dynamicCapability,
 }
 
 var exampleOverrides = map[string]map[string]any{
@@ -198,32 +212,46 @@ var exampleOverrides = map[string]map[string]any{
 		"method": "Performance.getMetrics",
 		"params": map[string]any{},
 	},
-	"browser_capture_performance":    {"kind": "trace", "durationMs": 1_000, "maxBytes": 1_000_000},
-	"browser_start_console_capture":  {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
-	"browser_get_console_log":        {"levels": []string{"error", "warn"}, "limit": 50},
-	"browser_start_network_capture":  {"maxEntries": 1_000},
-	"browser_get_network_log":        {"limit": 50, "maxBytes": 524_288},
-	"browser_get_network_body":       {"entryId": "1", "direction": "response", "maxBytes": 262_144},
-	"browser_export_network_har":     {"maxBytes": 1_000_000},
-	"browser_list_cookies":           {"url": "https://example.com/", "limit": 50},
-	"browser_get_cookie":             {"url": "https://example.com/", "name": "session"},
-	"browser_set_cookie":             {"url": "https://example.com/", "name": "preference", "value": "compact", "sameSite": "lax"},
-	"browser_remove_cookie":          {"url": "https://example.com/", "name": "preference"},
-	"browser_list_storage_items":     {"origin": "https://example.com", "storageType": "localStorage", "limit": 50},
-	"browser_get_storage_item":       {"origin": "https://example.com", "storageType": "localStorage", "key": "theme"},
-	"browser_set_storage_item":       {"origin": "https://example.com", "storageType": "localStorage", "key": "theme", "value": "dark"},
-	"browser_remove_storage_item":    {"origin": "https://example.com", "storageType": "localStorage", "key": "theme"},
-	"browser_get_cache_metadata":     {"origin": "https://example.com", "limit": 50},
-	"browser_get_indexeddb_metadata": {"origin": "https://example.com", "limit": 50},
-	"browser_clear_origin_storage":   {"origin": "https://example.com", "types": []string{"localStorage", "cacheStorage"}, "confirm": true},
-	"browser_list_downloads":         {"state": "complete", "limit": 50},
-	"browser_get_download":           {"downloadId": 7},
-	"browser_create_download":        {"url": "https://example.com/archive.zip"},
-	"browser_pause_download":         {"downloadId": 7},
-	"browser_resume_download":        {"downloadId": 7},
-	"browser_cancel_download":        {"downloadId": 7},
-	"browser_erase_download_history": {"downloadId": 7, "confirm": true},
-	"browser_send_command":           {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
+	"browser_capture_performance":       {"kind": "trace", "durationMs": 1_000, "maxBytes": 1_000_000},
+	"browser_start_console_capture":     {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
+	"browser_get_console_log":           {"levels": []string{"error", "warn"}, "limit": 50},
+	"browser_start_network_capture":     {"maxEntries": 1_000},
+	"browser_get_network_log":           {"limit": 50, "maxBytes": 524_288},
+	"browser_get_network_body":          {"entryId": "1", "direction": "response", "maxBytes": 262_144},
+	"browser_export_network_har":        {"maxBytes": 1_000_000},
+	"browser_list_cookies":              {"url": "https://example.com/", "limit": 50},
+	"browser_get_cookie":                {"url": "https://example.com/", "name": "session"},
+	"browser_set_cookie":                {"url": "https://example.com/", "name": "preference", "value": "compact", "sameSite": "lax"},
+	"browser_remove_cookie":             {"url": "https://example.com/", "name": "preference"},
+	"browser_list_storage_items":        {"origin": "https://example.com", "storageType": "localStorage", "limit": 50},
+	"browser_get_storage_item":          {"origin": "https://example.com", "storageType": "localStorage", "key": "theme"},
+	"browser_set_storage_item":          {"origin": "https://example.com", "storageType": "localStorage", "key": "theme", "value": "dark"},
+	"browser_remove_storage_item":       {"origin": "https://example.com", "storageType": "localStorage", "key": "theme"},
+	"browser_get_cache_metadata":        {"origin": "https://example.com", "limit": 50},
+	"browser_get_indexeddb_metadata":    {"origin": "https://example.com", "limit": 50},
+	"browser_clear_origin_storage":      {"origin": "https://example.com", "types": []string{"localStorage", "cacheStorage"}, "confirm": true},
+	"browser_list_downloads":            {"state": "complete", "limit": 50},
+	"browser_get_download":              {"downloadId": 7},
+	"browser_create_download":           {"url": "https://example.com/archive.zip"},
+	"browser_pause_download":            {"downloadId": 7},
+	"browser_resume_download":           {"downloadId": 7},
+	"browser_cancel_download":           {"downloadId": 7},
+	"browser_erase_download_history":    {"downloadId": 7, "confirm": true},
+	"browser_search_history":            {"text": "documentation", "limit": 50},
+	"browser_get_history_visits":        {"url": "https://example.com/", "limit": 50},
+	"browser_delete_history_url":        {"url": "https://example.com/", "confirm": true},
+	"browser_delete_history_range":      {"startTime": 1_700_000_000_000, "endTime": 1_700_086_400_000, "confirm": true},
+	"browser_clear_history":             {"confirm": true},
+	"browser_list_bookmarks":            {"query": "documentation", "limit": 50},
+	"browser_create_bookmark":           {"title": "Example", "url": "https://example.com/"},
+	"browser_update_bookmark":           {"bookmarkId": "42", "title": "Updated example"},
+	"browser_move_bookmark":             {"bookmarkId": "42", "parentId": "1"},
+	"browser_remove_bookmark":           {"bookmarkId": "42"},
+	"browser_list_reading_list":         {"hasBeenRead": false, "limit": 50},
+	"browser_add_reading_list_entry":    {"url": "https://example.com/article", "title": "Example article", "hasBeenRead": false},
+	"browser_update_reading_list_entry": {"url": "https://example.com/article", "hasBeenRead": true},
+	"browser_remove_reading_list_entry": {"url": "https://example.com/article"},
+	"browser_send_command":              {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
 	"browser_batch": {
 		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
 		"stopOnError": true,
@@ -487,6 +515,12 @@ func permissionDescription(capability string) string {
 		return "Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`"
 	case strings.HasPrefix(capability, "downloads."):
 		return "Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed"
+	case strings.HasPrefix(capability, "history."):
+		return "Personal data (`history`) and MCP `full`; destructive tools require explicit confirmation"
+	case strings.HasPrefix(capability, "bookmarks."):
+		return "Personal data (`bookmarks`) and MCP `full`; recursive removal requires explicit confirmation"
+	case strings.HasPrefix(capability, "readingList."):
+		return "Personal data (`readingList`), Chrome 120+ API availability, and MCP `full`"
 	case capability == protocol.CommandPagePrintToPDF:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
 	case capability == protocol.CommandAccessibilityGetTree:
@@ -631,6 +665,24 @@ func resultDescription(name string) string {
 		return "the updated bounded download status and lifecycle operation"
 	case "browser_erase_download_history":
 		return "the erased download ID and a warning that the downloaded file was not deleted"
+	case "browser_search_history":
+		return "bounded paginated history page metadata with server-side secret redaction"
+	case "browser_get_history_visits":
+		return "bounded paginated visit identifiers, times, and transition types for one exact URL"
+	case "browser_delete_history_url", "browser_delete_history_range", "browser_clear_history":
+		return "confirmed history-deletion scope, operation metadata, and any browser API count warning"
+	case "browser_list_bookmarks":
+		return "bounded paginated bookmark and folder metadata with server-side secret redaction"
+	case "browser_create_bookmark", "browser_update_bookmark", "browser_move_bookmark":
+		return "the normalized affected bookmark or folder node"
+	case "browser_remove_bookmark":
+		return "the removed bookmark ID and whether a recursively confirmed folder tree was removed"
+	case "browser_list_reading_list":
+		return "bounded paginated reading-list metadata sorted by last update time"
+	case "browser_add_reading_list_entry", "browser_update_reading_list_entry":
+		return "the normalized affected reading-list entry"
+	case "browser_remove_reading_list_entry":
+		return "confirmation that the exact reading-list URL was removed"
 	case "browser_send_command":
 		return "the selected extension command's bounded, redacted payload in `data`"
 	default:
@@ -659,6 +711,9 @@ func errorDescription(name, capability string) string {
 			"`TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`",
 			"`PERMISSION_REQUIRED` or `RESTRICTED_URL`",
 		)
+	}
+	if strings.HasPrefix(capability, "history.") || strings.HasPrefix(capability, "bookmarks.") || strings.HasPrefix(capability, "readingList.") {
+		errors = append(errors, "`PERMISSION_REQUIRED` when the Personal data permission is absent or revoked")
 	}
 	if capability == protocol.CommandEmulationReset {
 		errors = append(errors, "`TAB_NOT_FOUND`", "`PERMISSION_REQUIRED` when Debug was revoked")
@@ -728,6 +783,12 @@ func errorDescription(name, capability string) string {
 			"`CONFIRMATION_REQUIRED` unless `confirm` is true",
 			"`RESTRICTED_URL` for a disallowed incognito item",
 		)
+	case "browser_delete_history_url", "browser_delete_history_range", "browser_clear_history":
+		errors = append(errors, "`CONFIRMATION_REQUIRED` unless `confirm` is true")
+	case "browser_remove_bookmark":
+		errors = append(errors, "`CONFIRMATION_REQUIRED` for recursive folder removal unless `confirm` is true")
+	case "browser_search_history", "browser_get_history_visits", "browser_list_bookmarks", "browser_list_reading_list":
+		errors = append(errors, "`PAYLOAD_TOO_LARGE` when the browser data exceeds the bounded scan limit")
 	case "browser_send_command":
 		errors = append(errors, "`INVALID_COMMAND` for an unknown or dedicated-only command")
 	case "browser_batch":
@@ -778,6 +839,8 @@ func categoryFor(name string) string {
 	case strings.Contains(name, "tab") || strings.Contains(name, "recently_closed") || strings.Contains(name, "restore_session"):
 		return "Tabs, Groups, and Sessions"
 	case strings.Contains(name, "cookie") || strings.Contains(name, "storage") ||
+		strings.Contains(name, "history") || strings.Contains(name, "bookmark") ||
+		strings.Contains(name, "reading_list") ||
 		name == "browser_get_cache_metadata" || name == "browser_get_indexeddb_metadata":
 		return "Cookies and Personal Data"
 	case strings.Contains(name, "download"):

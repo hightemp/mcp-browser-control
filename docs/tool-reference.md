@@ -1591,6 +1591,112 @@ Example MCP tool payload:
 
 ## Cookies and Personal Data
 
+### `browser_add_reading_list_entry`
+
+Add one exact HTTP(S) URL to the browser reading list.
+
+- MCP profile: `full`
+- Extension capability: `readingList.add`
+- Permissions: Personal data (`readingList`), Chrome 120+ API availability, and MCP `full`
+- Result: the normalized affected reading-list entry
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "hasBeenRead": {
+      "description": "Initial read state",
+      "type": "boolean"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "title": {
+      "description": "Entry title",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "title",
+    "hasBeenRead"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "hasBeenRead": false,
+    "title": "Example article",
+    "url": "https://example.com/article"
+  },
+  "name": "browser_add_reading_list_entry"
+}
+```
+
+### `browser_clear_history`
+
+Clear all browser history.
+
+- MCP profile: `full`
+- Extension capability: `history.deleteAll`
+- Permissions: Personal data (`history`) and MCP `full`; destructive tools require explicit confirmation
+- Result: confirmed history-deletion scope, operation metadata, and any browser API count warning
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `CONFIRMATION_REQUIRED` unless `confirm` is true
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "confirm": {
+      "description": "Must be true because all browser history is deleted",
+      "type": "boolean"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "confirm"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "confirm": true
+  },
+  "name": "browser_clear_history"
+}
+```
+
 ### `browser_clear_origin_storage`
 
 Clear explicitly selected storage types for one exact origin after confirmation.
@@ -1669,6 +1775,239 @@ Example MCP tool payload:
     ]
   },
   "name": "browser_clear_origin_storage"
+}
+```
+
+### `browser_create_bookmark`
+
+Create one HTTP(S) bookmark or a folder when url is omitted.
+
+- MCP profile: `full`
+- Extension capability: `bookmarks.create`
+- Permissions: Personal data (`bookmarks`) and MCP `full`; recursive removal requires explicit confirmation
+- Result: the normalized affected bookmark or folder node
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "index": {
+      "description": "Zero-based destination index",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "parentId": {
+      "description": "Destination folder ID",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "title": {
+      "description": "Bookmark or folder title",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "title"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "title": "Example",
+    "url": "https://example.com/"
+  },
+  "name": "browser_create_bookmark"
+}
+```
+
+### `browser_delete_history_range`
+
+Delete browser history visits in one explicit time range.
+
+- MCP profile: `full`
+- Extension capability: `history.deleteRange`
+- Permissions: Personal data (`history`) and MCP `full`; destructive tools require explicit confirmation
+- Result: confirmed history-deletion scope, operation metadata, and any browser API count warning
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `CONFIRMATION_REQUIRED` unless `confirm` is true
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "confirm": {
+      "description": "Must be true because this is a bulk deletion",
+      "type": "boolean"
+    },
+    "endTime": {
+      "description": "Exclusive epoch time in milliseconds",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "startTime": {
+      "description": "Inclusive epoch time in milliseconds",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "startTime",
+    "endTime",
+    "confirm"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "confirm": true,
+    "endTime": 1700086400000,
+    "startTime": 1700000000000
+  },
+  "name": "browser_delete_history_range"
+}
+```
+
+### `browser_delete_history_url`
+
+Delete every history visit for one exact HTTP(S) URL.
+
+- MCP profile: `full`
+- Extension capability: `history.deleteUrl`
+- Permissions: Personal data (`history`) and MCP `full`; destructive tools require explicit confirmation
+- Result: confirmed history-deletion scope, operation metadata, and any browser API count warning
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `CONFIRMATION_REQUIRED` unless `confirm` is true
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "confirm": {
+      "description": "Must be true because every visit for the URL is deleted",
+      "type": "boolean"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "confirm"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "confirm": true,
+    "url": "https://example.com/"
+  },
+  "name": "browser_delete_history_url"
+}
+```
+
+### `browser_erase_download_history`
+
+Erase one terminal download history entry without deleting the downloaded file.
+
+- MCP profile: `full`
+- Extension capability: `downloads.erase`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: the erased download ID and a warning that the downloaded file was not deleted
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `DOWNLOAD_NOT_FOUND`; `CONFIRMATION_REQUIRED` unless `confirm` is true; `RESTRICTED_URL` for a disallowed incognito item
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "confirm": {
+      "description": "Must be true because this changes browser history",
+      "type": "boolean"
+    },
+    "downloadId": {
+      "description": "Persistent browser download identifier",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "downloadId",
+    "confirm"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "confirm": true,
+    "downloadId": 7
+  },
+  "name": "browser_erase_download_history"
 }
 ```
 
@@ -1825,6 +2164,65 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_get_history_visits`
+
+List bounded paginated visits for one exact HTTP(S) URL.
+
+- MCP profile: `full`
+- Extension capability: `history.getVisits`
+- Permissions: Personal data (`history`) and MCP `full`; destructive tools require explicit confirmation
+- Result: bounded paginated visit identifiers, times, and transition types for one exact URL
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `PAYLOAD_TOO_LARGE` when the browser data exceeds the bounded scan limit
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum entries to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "url": "https://example.com/"
+  },
+  "name": "browser_get_history_visits"
+}
+```
+
 ### `browser_get_indexeddb_metadata`
 
 List bounded IndexedDB database names and versions without records or blobs.
@@ -1969,6 +2367,67 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_list_bookmarks`
+
+List or search bounded paginated bookmark and folder metadata.
+
+- MCP profile: `full`
+- Extension capability: `bookmarks.list`
+- Permissions: Personal data (`bookmarks`) and MCP `full`; recursive removal requires explicit confirmation
+- Result: bounded paginated bookmark and folder metadata with server-side secret redaction
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `PAYLOAD_TOO_LARGE` when the browser data exceeds the bounded scan limit
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum entries to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "parentId": {
+      "description": "List direct children of this folder",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "query": {
+      "description": "Bookmark title or URL search text",
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "query": "documentation"
+  },
+  "name": "browser_list_bookmarks"
+}
+```
+
 ### `browser_list_cookies`
 
 List bounded exact-origin cookie metadata with values masked by default.
@@ -2086,6 +2545,71 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_list_reading_list`
+
+List bounded paginated reading-list entries.
+
+- MCP profile: `full`
+- Extension capability: `readingList.list`
+- Permissions: Personal data (`readingList`), Chrome 120+ API availability, and MCP `full`
+- Result: bounded paginated reading-list metadata sorted by last update time
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `PAYLOAD_TOO_LARGE` when the browser data exceeds the bounded scan limit
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "hasBeenRead": {
+      "description": "Filter by read state",
+      "type": "boolean"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum entries to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "title": {
+      "description": "Exact browser reading-list title query",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "hasBeenRead": false,
+    "limit": 50
+  },
+  "name": "browser_list_reading_list"
+}
+```
+
 ### `browser_list_storage_items`
 
 List bounded localStorage or sessionStorage items with values masked by default.
@@ -2165,6 +2689,120 @@ Example MCP tool payload:
     "storageType": "localStorage"
   },
   "name": "browser_list_storage_items"
+}
+```
+
+### `browser_move_bookmark`
+
+Move one bookmark or folder to a parent and/or index.
+
+- MCP profile: `full`
+- Extension capability: `bookmarks.move`
+- Permissions: Personal data (`bookmarks`) and MCP `full`; recursive removal requires explicit confirmation
+- Result: the normalized affected bookmark or folder node
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "bookmarkId": {
+      "description": "Bookmark node ID",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "index": {
+      "description": "Zero-based destination index",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "parentId": {
+      "description": "Destination folder ID",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "bookmarkId"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "bookmarkId": "42",
+    "parentId": "1"
+  },
+  "name": "browser_move_bookmark"
+}
+```
+
+### `browser_remove_bookmark`
+
+Remove one bookmark or empty folder; recursive folder removal requires confirmation.
+
+- MCP profile: `full`
+- Extension capability: `bookmarks.remove`
+- Permissions: Personal data (`bookmarks`) and MCP `full`; recursive removal requires explicit confirmation
+- Result: the removed bookmark ID and whether a recursively confirmed folder tree was removed
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `CONFIRMATION_REQUIRED` for recursive folder removal unless `confirm` is true
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "bookmarkId": {
+      "description": "Bookmark node ID",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "confirm": {
+      "description": "Must be true for recursive removal",
+      "type": "boolean"
+    },
+    "recursive": {
+      "description": "Remove an entire folder tree",
+      "type": "boolean"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "bookmarkId"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "bookmarkId": "42"
+  },
+  "name": "browser_remove_bookmark"
 }
 ```
 
@@ -2249,6 +2887,53 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_remove_reading_list_entry`
+
+Remove one exact HTTP(S) URL from the browser reading list.
+
+- MCP profile: `full`
+- Extension capability: `readingList.remove`
+- Permissions: Personal data (`readingList`), Chrome 120+ API availability, and MCP `full`
+- Result: confirmation that the exact reading-list URL was removed
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "url": "https://example.com/article"
+  },
+  "name": "browser_remove_reading_list_entry"
+}
+```
+
 ### `browser_remove_storage_item`
 
 Remove one localStorage or sessionStorage item.
@@ -2317,6 +3002,74 @@ Example MCP tool payload:
     "storageType": "localStorage"
   },
   "name": "browser_remove_storage_item"
+}
+```
+
+### `browser_search_history`
+
+Search bounded paginated browser history metadata.
+
+- MCP profile: `full`
+- Extension capability: `history.search`
+- Permissions: Personal data (`history`) and MCP `full`; destructive tools require explicit confirmation
+- Result: bounded paginated history page metadata with server-side secret redaction
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked; `PAYLOAD_TOO_LARGE` when the browser data exceeds the bounded scan limit
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "endTime": {
+      "description": "Exclusive epoch time in milliseconds",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum entries to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "startTime": {
+      "description": "Inclusive epoch time in milliseconds",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "text": {
+      "description": "Browser history full-text query",
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "text": "documentation"
+  },
+  "name": "browser_search_history"
 }
 ```
 
@@ -2513,6 +3266,121 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_update_bookmark`
+
+Update one bookmark or folder title and optional HTTP(S) URL.
+
+- MCP profile: `full`
+- Extension capability: `bookmarks.update`
+- Permissions: Personal data (`bookmarks`) and MCP `full`; recursive removal requires explicit confirmation
+- Result: the normalized affected bookmark or folder node
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "bookmarkId": {
+      "description": "Bookmark node ID",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "title": {
+      "description": "Replacement title",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "bookmarkId"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "bookmarkId": "42",
+    "title": "Updated example"
+  },
+  "name": "browser_update_bookmark"
+}
+```
+
+### `browser_update_reading_list_entry`
+
+Update one reading-list entry title and/or read state.
+
+- MCP profile: `full`
+- Extension capability: `readingList.update`
+- Permissions: Personal data (`readingList`), Chrome 120+ API availability, and MCP `full`
+- Result: the normalized affected reading-list entry
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PERMISSION_REQUIRED` when the Personal data permission is absent or revoked
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "hasBeenRead": {
+      "description": "Replacement read state",
+      "type": "boolean"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "title": {
+      "description": "Replacement title",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "url": {
+      "description": "Exact HTTP(S) URL without credentials",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "hasBeenRead": true,
+    "url": "https://example.com/article"
+  },
+  "name": "browser_update_reading_list_entry"
+}
+```
+
 ## Downloads
 
 ### `browser_cancel_download`
@@ -2607,60 +3475,6 @@ Example MCP tool payload:
     "url": "https://example.com/archive.zip"
   },
   "name": "browser_create_download"
-}
-```
-
-### `browser_erase_download_history`
-
-Erase one terminal download history entry without deleting the downloaded file.
-
-- MCP profile: `full`
-- Extension capability: `downloads.erase`
-- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
-- Result: the erased download ID and a warning that the downloaded file was not deleted
-- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `DOWNLOAD_NOT_FOUND`; `CONFIRMATION_REQUIRED` unless `confirm` is true; `RESTRICTED_URL` for a disallowed incognito item
-
-Input schema:
-
-```json
-{
-  "properties": {
-    "browserId": {
-      "description": "Browser instance ID; omit to use the current MCP session selection",
-      "type": "string"
-    },
-    "confirm": {
-      "description": "Must be true because this changes browser history",
-      "type": "boolean"
-    },
-    "downloadId": {
-      "description": "Persistent browser download identifier",
-      "maximum": 9007199254740991,
-      "minimum": 0,
-      "type": "number"
-    },
-    "timeoutMs": {
-      "description": "Command timeout in milliseconds",
-      "type": "number"
-    }
-  },
-  "required": [
-    "downloadId",
-    "confirm"
-  ],
-  "type": "object"
-}
-```
-
-Example MCP tool payload:
-
-```json
-{
-  "arguments": {
-    "confirm": true,
-    "downloadId": 7
-  },
-  "name": "browser_erase_download_history"
 }
 ```
 

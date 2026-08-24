@@ -117,6 +117,36 @@ export function detectCapabilities({
       "downloads.erase",
     );
   }
+  if (apis.history && grantedPermissions.has("history")) {
+    capabilities.push(
+      "history.search",
+      "history.getVisits",
+      "history.deleteUrl",
+      "history.deleteRange",
+      "history.deleteAll",
+    );
+  }
+  if (apis.bookmarks && grantedPermissions.has("bookmarks")) {
+    capabilities.push(
+      "bookmarks.list",
+      "bookmarks.create",
+      "bookmarks.update",
+      "bookmarks.move",
+      "bookmarks.remove",
+    );
+  }
+  if (
+    apis.readingList &&
+    grantedPermissions.has("readingList") &&
+    (majorVersion === null || majorVersion >= 120)
+  ) {
+    capabilities.push(
+      "readingList.list",
+      "readingList.add",
+      "readingList.update",
+      "readingList.remove",
+    );
+  }
   if (
     featureFlags.pageAutomation !== false &&
     apis.scripting &&

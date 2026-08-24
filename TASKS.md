@@ -1124,9 +1124,24 @@ extension tests, новый `DOWNLOAD_NOT_FOUND` contract code и `docs/download
 
 - Приоритет: P2
 - Зависимости: T-003, T-047, T-083
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Разделить read и mutate tools. Массовое удаление требует `confirm: true`. Добавить audit и pagination.
+
+Добавлены 14 отдельных browser-scoped MCP tools: paginated history search и
+visits, подтверждаемые delete-by-URL/range/all; paginated bookmark
+search/children и типизированные create/update/move/remove; paginated Reading
+List query и add/update/remove. Все команды доступны только в MCP `full` и
+соответствующей optional Personal data capability, повторно проверяют permission
+до и после Chrome API, ограничивают входы, scan/page/result sizes и отклоняют
+target. URL credentials и fragments удаляются, значения чувствительных query
+parameters заменяются на `[REDACTED]`; сервер независимо проверяет это условие.
+History mutations и recursive bookmark tree removal требуют `confirm: true` и
+не допускаются через generic command или batch. Audit содержит только domain,
+tool, browser ID, count, outcome и duration — без query, title, URL и bookmark
+ID. Reading List capability объявляется только при наличии Chrome 120+ API и
+выданного optional `readingList` permission. Добавлены unit/negative tests и
+английская документация с browser matrix и ограничениями пагинации.
 
 ### T-074 — Исследовать clipboard и file input
 

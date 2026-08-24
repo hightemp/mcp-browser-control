@@ -257,6 +257,76 @@ const COMMANDS = Object.freeze({
     handler: "erase",
     validate: validateDownloadErase,
   }),
+  "history.search": Object.freeze({
+    domain: "history",
+    handler: "search",
+    validate: validateHistorySearch,
+  }),
+  "history.getVisits": Object.freeze({
+    domain: "history",
+    handler: "getVisits",
+    validate: validateHistoryVisits,
+  }),
+  "history.deleteUrl": Object.freeze({
+    domain: "history",
+    handler: "deleteUrl",
+    validate: validateHistoryDeleteURL,
+  }),
+  "history.deleteRange": Object.freeze({
+    domain: "history",
+    handler: "deleteRange",
+    validate: validateHistoryDeleteRange,
+  }),
+  "history.deleteAll": Object.freeze({
+    domain: "history",
+    handler: "deleteAll",
+    validate: validateHistoryDeleteAll,
+  }),
+  "bookmarks.list": Object.freeze({
+    domain: "bookmarks",
+    handler: "list",
+    validate: validateBookmarkList,
+  }),
+  "bookmarks.create": Object.freeze({
+    domain: "bookmarks",
+    handler: "create",
+    validate: validateBookmarkCreate,
+  }),
+  "bookmarks.update": Object.freeze({
+    domain: "bookmarks",
+    handler: "update",
+    validate: validateBookmarkUpdate,
+  }),
+  "bookmarks.move": Object.freeze({
+    domain: "bookmarks",
+    handler: "move",
+    validate: validateBookmarkMove,
+  }),
+  "bookmarks.remove": Object.freeze({
+    domain: "bookmarks",
+    handler: "remove",
+    validate: validateBookmarkRemove,
+  }),
+  "readingList.list": Object.freeze({
+    domain: "readingList",
+    handler: "list",
+    validate: validateReadingListList,
+  }),
+  "readingList.add": Object.freeze({
+    domain: "readingList",
+    handler: "add",
+    validate: validateReadingListAdd,
+  }),
+  "readingList.update": Object.freeze({
+    domain: "readingList",
+    handler: "update",
+    validate: validateReadingListUpdate,
+  }),
+  "readingList.remove": Object.freeze({
+    domain: "readingList",
+    handler: "remove",
+    validate: validateReadingListRemove,
+  }),
   "page.info": Object.freeze({
     domain: "page",
     handler: "info",
@@ -2194,6 +2264,209 @@ function validateDownloadErase(params, target) {
     );
   }
   requireServerIncognitoFlag(params.allowIncognito);
+}
+
+function validateHistorySearch(params, target) {
+  validatePersonalDataScope(params, target, ["text", "startTime", "endTime", "cursor", "limit"]);
+  validateOptionalBoundedString(params.text, "params.text", 1_024);
+  validatePersonalPage(params);
+  validateOptionalEpochTime(params.startTime, "params.startTime");
+  validateOptionalEpochTime(params.endTime, "params.endTime");
+  if (
+    params.startTime !== undefined &&
+    params.endTime !== undefined &&
+    params.startTime >= params.endTime
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.startTime must be before params.endTime",
+    );
+  }
+}
+
+function validateHistoryVisits(params, target) {
+  validatePersonalDataScope(params, target, ["url", "cursor", "limit"]);
+  validatePersonalURL(params.url);
+  validatePersonalPage(params);
+}
+
+function validateHistoryDeleteURL(params, target) {
+  validatePersonalDataScope(params, target, ["url", "confirm"]);
+  validatePersonalURL(params.url);
+  requireConfirmation(params.confirm, "Deleting URL history");
+}
+
+function validateHistoryDeleteRange(params, target) {
+  validatePersonalDataScope(params, target, ["startTime", "endTime", "confirm"]);
+  requireEpochTime(params.startTime, "params.startTime");
+  requireEpochTime(params.endTime, "params.endTime");
+  if (params.startTime >= params.endTime) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.startTime must be before params.endTime",
+    );
+  }
+  requireConfirmation(params.confirm, "Deleting a history range");
+}
+
+function validateHistoryDeleteAll(params, target) {
+  validatePersonalDataScope(params, target, ["confirm"]);
+  requireConfirmation(params.confirm, "Clearing browser history");
+}
+
+function validateBookmarkList(params, target) {
+  validatePersonalDataScope(params, target, ["query", "parentId", "cursor", "limit"]);
+  validateOptionalBoundedString(params.query, "params.query", 1_024);
+  validateOptionalPersonalID(params.parentId, "params.parentId");
+  if (params.query && params.parentId) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.query and params.parentId are mutually exclusive",
+    );
+  }
+  validatePersonalPage(params);
+}
+
+function validateBookmarkCreate(params, target) {
+  validatePersonalDataScope(params, target, ["title", "url", "parentId", "index"]);
+  assertBoundedString(params.title, "params.title", 2_048);
+  if (params.url !== undefined) validatePersonalURL(params.url);
+  validateOptionalPersonalID(params.parentId, "params.parentId");
+  validateIntegerRange(params.index, "params.index", 0, Number.MAX_SAFE_INTEGER);
+}
+
+function validateBookmarkUpdate(params, target) {
+  validatePersonalDataScope(params, target, ["bookmarkId", "title", "url"]);
+  validatePersonalID(params.bookmarkId, "params.bookmarkId");
+  if (params.title !== undefined) assertBoundedString(params.title, "params.title", 2_048);
+  if (params.url !== undefined) validatePersonalURL(params.url);
+  if (params.title === undefined && params.url === undefined) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.title or params.url is required");
+  }
+}
+
+function validateBookmarkMove(params, target) {
+  validatePersonalDataScope(params, target, ["bookmarkId", "parentId", "index"]);
+  validatePersonalID(params.bookmarkId, "params.bookmarkId");
+  validateOptionalPersonalID(params.parentId, "params.parentId");
+  validateIntegerRange(params.index, "params.index", 0, Number.MAX_SAFE_INTEGER);
+  if (params.parentId === undefined && params.index === undefined) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.parentId or params.index is required");
+  }
+}
+
+function validateBookmarkRemove(params, target) {
+  validatePersonalDataScope(params, target, ["bookmarkId", "recursive", "confirm"]);
+  validatePersonalID(params.bookmarkId, "params.bookmarkId");
+  validateOptionalBoolean(params.recursive, "params.recursive");
+  validateOptionalBoolean(params.confirm, "params.confirm");
+  if (params.recursive === true) {
+    requireConfirmation(params.confirm, "Recursive bookmark removal");
+  }
+}
+
+function validateReadingListList(params, target) {
+  validatePersonalDataScope(params, target, ["title", "url", "hasBeenRead", "cursor", "limit"]);
+  validateOptionalBoundedString(params.title, "params.title", 2_048);
+  if (params.url !== undefined) validatePersonalURL(params.url);
+  validateOptionalBoolean(params.hasBeenRead, "params.hasBeenRead");
+  validatePersonalPage(params);
+}
+
+function validateReadingListAdd(params, target) {
+  validatePersonalDataScope(params, target, ["url", "title", "hasBeenRead"]);
+  validatePersonalURL(params.url);
+  assertBoundedString(params.title, "params.title", 2_048);
+  if (typeof params.hasBeenRead !== "boolean") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.hasBeenRead must be a boolean");
+  }
+}
+
+function validateReadingListUpdate(params, target) {
+  validatePersonalDataScope(params, target, ["url", "title", "hasBeenRead"]);
+  validatePersonalURL(params.url);
+  if (params.title !== undefined) assertBoundedString(params.title, "params.title", 2_048);
+  validateOptionalBoolean(params.hasBeenRead, "params.hasBeenRead");
+  if (params.title === undefined && params.hasBeenRead === undefined) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.title or params.hasBeenRead is required",
+    );
+  }
+}
+
+function validateReadingListRemove(params, target) {
+  validatePersonalDataScope(params, target, ["url"]);
+  validatePersonalURL(params.url);
+}
+
+function validatePersonalDataScope(params, target, properties) {
+  validateNoTarget(target, "Personal-data commands are browser-scoped");
+  validateParamsObject(params);
+  assertAllowedProperties(params, properties);
+}
+
+function validatePersonalPage(params) {
+  requireIntegerRange(params.limit, "params.limit", 1, 200);
+  if (
+    params.cursor !== undefined &&
+    (typeof params.cursor !== "string" ||
+      !/^[1-9][0-9]*$/.test(params.cursor) ||
+      !Number.isSafeInteger(Number(params.cursor)) ||
+      Number(params.cursor) >= 10_000)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is invalid");
+  }
+}
+
+function validatePersonalURL(value) {
+  assertBoundedString(value, "params.url", 8_192);
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.url is invalid");
+  }
+  if (
+    !["http:", "https:"].includes(parsed.protocol) ||
+    !parsed.hostname ||
+    parsed.username ||
+    parsed.password
+  ) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.url must be an HTTP(S) URL without credentials",
+    );
+  }
+}
+
+function validatePersonalID(value, path) {
+  assertBoundedString(value, path, 256);
+}
+
+function validateOptionalPersonalID(value, path) {
+  if (value !== undefined) validatePersonalID(value, path);
+}
+
+function requireEpochTime(value, path) {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < 0 ||
+    value > Number.MAX_SAFE_INTEGER
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be a non-negative epoch time`);
+  }
+}
+
+function validateOptionalEpochTime(value, path) {
+  if (value !== undefined) requireEpochTime(value, path);
+}
+
+function requireConfirmation(value, action) {
+  if (value !== true) {
+    throw protocolError(ErrorCode.CONFIRMATION_REQUIRED, `${action} requires confirm: true`);
+  }
 }
 
 function requireServerIncognitoFlag(value) {

@@ -24,6 +24,7 @@ import { createNetworkHandlers } from "./handlers/network.js";
 import { createCookieHandlers } from "./handlers/cookies.js";
 import { createStorageHandlers } from "./handlers/storage.js";
 import { createDownloadHandlers } from "./handlers/downloads.js";
+import { createPersonalDataHandlers } from "./handlers/personal-data.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -60,6 +61,7 @@ let lastError = "";
 let lastPingSentAt = 0;
 const networkActivity = createNetworkActivityObserver(chrome);
 const cdpSessions = createCDPSessionManager(chrome, { browserVersion: getBrowserVersion() });
+const personalDataHandlers = createPersonalDataHandlers(chrome);
 const commandRouter = new CommandRouter({
   getBrowserId: getIdentity,
   getCapabilities: getCurrentCapabilities,
@@ -77,6 +79,9 @@ const commandRouter = new CommandRouter({
     downloads: createDownloadHandlers(chrome, {
       inIncognitoContext: chrome.extension?.inIncognitoContext === true,
     }),
+    history: personalDataHandlers.history,
+    bookmarks: personalDataHandlers.bookmarks,
+    readingList: personalDataHandlers.readingList,
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
@@ -527,6 +532,29 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
         chrome.downloads?.resume &&
         chrome.downloads?.cancel &&
         chrome.downloads?.erase,
+      ),
+      history: Boolean(
+        chrome.history?.search &&
+        chrome.history?.getVisits &&
+        chrome.history?.deleteUrl &&
+        chrome.history?.deleteRange &&
+        chrome.history?.deleteAll,
+      ),
+      bookmarks: Boolean(
+        chrome.bookmarks?.search &&
+        chrome.bookmarks?.getChildren &&
+        chrome.bookmarks?.get &&
+        chrome.bookmarks?.create &&
+        chrome.bookmarks?.update &&
+        chrome.bookmarks?.move &&
+        chrome.bookmarks?.remove &&
+        chrome.bookmarks?.removeTree,
+      ),
+      readingList: Boolean(
+        chrome.readingList?.query &&
+        chrome.readingList?.addEntry &&
+        chrome.readingList?.updateEntry &&
+        chrome.readingList?.removeEntry,
       ),
       cookies: Boolean(
         chrome.cookies?.getAll &&

@@ -339,6 +339,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerCookieTools(mcpServer)
 	s.registerStorageTools(mcpServer)
 	s.registerDownloadTools(mcpServer)
+	s.registerPersonalDataTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -914,7 +915,8 @@ func (s *Service) browserSendCommandHandler(
 		isDedicatedNetworkCommand(args.Command) ||
 		isDedicatedCookieCommand(args.Command) ||
 		isDedicatedStorageCommand(args.Command) ||
-		isDedicatedDownloadCommand(args.Command) {
+		isDedicatedDownloadCommand(args.Command) ||
+		isDedicatedPersonalDataCommand(args.Command) {
 		return errorResult(protocol.NewError(
 			protocol.CodeInvalidCommand,
 			"the command requires its dedicated MCP tool",

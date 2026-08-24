@@ -61,6 +61,7 @@ const PROFILE_DEFINITIONS = Object.freeze([
       "cookies",
       "downloads",
       "history",
+      "readingList",
       "sessions",
       "tabGroups",
     ]),
@@ -74,6 +75,7 @@ const PROFILE_DEFINITIONS = Object.freeze([
       "tab groups",
       "bookmarks",
       "history",
+      "reading list",
       "clipboard",
     ]),
     warning:

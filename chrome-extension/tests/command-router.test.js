@@ -56,6 +56,26 @@ test("router dispatches every allowlisted command to its domain handler", async 
         cancel: handler,
         erase: handler,
       },
+      history: {
+        search: handler,
+        getVisits: handler,
+        deleteUrl: handler,
+        deleteRange: handler,
+        deleteAll: handler,
+      },
+      bookmarks: {
+        list: handler,
+        create: handler,
+        update: handler,
+        move: handler,
+        remove: handler,
+      },
+      readingList: {
+        list: handler,
+        add: handler,
+        update: handler,
+        remove: handler,
+      },
       windows: {
         list: handler,
         get: handler,
@@ -186,6 +206,24 @@ test("router dispatches every allowlisted command to its domain handler", async 
     "downloads.resume": { downloadId: 7, allowIncognito: false },
     "downloads.cancel": { downloadId: 7, allowIncognito: false },
     "downloads.erase": { downloadId: 7, confirm: true, allowIncognito: false },
+    "history.search": { text: "docs", limit: 50 },
+    "history.getVisits": { url: "https://example.com/", limit: 50 },
+    "history.deleteUrl": { url: "https://example.com/", confirm: true },
+    "history.deleteRange": { startTime: 10, endTime: 20, confirm: true },
+    "history.deleteAll": { confirm: true },
+    "bookmarks.list": { query: "docs", limit: 50 },
+    "bookmarks.create": { title: "Docs", url: "https://example.com/" },
+    "bookmarks.update": { bookmarkId: "42", title: "Updated" },
+    "bookmarks.move": { bookmarkId: "42", parentId: "1" },
+    "bookmarks.remove": { bookmarkId: "42", recursive: false },
+    "readingList.list": { hasBeenRead: false, limit: 50 },
+    "readingList.add": {
+      url: "https://example.com/article",
+      title: "Article",
+      hasBeenRead: false,
+    },
+    "readingList.update": { url: "https://example.com/article", hasBeenRead: true },
+    "readingList.remove": { url: "https://example.com/article" },
     "page.info": {},
     "page.getHTML": {},
     "page.getHTMLBySelector": { selector: "main" },
@@ -338,7 +376,12 @@ test("router dispatches every allowlisted command to its domain handler", async 
     if (["windows.get", "windows.update", "windows.focus", "windows.close"].includes(command)) {
       request.target = { browserId, windowId: 3 };
     }
-    if (command.startsWith("downloads.")) {
+    if (
+      command.startsWith("downloads.") ||
+      command.startsWith("history.") ||
+      command.startsWith("bookmarks.") ||
+      command.startsWith("readingList.")
+    ) {
       delete request.target;
     }
     const accepted = await router.execute(request, (outcome) => outcomes.push(outcome));
@@ -890,6 +933,46 @@ test("router validates target and command params before invoking handlers", asyn
   assert.equal(calls, 0);
 });
 
+test("router enforces personal-data scope, confirmation, and URL boundaries", async () => {
+  const noTarget = (command, params, requestId) => {
+    const request = createRequest(command, params, requestId);
+    delete request.target;
+    return request;
+  };
+  assert.equal(
+    (await execute(createRouter(), noTarget("history.deleteAll", { confirm: false }, "pd-1"))).error
+      .code,
+    ErrorCode.CONFIRMATION_REQUIRED,
+  );
+  assert.equal(
+    (
+      await execute(
+        createRouter(),
+        noTarget("bookmarks.remove", { bookmarkId: "folder", recursive: true }, "pd-2"),
+      )
+    ).error.code,
+    ErrorCode.CONFIRMATION_REQUIRED,
+  );
+  assert.equal(
+    (
+      await execute(
+        createRouter(),
+        noTarget(
+          "readingList.add",
+          { url: "file:///private/note", title: "Note", hasBeenRead: false },
+          "pd-3",
+        ),
+      )
+    ).error.code,
+    ErrorCode.INVALID_MESSAGE,
+  );
+  assert.equal(
+    (await execute(createRouter(), createRequest("history.search", { limit: 50 }, "pd-4"))).error
+      .code,
+    ErrorCode.INVALID_MESSAGE,
+  );
+});
+
 test("router accepts every bounded wait condition shape", async () => {
   const router = createRouter();
   const conditions = [
@@ -1048,6 +1131,26 @@ function defaultHandlers() {
       read: () => ({ entries: [] }),
       getBody: () => ({ dataBase64: "artifact" }),
       exportHAR: () => ({ dataBase64: "artifact" }),
+    },
+    history: {
+      search: () => ({ items: [] }),
+      getVisits: () => ({ visits: [] }),
+      deleteUrl: () => ({ changed: true }),
+      deleteRange: () => ({ changed: true }),
+      deleteAll: () => ({ changed: true }),
+    },
+    bookmarks: {
+      list: () => ({ bookmarks: [] }),
+      create: () => ({ bookmark: {} }),
+      update: () => ({ bookmark: {} }),
+      move: () => ({ bookmark: {} }),
+      remove: () => ({ changed: true }),
+    },
+    readingList: {
+      list: () => ({ entries: [] }),
+      add: () => ({ entry: {} }),
+      update: () => ({ entry: {} }),
+      remove: () => ({ changed: true }),
     },
     page: {
       info: () => ({ url: "" }),

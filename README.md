@@ -30,6 +30,8 @@ The first multi-browser vertical slice is implemented:
 Full-page and element screenshots, trusted CDP input, and request interception
 are planned but not complete. Remote mode is not
 implemented; do not expose either server port outside the local machine.
+Review the complete [known limitations](docs/known-limitations.md) before a
+production rollout.
 The internal [CDP Session Manager](docs/cdp-session-manager.md) now provides
 shared, bounded debugger lifecycle infrastructure, but it does not advertise a
 CDP-backed MCP command by itself.

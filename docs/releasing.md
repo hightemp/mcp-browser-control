@@ -81,3 +81,29 @@ sha256sum -c SHA256SUMS
 GitHub Actions checks reproducibility and uploads the release directory for
 every successful CI run. Publishing or signing a GitHub release remains a
 manual owner action until a separate signing policy is approved.
+
+## Release Qualification
+
+The reproducible bundle is only one release gate. Follow and sign off the
+complete [`release-checklist.md`](release-checklist.md), including current
+Chrome and Edge Stable tests, fresh install and upgrade flows, permission
+warnings, pairing/revocation, documentation, security scans, and the published
+[`known-limitations.md`](known-limitations.md).
+
+After installing the CI-pinned security and browser tools, the complete
+automated gate is:
+
+```bash
+make release-readiness
+```
+
+For a fast non-mutating check of version synchronization, the clean tree,
+language policy, required documents, and generated tool reference, use:
+
+```bash
+make release-readiness-check
+```
+
+Automated Chromium E2E does not replace the checklist's manual Chrome and Edge
+Stable matrix. Store submission, approvals, staged rollout, and rollback remain
+recorded owner actions.

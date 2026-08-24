@@ -5,6 +5,7 @@ BUILD_DIR := bin
 BINARY := $(BUILD_DIR)/$(APP_NAME)
 COMMAND := ./cmd/server
 COVERAGE_FILE := coverage.out
+COVERAGE_MIN ?= 80.0
 GO_PACKAGES := ./cmd/... ./internal/...
 VERSION ?= $(shell node -p "require('./chrome-extension/manifest.json').version")
 COMMIT ?= $(shell git rev-parse HEAD)
@@ -20,13 +21,14 @@ NPM ?= npm
 GOLANGCI_LINT ?= golangci-lint
 GOVULNCHECK ?= govulncheck
 GITLEAKS ?= gitleaks
+ACTIONLINT ?= actionlint
 CHROME_BIN ?= chromium
 E2E_EXTENSION_DIR := $(CURDIR)/chrome-extension/dist/e2e-extension
 
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build version release release-check tool-reference tool-reference-check run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e security-check check verify clean
+.PHONY: help deps fmt fmt-check build version release release-check release-readiness release-readiness-check tool-reference tool-reference-check run test test-race coverage coverage-check coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e workflow-check security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -38,12 +40,15 @@ help:
 		'  version         Print build version metadata' \
 		'  release         Build cross-platform release artifacts' \
 		'  release-check   Build twice and compare release checksums' \
+		'  release-readiness  Run every automated release-candidate gate' \
+		'  release-readiness-check  Check static release metadata and docs' \
 		'  tool-reference  Generate docs/tool-reference.md' \
 		'  tool-reference-check  Check generated tool documentation' \
 		'  run             Run the server; pass flags through ARGS' \
 		'  test            Run all Go tests' \
 		'  test-race       Run all Go tests with the race detector' \
 		'  coverage        Write coverage.out and print total coverage' \
+		'  coverage-check  Require total internal coverage to meet COVERAGE_MIN' \
 		'  coverage-html   Generate coverage.html from coverage.out' \
 		'  vet             Run go vet' \
 		'  lint            Run golangci-lint' \
@@ -83,6 +88,12 @@ release-check: release
 		TARGETS="$(TARGETS)" RELEASE_DIR="$(RELEASE_DIR)" \
 		sh scripts/check-release-reproducibility.sh
 
+release-readiness-check:
+	sh scripts/check-release-readiness.sh
+
+release-readiness: verify workflow-check security-check e2e release-check
+	RELEASE_REQUIRE_ARTIFACTS=1 sh scripts/check-release-readiness.sh
+
 tool-reference:
 	$(GO) run ./cmd/tool-reference -output docs/tool-reference.md
 
@@ -101,6 +112,14 @@ test-race:
 coverage:
 	$(GO) test -count=1 -covermode=atomic -coverpkg=./internal/... -coverprofile="$(COVERAGE_FILE)" ./internal/...
 	$(GO) tool cover -func="$(COVERAGE_FILE)" | tail -n 1
+
+coverage-check: coverage
+	@total="$$( $(GO) tool cover -func="$(COVERAGE_FILE)" | awk '/^total:/ { gsub(/%/, "", $$3); print $$3 }')"; \
+		test -n "$$total"; \
+		awk -v actual="$$total" -v minimum="$(COVERAGE_MIN)" 'BEGIN { exit !(actual + 0 >= minimum + 0) }' || { \
+			echo "coverage $$total% is below required $(COVERAGE_MIN)%" >&2; exit 1; \
+		}; \
+		echo "coverage gate passed: $$total% >= $(COVERAGE_MIN)%"
 
 coverage-html: coverage
 	$(GO) tool cover -html="$(COVERAGE_FILE)" -o coverage.html
@@ -134,6 +153,9 @@ extension-check: extension-format-check extension-lint extension-test
 e2e: extension-e2e-build
 	CHROME_BIN="$(CHROME_BIN)" MCP_BROWSER_EXTENSION_DIR="$(E2E_EXTENSION_DIR)" $(GO) test -tags=e2e -count=1 -timeout=2m ./internal/e2e
 
+workflow-check:
+	$(ACTIONLINT) .github/workflows/*.yml
+
 security-check: extension-license-check
 	$(GOVULNCHECK) ./cmd/server
 	sh scripts/check-go-licenses.sh
@@ -142,7 +164,7 @@ security-check: extension-license-check
 
 check: fmt-check vet lint test-race extension-check tool-reference-check
 
-verify: fmt check coverage build
+verify: fmt check coverage-check build
 
 clean:
 	rm -f "$(BINARY)" "$(COVERAGE_FILE)" coverage.html

@@ -1459,7 +1459,7 @@ release directory. Матрица, требования и verification flow о�
 
 - Приоритет: P0
 - Зависимости: все MVP-задачи
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Проверить:
 
@@ -1472,6 +1472,18 @@ release directory. Матрица, требования и verification flow о�
 - no secrets;
 - docs match CLI/UI;
 - known limitations опубликованы.
+
+Добавлен английский `docs/release-checklist.md` с записью кандидата, полным
+автоматическим gate, явным mapping всех 11 MVP-критериев PRD, обязательной
+ручной матрицей Chrome/Edge Stable, fresh install/upgrade, permission prompts,
+pairing/revoke, security/secret checks, сверкой CLI/UI/docs, публикацией,
+rollback и четырьмя sign-off. `make release-readiness` объединяет verify,
+workflow/security checks, E2E, reproducible release и static artifact checks;
+быстрый `make release-readiness-check` проверяет clean tree, синхронизацию
+версий, English-only policy, обязательные документы, tool reference и при
+release-режиме checksums. Опубликован `docs/known-limitations.md`, README и
+release notes ссылаются на него, CI запускает static gate. Checklist сверена с
+актуальными официальными Chrome permission/update и Edge sideload документами.
 
 ## 16. Критический путь MVP
 

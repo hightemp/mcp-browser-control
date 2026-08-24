@@ -165,6 +165,10 @@ async function writeReleaseNotes() {
     "- A deterministic Chromium extension ZIP with the same release version.",
     "- CycloneDX SBOM, release manifest, and `SHA256SUMS`.",
     "",
+    "## Known Limitations",
+    "",
+    `Review the [published limitations](https://github.com/hightemp/go_mcp_browser_ext_tool/blob/${commit}/docs/known-limitations.md) for this source commit before installation or rollout.`,
+    "",
     "Verify every downloaded file with `sha256sum -c SHA256SUMS`.",
     "",
   ].join("\n");

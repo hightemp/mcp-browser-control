@@ -36,6 +36,8 @@ test("CDP manager enforces the global and per-consumer domain allowlists", async
     (error) => error.code === ErrorCode.CAPABILITY_UNAVAILABLE,
   );
   assert.equal(CDP_ALLOWED_DOMAINS.includes("Security"), false);
+  assert.equal(CDP_ALLOWED_DOMAINS.includes("Audits"), true);
+  assert.equal(CDP_ALLOWED_DOMAINS.includes("Profiler"), true);
   assert.equal(browser.debugger.attachCalls.length, 0);
 
   const lease = await manager.acquire(

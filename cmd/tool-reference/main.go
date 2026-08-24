@@ -72,38 +72,40 @@ var toolCapabilities = map[string]string{
 	"browser_get_recently_closed": protocol.CommandSessionsRecentlyClosed,
 	"browser_restore_session":     protocol.CommandSessionsRestore,
 
-	"browser_page_info":              protocol.CommandPageInfo,
-	"browser_get_html":               protocol.CommandPageGetHTML,
-	"browser_get_html_by_selector":   protocol.CommandPageGetHTMLBySelector,
-	"browser_get_text":               protocol.CommandPageGetText,
-	"browser_query":                  protocol.CommandPageQuery,
-	"browser_get_element":            protocol.CommandPageGetElement,
-	"browser_snapshot":               protocol.CommandPageSnapshot,
-	"browser_click_element":          protocol.CommandPageClick,
-	"browser_double_click":           protocol.CommandPageClick,
-	"browser_context_click":          protocol.CommandPageClick,
-	"browser_input_data":             protocol.CommandPageFill,
-	"browser_hover":                  protocol.CommandPageHover,
-	"browser_focus":                  protocol.CommandPageFocus,
-	"browser_blur":                   protocol.CommandPageBlur,
-	"browser_type":                   protocol.CommandPageType,
-	"browser_clear":                  protocol.CommandPageClear,
-	"browser_press":                  protocol.CommandPagePress,
-	"browser_select_option":          protocol.CommandPageSelect,
-	"browser_set_checked":            protocol.CommandPageSetChecked,
-	"browser_scroll":                 protocol.CommandPageScroll,
-	"browser_drag_and_drop":          protocol.CommandPageDrag,
-	"browser_dispatch_event":         protocol.CommandPageDispatch,
-	"browser_submit":                 protocol.CommandPageSubmit,
-	"browser_wait":                   protocol.CommandPageWait,
-	"browser_screenshot":             protocol.CommandPageScreenshot,
-	"browser_print_to_pdf":           protocol.CommandPagePrintToPDF,
-	"browser_get_accessibility_tree": protocol.CommandAccessibilityGetTree,
-	"browser_set_emulation":          protocol.CommandEmulationSet,
-	"browser_get_emulation_state":    protocol.CommandEmulationGet,
-	"browser_reset_emulation":        protocol.CommandEmulationReset,
-	"browser_evaluate_javascript":    protocol.CommandRuntimeEvaluateIsolated,
-	"browser_send_cdp_command":       protocol.CommandCDPSendReadOnly,
+	"browser_page_info":               protocol.CommandPageInfo,
+	"browser_get_html":                protocol.CommandPageGetHTML,
+	"browser_get_html_by_selector":    protocol.CommandPageGetHTMLBySelector,
+	"browser_get_text":                protocol.CommandPageGetText,
+	"browser_query":                   protocol.CommandPageQuery,
+	"browser_get_element":             protocol.CommandPageGetElement,
+	"browser_snapshot":                protocol.CommandPageSnapshot,
+	"browser_click_element":           protocol.CommandPageClick,
+	"browser_double_click":            protocol.CommandPageClick,
+	"browser_context_click":           protocol.CommandPageClick,
+	"browser_input_data":              protocol.CommandPageFill,
+	"browser_hover":                   protocol.CommandPageHover,
+	"browser_focus":                   protocol.CommandPageFocus,
+	"browser_blur":                    protocol.CommandPageBlur,
+	"browser_type":                    protocol.CommandPageType,
+	"browser_clear":                   protocol.CommandPageClear,
+	"browser_press":                   protocol.CommandPagePress,
+	"browser_select_option":           protocol.CommandPageSelect,
+	"browser_set_checked":             protocol.CommandPageSetChecked,
+	"browser_scroll":                  protocol.CommandPageScroll,
+	"browser_drag_and_drop":           protocol.CommandPageDrag,
+	"browser_dispatch_event":          protocol.CommandPageDispatch,
+	"browser_submit":                  protocol.CommandPageSubmit,
+	"browser_wait":                    protocol.CommandPageWait,
+	"browser_screenshot":              protocol.CommandPageScreenshot,
+	"browser_print_to_pdf":            protocol.CommandPagePrintToPDF,
+	"browser_get_accessibility_tree":  protocol.CommandAccessibilityGetTree,
+	"browser_set_emulation":           protocol.CommandEmulationSet,
+	"browser_get_emulation_state":     protocol.CommandEmulationGet,
+	"browser_reset_emulation":         protocol.CommandEmulationReset,
+	"browser_evaluate_javascript":     protocol.CommandRuntimeEvaluateIsolated,
+	"browser_send_cdp_command":        protocol.CommandCDPSendReadOnly,
+	"browser_get_performance_metrics": protocol.CommandPerformanceMetrics,
+	"browser_capture_performance":     protocol.CommandPerformanceCapture,
 
 	"browser_start_console_capture": protocol.CommandConsoleStart,
 	"browser_stop_console_capture":  protocol.CommandConsoleStop,
@@ -173,6 +175,7 @@ var exampleOverrides = map[string]map[string]any{
 		"method": "Performance.getMetrics",
 		"params": map[string]any{},
 	},
+	"browser_capture_performance":   {"kind": "trace", "durationMs": 1_000, "maxBytes": 1_000_000},
 	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
 	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
 	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
@@ -443,6 +446,8 @@ func permissionDescription(capability string) string {
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, MCP `full`, and the disabled-by-default JavaScript evaluation feature flag"
 	case capability == protocol.CommandCDPSendReadOnly:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, MCP `full`, and the disabled-by-default raw CDP feature flag"
+	case capability == protocol.CommandPerformanceMetrics || capability == protocol.CommandPerformanceCapture:
+		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`"
 	default:
@@ -510,6 +515,10 @@ func resultDescription(name string) string {
 		return "a bounded JSON-safe value, unsupported/unserializable marker, or bounded exception from an ephemeral root-frame isolated world"
 	case "browser_send_cdp_command":
 		return "the independently validated, bounded, redacted result of one reviewed read-only CDP method plus truncation metadata"
+	case "browser_get_performance_metrics":
+		return "bounded numeric runtime metrics inline with the resolved root-document identity"
+	case "browser_capture_performance":
+		return "capture metadata plus an owner-only JSON `artifactUri`; trace, coverage, CPU profile, or audit content is never returned inline"
 	case "browser_wait":
 		return "the satisfied condition, observation mode, elapsed time, and matching state in `data`"
 	case "browser_start_console_capture", "browser_stop_console_capture", "browser_clear_console_log":
@@ -536,7 +545,8 @@ func errorDescription(name, capability string) string {
 	}
 	if (strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") ||
 		strings.HasPrefix(capability, "accessibility.") || strings.HasPrefix(capability, "emulation.") ||
-		capability == protocol.CommandRuntimeEvaluateIsolated || capability == protocol.CommandCDPSendReadOnly) &&
+		strings.HasPrefix(capability, "performance.") || capability == protocol.CommandRuntimeEvaluateIsolated ||
+		capability == protocol.CommandCDPSendReadOnly) &&
 		capability != protocol.CommandEmulationReset {
 		errors = append(errors,
 			"`TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`",
@@ -568,6 +578,11 @@ func errorDescription(name, capability string) string {
 		errors = append(errors,
 			"`INVALID_COMMAND` for a prohibited or unreviewed CDP method",
 			"`PAYLOAD_TOO_LARGE` for a result above the configured byte limit",
+		)
+	case "browser_capture_performance":
+		errors = append(errors,
+			"`INVALID_COMMAND` for a prohibited capture kind such as a heap snapshot",
+			"`PAYLOAD_TOO_LARGE` or artifact storage failure",
 		)
 	case "browser_get_network_log":
 		errors = append(errors, "currently always `CAPABILITY_UNAVAILABLE`")

@@ -118,6 +118,7 @@ export function detectCapabilities({
       if (featureFlags.rawCDP === true) {
         capabilities.push("cdp.sendReadOnly");
       }
+      capabilities.push("performance.metrics", "performance.capture");
     }
     capabilities.push("console.start", "console.stop", "console.clear", "console.read");
   }

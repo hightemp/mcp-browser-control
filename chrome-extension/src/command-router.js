@@ -297,6 +297,16 @@ const COMMANDS = Object.freeze({
     handler: "sendReadOnly",
     validate: validateRawCDP,
   }),
+  "performance.metrics": Object.freeze({
+    domain: "performance",
+    handler: "metrics",
+    validate: validatePerformanceMetrics,
+  }),
+  "performance.capture": Object.freeze({
+    domain: "performance",
+    handler: "capture",
+    validate: validatePerformanceCapture,
+  }),
   "console.start": Object.freeze({
     domain: "console",
     handler: "start",
@@ -1539,6 +1549,35 @@ function validateRawCDPTarget(target) {
 function assertOptionalBoundedString(value, path, maximum) {
   if (value !== undefined && (typeof value !== "string" || [...value].length > maximum)) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} exceeds its string limit`);
+  }
+}
+
+function validatePerformanceMetrics(params, target) {
+  validateEmpty(params);
+  validatePerformanceTarget(target);
+}
+
+function validatePerformanceCapture(params, target) {
+  validateParamsObject(params);
+  validatePerformanceTarget(target);
+  assertAllowedProperties(params, ["kind", "durationMs", "maxBytes"]);
+  if (!["trace", "coverage", "cpuProfile", "audits"].includes(params.kind)) {
+    throw protocolError(ErrorCode.INVALID_COMMAND, "params.kind is not allowlisted");
+  }
+  requireIntegerRange(params.durationMs, "params.durationMs", 100, 10_000);
+  requireIntegerRange(params.maxBytes, "params.maxBytes", 64 * 1_024, 2_000_000);
+}
+
+function validatePerformanceTarget(target) {
+  if (target === undefined || target === null) return;
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.windowId !== undefined || (target.frameId !== undefined && target.frameId !== 0)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Performance commands accept only the root frame of a tab",
+    );
   }
 }
 

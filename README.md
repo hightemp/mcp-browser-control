@@ -22,7 +22,8 @@ The first multi-browser vertical slice is implemented:
   locator, DOM interaction, waits, viewport screenshots, managed-CDP PDF
   artifacts, bounded accessibility trees, reversible tab emulation,
   opt-in isolated-world JavaScript evaluation, a reviewed opt-in read-only CDP
-  subset, and bridge/CDP console diagnostics work through the extension;
+  subset, bounded performance metrics/capture artifacts, and bridge/CDP console
+  diagnostics work through the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
@@ -278,6 +279,8 @@ rejects stale output.
 - `browser_reset_emulation`
 - `browser_evaluate_javascript`
 - `browser_send_cdp_command`
+- `browser_get_performance_metrics`
+- `browser_capture_performance`
 - `browser_start_console_capture`
 - `browser_stop_console_capture`
 - `browser_clear_console_log`
@@ -387,6 +390,18 @@ are not exposed. Calls require Observe, Debug, MCP `full`, and the separate raw
 CDP feature flag; they are audited without parameters or result values and are
 excluded from batch. See [`docs/raw-cdp.md`](docs/raw-cdp.md).
 
+`browser_get_performance_metrics` returns at most 200 finite numeric runtime
+metrics for one root document. `browser_capture_performance` runs exactly one
+100 ms–10 s trace, precise coverage, CPU profile, or audit capture with fixed
+CDP settings and a caller-selected artifact limit between 64 KiB and 2 MB.
+Captures automatically stop and release their managed CDP lease on success,
+error, timeout, or cancellation. Their JSON content is stored only as a
+temporary owner-only artifact because URLs and script/page activity cannot be
+reliably redacted; normal results and audit logs contain metadata only. Heap
+snapshots, caller-controlled trace categories, raw stream handles, continuous
+profiling, and batch/generic-command access are prohibited. See
+[`docs/performance-diagnostics.md`](docs/performance-diagnostics.md).
+
 Console capture injects packaged, versioned bridges into the selected document's
 MAIN and ISOLATED worlds; this baseline does not require the optional debugger
 permission. When Debug is granted for a root-frame capture, one managed CDP
@@ -405,8 +420,8 @@ seconds), stops on the first failed step unless `stopOnError` is false, and
 returns ordered nested tool envelopes within the configured MCP result limit.
 Every step passes through the same tool-profile, extension-capability, action
 policy, redaction, timeout, and result-size checks as a direct call. Discovery,
-selection, generic command dispatch, raw CDP, and recursive batches are not
-batchable.
+selection, generic command dispatch, raw CDP, performance diagnostics, and
+recursive batches are not batchable.
 Execution is not transactional and completed side effects are never rolled back.
 
 Page inspection never returns unrestricted raw DOM by default. HTML defaults to
@@ -453,7 +468,8 @@ added. `browser_send_command` is an expert extension-command entry point, but
 the extension still enforces its command allowlist and the server rejects
 dedicated-only evaluation and raw CDP capabilities. Reviewed raw CDP has its
 own typed `browser_send_cdp_command` tool and cannot be used as an arbitrary
-DevTools Protocol escape hatch.
+DevTools Protocol escape hatch. Performance metrics and captures likewise have
+dedicated typed tools and cannot be reached through the generic command tool.
 
 ## Tool Result Envelope
 

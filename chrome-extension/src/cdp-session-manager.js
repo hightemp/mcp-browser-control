@@ -4,6 +4,7 @@ export const CDP_PROTOCOL_VERSION = "1.3";
 
 export const CDP_ALLOWED_DOMAINS = Object.freeze([
   "Accessibility",
+  "Audits",
   "DOM",
   "Emulation",
   "IO",
@@ -12,6 +13,7 @@ export const CDP_ALLOWED_DOMAINS = Object.freeze([
   "Network",
   "Page",
   "Performance",
+  "Profiler",
   "Runtime",
   "Target",
   "Tracing",

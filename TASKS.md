@@ -1009,9 +1009,22 @@ depth/node/string/key/byte/timeout limits и двойную extension/server val
 
 - Приоритет: P2
 - Зависимости: T-060, T-034
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Performance metrics, tracing, coverage, profiler и audits как отдельные bounded sessions с artifact output.
+
+Добавлены два full-profile MCP tools и отдельные extension-команды. Metrics
+возвращают не более 200 конечных числовых значений inline. Trace, precise
+coverage, CPU profile и Audits используют независимые короткие exact-method
+leases общего CDP manager, фиксированные trace categories и длительность
+100 мс–10 с; результат 64 КиБ–2 МБ сохраняется только в owner-only JSON
+artifact. Root HTTP(S) document, Observe/Debug, timeout, размер и wire shape
+проверяются в extension и Go. Cleanup останавливает tracing/profiler/audits,
+закрывает private IO stream и освобождает lease при success, error, cancel или
+timeout. Heap snapshots, caller-controlled categories, raw handles, continuous
+profiling, batch и generic-command bypass запрещены. Audit содержит только
+kind, browser/tab, outcome, size и duration. Добавлены Go/extension tests и
+`docs/performance-diagnostics.md`.
 
 ## 12. Этап 7 — optional data domains
 

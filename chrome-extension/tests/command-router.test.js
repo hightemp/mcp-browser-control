@@ -19,6 +19,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
       emulation: { set: handler, get: handler, reset: handler },
       evaluation: { evaluate: handler },
       rawCDP: { sendReadOnly: handler },
+      performance: { metrics: handler, capture: handler },
       windows: {
         list: handler,
         get: handler,
@@ -224,6 +225,12 @@ test("router dispatches every allowlisted command to its domain handler", async 
       maxStringChars: 2_000,
       maxBytes: 524_288,
     },
+    "performance.metrics": {},
+    "performance.capture": {
+      kind: "trace",
+      durationMs: 1_000,
+      maxBytes: 1_000_000,
+    },
     "console.start": {
       bufferSize: 500,
       captureConsole: true,
@@ -298,6 +305,14 @@ test("router validates target and command params before invoking handlers", asyn
       },
       evaluation: {
         evaluate: () => {
+          calls += 1;
+        },
+      },
+      performance: {
+        metrics: () => {
+          calls += 1;
+        },
+        capture: () => {
           calls += 1;
         },
       },
@@ -533,6 +548,11 @@ test("router validates target and command params before invoking handlers", asyn
       maxStringChars: 2_000,
       maxBytes: 524_288,
     }),
+    createRequest("performance.capture", {
+      kind: "trace",
+      durationMs: 99,
+      maxBytes: 1_000_000,
+    }),
     createRequest("runtime.evaluateIsolated", {
       expression: "document.title",
       awaitPromise: true,
@@ -601,6 +621,17 @@ test("router validates target and command params before invoking handlers", asyn
       target: { browserId: "22222222-2222-4222-8222-222222222222", tabId: 1 },
     },
   ];
+
+  const prohibitedCapture = await execute(
+    router,
+    createRequest("performance.capture", {
+      kind: "heapSnapshot",
+      durationMs: 1_000,
+      maxBytes: 1_000_000,
+    }),
+  );
+  assert.equal(prohibitedCapture.success, false);
+  assert.equal(prohibitedCapture.error.code, ErrorCode.INVALID_COMMAND);
 
   for (const [index, request] of invalidRequests.entries()) {
     request.requestId = `invalid-${index}`;
@@ -754,6 +785,13 @@ function defaultHandlers() {
     },
     evaluation: {
       evaluate: () => ({ completed: true }),
+    },
+    rawCDP: {
+      sendReadOnly: () => ({ result: {} }),
+    },
+    performance: {
+      metrics: () => ({ metrics: [] }),
+      capture: () => ({ dataBase64: "artifact" }),
     },
     page: {
       info: () => ({ url: "" }),

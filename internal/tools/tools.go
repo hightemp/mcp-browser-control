@@ -332,6 +332,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerEmulationTools(mcpServer)
 	s.registerEvaluationTool(mcpServer)
 	s.registerRawCDPTool(mcpServer)
+	s.registerPerformanceTools(mcpServer)
 	s.registerConsoleTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -924,7 +925,9 @@ func (s *Service) browserSendCommandHandler(
 	args sendCommandArgs,
 ) (*mcp.CallToolResult, error) {
 	if args.Command == protocol.CommandRuntimeEvaluateIsolated ||
-		args.Command == protocol.CommandCDPSendReadOnly {
+		args.Command == protocol.CommandCDPSendReadOnly ||
+		args.Command == protocol.CommandPerformanceMetrics ||
+		args.Command == protocol.CommandPerformanceCapture {
 		return errorResult(protocol.NewError(
 			protocol.CodeInvalidCommand,
 			"the command requires its dedicated MCP tool",

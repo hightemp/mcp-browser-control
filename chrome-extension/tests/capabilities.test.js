@@ -137,6 +137,8 @@ test("capability detection removes unavailable or disabled commands", () => {
   assert.equal(withDebugger.includes("emulation.reset"), true);
   assert.equal(withDebugger.includes("runtime.evaluateIsolated"), false);
   assert.equal(withDebugger.includes("cdp.sendReadOnly"), false);
+  assert.equal(withDebugger.includes("performance.metrics"), true);
+  assert.equal(withDebugger.includes("performance.capture"), true);
 
   const withEvaluationOptIn = detectCapabilities({
     browserVersion: "125",

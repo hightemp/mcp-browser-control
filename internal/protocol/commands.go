@@ -159,6 +159,10 @@ const (
 	CommandRuntimeEvaluateIsolated = "runtime.evaluateIsolated"
 	// CommandCDPSendReadOnly sends one allowlisted read-only CDP method.
 	CommandCDPSendReadOnly = "cdp.sendReadOnly"
+	// CommandPerformanceMetrics reads bounded runtime performance metrics.
+	CommandPerformanceMetrics = "performance.metrics"
+	// CommandPerformanceCapture runs one bounded diagnostic capture.
+	CommandPerformanceCapture = "performance.capture"
 
 	// CommandConsoleStart starts console and page error capture.
 	CommandConsoleStart = "console.start"

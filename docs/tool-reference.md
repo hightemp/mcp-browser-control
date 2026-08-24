@@ -6834,6 +6834,82 @@ Example MCP tool payload:
 
 ## Waits, Artifacts, and Diagnostics
 
+### `browser_capture_performance`
+
+Capture one bounded trace, coverage, CPU profile, or audit artifact.
+
+- MCP profile: `full`
+- Extension capability: `performance.capture`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: capture metadata plus an owner-only JSON `artifactUri`; trace, coverage, CPU profile, or audit content is never returned inline
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `INVALID_COMMAND` for a prohibited capture kind such as a heap snapshot; `PAYLOAD_TOO_LARGE` or artifact storage failure
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "durationMs": {
+      "default": 1000,
+      "description": "Capture duration in milliseconds",
+      "maximum": 10000,
+      "minimum": 100,
+      "type": "number"
+    },
+    "kind": {
+      "description": "Bounded diagnostic capture type",
+      "enum": [
+        "trace",
+        "coverage",
+        "cpuProfile",
+        "audits"
+      ],
+      "type": "string"
+    },
+    "maxBytes": {
+      "default": 2000000,
+      "description": "Maximum decoded artifact bytes",
+      "maximum": 2000000,
+      "minimum": 65536,
+      "type": "number"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "kind"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "durationMs": 1000,
+    "kind": "trace",
+    "maxBytes": 1000000
+  },
+  "name": "browser_capture_performance"
+}
+```
+
 ### `browser_clear_console_log`
 
 Clear buffered console and page error entries.
@@ -7066,6 +7142,51 @@ Example MCP tool payload:
 {
   "arguments": {},
   "name": "browser_get_network_log"
+}
+```
+
+### `browser_get_performance_metrics`
+
+Read bounded runtime performance metrics from one root document.
+
+- MCP profile: `full`
+- Extension capability: `performance.metrics`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: bounded numeric runtime metrics inline with the resolved root-document identity
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {},
+  "name": "browser_get_performance_metrics"
 }
 ```
 

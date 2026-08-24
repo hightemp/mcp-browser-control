@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; used by typed console, PDF, accessibility, emulation, evaluation, and reviewed raw CDP tools
+Status: implemented infrastructure; used by typed console, PDF, accessibility, emulation, evaluation, reviewed raw CDP, and performance tools
 
 Last reviewed: 2026-08-24
 
@@ -85,8 +85,8 @@ their typed stop operation and their timeout/cancellation path.
 The infrastructure allowlist contains only domains planned by the approved
 typed features:
 
-`Accessibility`, `DOM`, `Emulation`, `IO`, `Input`, `Log`, `Network`, `Page`,
-`Performance`, `Runtime`, `Target`, and `Tracing`.
+`Accessibility`, `Audits`, `DOM`, `Emulation`, `IO`, `Input`, `Log`, `Network`,
+`Page`, `Performance`, `Profiler`, `Runtime`, `Target`, and `Tracing`.
 
 This is a first boundary, not authorization for every method in those domains.
 Exact per-consumer command/event lists provide the second boundary. Each typed
@@ -189,3 +189,11 @@ exactly one method and its one domain. Both protocol boundaries independently
 validate method-specific parameters and result shape; no events, child targets,
 remote handles, streams, or session IDs are exposed. See
 [`raw-cdp.md`](raw-cdp.md).
+
+Performance diagnostics use short-lived, kind-specific root-tab leases.
+Metrics allow only `Performance.getMetrics`; trace owns a fixed-category
+`Tracing` session and its private `IO` stream; coverage and CPU profiling own
+separate exact `Profiler` lifecycles; audits accept only `Audits.issueAdded`.
+Every capture stops its domain state and releases the lease in cleanup, and no
+stream handle or profiler session leaves the handler. See
+[`performance-diagnostics.md`](performance-diagnostics.md).

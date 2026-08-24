@@ -11,6 +11,7 @@ import {
 import { getStoredIdentity, initializeStoredState, resetStoredIdentity } from "./identity.js";
 import { badgeForStatus, permissionProfilesFor } from "./status.js";
 import { detectCapabilities } from "./capabilities.js";
+import { detectBrowserInfo } from "./browser-info.js";
 import { CommandRouter } from "./command-router.js";
 import { createBrowserHandlers } from "./handlers/browser.js";
 import { createConsoleHandlers } from "./handlers/console.js";
@@ -616,11 +617,9 @@ async function broadcastStatusChanged() {
 }
 
 function getBrowserName() {
-  const brands = navigator.userAgentData?.brands || [];
-  return brands.find((brand) => !brand.brand.includes("Not"))?.brand || "Chromium";
+  return detectBrowserInfo(navigator).name;
 }
 
 function getBrowserVersion() {
-  const brands = navigator.userAgentData?.brands || [];
-  return brands.find((brand) => !brand.brand.includes("Not"))?.version || "";
+  return detectBrowserInfo(navigator).version;
 }

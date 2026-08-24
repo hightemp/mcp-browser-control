@@ -492,9 +492,18 @@ Core объявляется в `permissions`. Observe объявляется в 
 
 ### NFR-3. Совместимость
 
-- Первая версия: актуальные Chrome и Chromium-браузеры с необходимыми MV3 API.
-- Минимальная версия браузера фиксируется после прототипа жизненного цикла WebSocket service worker.
+- Первая версия официально поддерживает desktop Google Chrome Stable и
+  Microsoft Edge Stable, начиная с Chromium major 116; Chromium 116+ совместим,
+  остальные Chromium-продукты работают в best-effort режиме, Firefox и mobile
+  browsers не поддерживаются.
+- Минимальная версия 116 зафиксирована в manifest и capability detection из-за
+  жизненного цикла WebSocket в MV3 service worker.
+- Production extension использует promise-based namespace `chrome` без
+  polyfill. Поддержка Firefox потребует отдельного manifest, API/debugger
+  adapter и E2E suite.
 - Возможности, зависящие от версии, объявляются через capabilities.
+- Полная browser/capability/test matrix поддерживается по-английски в
+  `docs/browser-support.md`.
 
 ### NFR-4. Поддерживаемость
 

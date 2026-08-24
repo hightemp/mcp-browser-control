@@ -1,4 +1,4 @@
-const MINIMUM_BROWSER_VERSION = 116;
+export const MINIMUM_BROWSER_VERSION = 116;
 
 export function detectCapabilities({
   browserVersion = "",

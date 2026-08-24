@@ -72,7 +72,7 @@
 
 - Приоритет: P0
 - Зависимости: T-001
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Результат:
 
@@ -80,6 +80,15 @@
 - минимальная версия для WebSocket service worker и используемых APIs;
 - таблица capabilities по браузерам;
 - решение о namespace `chrome`/`browser` и compatibility layer.
+
+В `docs/browser-support.md` зафиксированы поддерживаемые desktop Chrome/Edge
+116+, совместимый Chromium, best-effort Chromium-производные и исключённые
+Firefox/mobile; приведены capability/permission и release-validation matrices.
+Минимум 116 синхронизирован между manifest и capability detection тестом и
+основан на MV3 service-worker WebSocket lifecycle. V1 использует promise-based
+`chrome` без polyfill; будущий Firefox требует отдельного adapter/manifest/E2E.
+Определение browser brand вынесено в тестируемый модуль и корректно отличает
+Chrome, Edge и другие Chromium-продукты независимо от порядка UA brands.
 
 ### T-003 — Зафиксировать permission profiles
 

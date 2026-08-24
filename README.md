@@ -50,6 +50,9 @@ boundaries.
 - Chrome or a compatible Chromium browser version 116 or newer
 - Node.js 20.19 or newer for extension development and tests
 
+Chrome, Edge, other Chromium products, capability differences, and the test
+policy are defined in [docs/browser-support.md](docs/browser-support.md).
+
 ## Run the Server
 
 Install dependencies and start the default Streamable HTTP transport:

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile, readdir, stat } from "node:fs/promises";
 import test from "node:test";
 
+import { MINIMUM_BROWSER_VERSION } from "../src/capabilities.js";
+
 const extensionRoot = new URL("../", import.meta.url);
 const manifestURL = new URL("manifest.json", extensionRoot);
 const manifest = JSON.parse(await readFile(manifestURL, "utf8"));
@@ -25,6 +27,7 @@ const optionalPermissions = [
 
 test("manifest uses MV3 with the minimal baseline permission set", () => {
   assert.equal(manifest.manifest_version, 3);
+  assert.equal(Number.parseInt(manifest.minimum_chrome_version, 10), MINIMUM_BROWSER_VERSION);
   assert.deepEqual([...manifest.permissions].sort(), requiredPermissions);
   assert.equal("host_permissions" in manifest, false);
 });

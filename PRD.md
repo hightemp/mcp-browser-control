@@ -2,8 +2,8 @@
 
 ## 1. Сведения о документе
 
-- Статус: черновик для согласования
-- Версия: 0.1
+- Статус: утверждённый baseline v1
+- Версия: 0.3
 - Язык продукта, кода и пользовательского интерфейса: английский
 - Язык `AGENTS.md`, `TASKS.md` и `PRD.md`: русский
 - Основной стек: Go, MCP, Chromium Extension Manifest V3, WebSocket
@@ -596,26 +596,88 @@ Cookies/storage, downloads, sessions, bookmarks/history и другие чувс
 
 Race/security/E2E тесты, лимиты, telemetry, packaging и release documentation.
 
-## 18. Допущения
+## 18. Зафиксированные продуктовые решения
 
-- Сервер и браузеры в MVP работают на одной машине.
-- Основная целевая платформа — Chromium + Manifest V3.
-- Один экземпляр расширения соответствует одному browser profile.
-- Пользователь вручную подтверждает pairing и чувствительные permissions.
-- Типизированный API покрывает частые операции, raw CDP остаётся экспертным escape hatch.
-- Старый SSE сохраняется только при реальной необходимости совместимости.
+### 18.1. Сетевой контур
 
-## 19. Открытые вопросы для владельца продукта
+Версия v1 поддерживает только сервер и браузеры одного локального пользователя
+на одной машине. MCP HTTP и extension WebSocket привязаны к loopback; браузеры
+в локальной сети и прямой доступ из интернета не поддерживаются. Любой remote
+mode требует отдельного аутентифицирующего gateway, credential rotation,
+шифрования транспорта и повторного security review.
 
-Эти вопросы не блокируют Foundation, но должны быть решены до соответствующих этапов:
+### 18.2. Браузеры
 
-1. Нужно ли поддерживать удалённые браузеры в локальной сети или только localhost?
-2. Нужна ли Firefox-совместимость, и если да, в какой версии продукта?
-3. Допустим ли raw CDP и arbitrary JavaScript в production-сборке?
-4. Нужны ли history, bookmarks, cookies и downloads или их следует вынести в отдельную сборку расширения?
-5. Нужна ли публикация в Chrome Web Store либо достаточно unpacked/enterprise installation?
-6. Должны ли несколько MCP-клиентов иметь право одновременно управлять одной вкладкой?
-7. Нужны ли подтверждения пользователя в UI для navigation, download и отправки форм, а не только для удаления данных?
+Обязательная платформа v1 — Chrome и Microsoft Edge на Chromium с Manifest V3.
+Другие Chromium-браузеры допускаются в best-effort режиме после проверки их
+capabilities. Firefox не входит в v1: его WebExtensions и debugging backend
+должны проектироваться как отдельный compatibility layer, а отсутствие Firefox
+не блокирует релиз.
+
+Один экземпляр расширения соответствует одному browser profile и хранит
+отдельный стабильный `browserId`.
+
+### 18.3. Raw CDP и JavaScript
+
+Типизированные инструменты остаются основным production API. Raw CDP выключен
+по умолчанию и может быть доступен только в `full` tool profile с явно выданным
+Debug permission, feature flag и allowlist методов из security review.
+Неограниченный CDP запрещён.
+
+JavaScript evaluation может быть добавлен только отдельным типизированным
+инструментом: ephemeral isolated world, фиксированный deadline, JSON-safe
+bounded result, без handles и persistent scripts. Main-world и произвольный
+raw evaluation по умолчанию запрещены.
+
+### 18.4. Personal data
+
+History, bookmarks, cookies, downloads, sessions и другие согласованные домены
+остаются в одной production-сборке расширения, но их permissions optional, а
+tools доступны только в `full`. Каждый домен реализуется отдельными
+типизированными read/mutate tools с пагинацией, redaction, origin policy и
+аудитом. Новая отдельная «расширенная» сборка не создаётся; отсутствие этих
+опциональных разрешений оставляет Core/Observe сценарии работоспособными.
+
+### 18.5. Распространение
+
+Для v1 обязательны reproducible ZIP, unpacked installation и возможность
+enterprise deployment. Публикация в Chrome Web Store не является release gate
+и откладывается до появления владельца store listing, privacy disclosure,
+подписания и процесса обновлений. Store-сборка не должна получать более широкие
+permissions или иной command allowlist.
+
+### 18.6. Конкурентное управление вкладкой
+
+Несколько MCP-сессий могут одновременно адресовать одну вкладку. Сервер не
+вводит глобальную блокировку, lease или неявную очередь бизнес-операций:
+запросы независимо ограничены deadline и коррелируются со своей сессией,
+браузером, соединением и request ID. Клиент обязан передавать явные
+`browserId`/`tabId` и `documentId` для сценариев, чувствительных к гонкам.
+Navigation делает старые document-scoped targets устаревшими; конфликтующие
+действия могут завершиться `STALE_TARGET`, `TAB_NOT_FOUND` или доменной ошибкой.
+
+### 18.7. Подтверждения и пользовательские жесты
+
+Пользователь вручную подтверждает pairing и все системные optional permission
+prompts в UI расширения. `confirm: true` обязателен для закрытия окна со всеми
+его вкладками, будущих destructive multi-item операций и массового удаления
+personal data; identity reset подтверждается непосредственно в UI. Incognito
+дополнительно включается владельцем в server policy.
+
+Обычная navigation, одиночное управление вкладкой, отправка формы и создание
+download не требуют отдельного UI-подтверждения после явного выбора target,
+выдачи необходимого permission и прохождения origin/action policy. Clipboard и
+file input всё равно обязаны соблюдать пользовательский жест платформы и
+отдельные ограничения security review.
+
+Legacy SSE сохраняется только как явно включаемый compatibility mode;
+основными транспортами являются STDIO и Streamable HTTP.
+
+## 19. Условия пересмотра решений
+
+Продуктовые решения необходимо пересмотреть до добавления remote mode,
+Firefox, multi-user host, unrestricted debugging, новых sensitive-data доменов,
+публикации в browser store либо более строгой модели владения вкладкой.
 
 ## 20. Официальные технические ориентиры
 

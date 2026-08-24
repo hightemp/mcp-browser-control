@@ -1320,7 +1320,9 @@ multi-user mode требуют повторного review.
 
 Покрыть registry, duplicate connection, router, selection, pending requests, timeout, cancellation, disconnect cleanup, error mapping, redaction и config.
 
-Реализовано; суммарное statement coverage `internal/...` в atomic-режиме — 82,4%. Redaction дополнительно проверяется extension protocol tests.
+Реализовано; `make coverage-check` измеряет суммарное statement coverage
+`internal/...` в atomic-режиме и не пропускает значение ниже 80%. Redaction
+дополнительно проверяется extension protocol tests.
 
 ### T-091 — Race и stress tests
 

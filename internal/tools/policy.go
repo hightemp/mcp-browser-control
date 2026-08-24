@@ -106,6 +106,13 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_get_cookie":              toolProfileFull,
 	"browser_set_cookie":              toolProfileFull,
 	"browser_remove_cookie":           toolProfileFull,
+	"browser_list_storage_items":      toolProfileFull,
+	"browser_get_storage_item":        toolProfileFull,
+	"browser_set_storage_item":        toolProfileFull,
+	"browser_remove_storage_item":     toolProfileFull,
+	"browser_get_cache_metadata":      toolProfileFull,
+	"browser_get_indexeddb_metadata":  toolProfileFull,
+	"browser_clear_origin_storage":    toolProfileFull,
 	"browser_send_command":            toolProfileFull,
 }
 

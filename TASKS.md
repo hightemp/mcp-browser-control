@@ -1069,9 +1069,23 @@ URL, filters или cookie data. Добавлены Go/extension tests и `docs/
 
 - Приоритет: P1
 - Зависимости: T-046, T-060, T-081
-- Статус: `[ ]`
+- Статус: `[x]`
 
 localStorage, sessionStorage, Cache Storage, IndexedDB metadata и clear origin data. Не возвращать неограниченные базы или blobs.
+
+Добавлены семь отдельных full-profile MCP tools и девять extension capabilities:
+bounded list/get/set/remove для localStorage/sessionStorage, Cache Storage names,
+IndexedDB database name/version metadata и подтверждаемая очистка выбранных
+типов exact origin. Каждый вызов привязан к root documentId и HTTP(S) origin,
+проверяет Observe + Personal data до и после isolated-world execution; обычные
+reads маскируют values, а отдельные sensitive capabilities объявляются только
+при включённой настройке и явном includeValue(s). Лимиты key/value/name, page,
+scan и wire bytes независимо проверяются extension и Go; cache requests,
+responses/bodies, IndexedDB stores/records/handles/blobs и unbounded export не
+доступны. Clear требует `confirm: true`, выполняет общий preflight до первой
+мутации и возвращает только counts/warnings; browser APIs не заявляются как
+транзакционные. Generic/batch bypass запрещён, audit не содержит origin, keys,
+values или metadata names. Добавлены Go/extension tests и `docs/web-storage.md`.
 
 ### T-072 — Реализовать downloads
 

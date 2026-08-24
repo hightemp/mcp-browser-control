@@ -22,6 +22,7 @@ import { createRawCDPHandlers } from "./handlers/raw-cdp.js";
 import { createPerformanceHandlers } from "./handlers/performance.js";
 import { createNetworkHandlers } from "./handlers/network.js";
 import { createCookieHandlers } from "./handlers/cookies.js";
+import { createStorageHandlers } from "./handlers/storage.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -71,6 +72,7 @@ const commandRouter = new CommandRouter({
     performance: createPerformanceHandlers(chrome, { cdpSessions }),
     network: createNetworkHandlers(chrome, { cdpSessions }),
     cookies: createCookieHandlers(chrome, { getSettings }),
+    storageData: createStorageHandlers(chrome, { getSettings }),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
@@ -521,6 +523,7 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
         chrome.cookies?.remove &&
         chrome.cookies?.getAllCookieStores,
       ),
+      originStorage: Boolean(chrome.scripting?.executeScript),
       scripting: Boolean(chrome.scripting),
       webNavigation: Boolean(chrome.webNavigation?.getFrame),
       frameTree: Boolean(chrome.webNavigation?.getAllFrames),

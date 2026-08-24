@@ -58,6 +58,7 @@ change. The server rejects a command that is not currently advertised.
 | Network idle observation | `webRequest` and target-origin access | Observe | Capability-gated per wait | Capability-gated per wait | Capability-gated |
 | Network capture and artifacts | managed `Network` events plus same-origin textual body getters and body-free HAR export | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Exact-origin cookies | `cookies` API with tab store resolution; partition keys require Chrome 119+ and `hasCrossSiteAncestor` requires 130+ | Observe + Personal data plus MCP `full`; unmasked reads require Sensitive data mode | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
+| Exact-origin Web Storage and metadata | isolated root-document `localStorage`/`sessionStorage`, `CacheStorage.keys`, and `indexedDB.databases` | Observe + Personal data plus MCP `full`; unmasked Web Storage reads require Sensitive data mode | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | CDP session infrastructure | `debugger`; flat child sessions require browser 125+ | Debug plus MCP `full` profile | Root manager implemented | Root manager implemented; release smoke still required | Not supported until tested |
 | Print to PDF | managed `Page.printToPDF` | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Accessibility tree | managed `Accessibility.getFullAXTree`/`getPartialAXTree` plus bounded frame metadata | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
@@ -65,7 +66,7 @@ change. The server rejects a command that is not currently advertised.
 | Isolated JavaScript evaluation | managed `Page.createIsolatedWorld` and bounded `Runtime.evaluate` | Observe + Debug, MCP `full`, and disabled-by-default feature flag | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Reviewed read-only CDP | exact allowlist of Accessibility, DOM, Page layout, and Performance metric methods | Observe + Debug, MCP `full`, and disabled-by-default feature flag | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Performance diagnostics | managed Performance metrics, fixed-category Tracing/IO, Profiler coverage/CPU, and Audits sessions | Observe + Debug plus MCP `full`; capture output is artifact-only | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
-| Other personal-data tools beyond cookies/sessions/groups | domain-specific optional APIs | Personal data plus MCP `full` profile | Planned | Planned | Not supported until tested |
+| Other personal-data tools beyond cookies/storage/sessions/groups | domain-specific optional APIs | Personal data plus MCP `full` profile | Planned | Planned | Not supported until tested |
 
 `browser_get_capabilities` exposes the server's current view. A missing API,
 permission, site grant, feature flag, or acceptable browser version removes the

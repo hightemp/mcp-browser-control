@@ -177,6 +177,51 @@ const COMMANDS = Object.freeze({
     handler: "getSensitive",
     validate: validateCookieIdentity,
   }),
+  "storage.list": Object.freeze({
+    domain: "storageData",
+    handler: "list",
+    validate: validateStorageList,
+  }),
+  "storage.get": Object.freeze({
+    domain: "storageData",
+    handler: "get",
+    validate: validateStorageItem,
+  }),
+  "storage.set": Object.freeze({
+    domain: "storageData",
+    handler: "set",
+    validate: validateStorageSet,
+  }),
+  "storage.remove": Object.freeze({
+    domain: "storageData",
+    handler: "remove",
+    validate: validateStorageItem,
+  }),
+  "storage.cacheMetadata": Object.freeze({
+    domain: "storageData",
+    handler: "cacheMetadata",
+    validate: validateStorageMetadata,
+  }),
+  "storage.indexedDBMetadata": Object.freeze({
+    domain: "storageData",
+    handler: "indexedDBMetadata",
+    validate: validateStorageMetadata,
+  }),
+  "storage.clear": Object.freeze({
+    domain: "storageData",
+    handler: "clear",
+    validate: validateStorageClear,
+  }),
+  "storage.listSensitive": Object.freeze({
+    domain: "storageData",
+    handler: "listSensitive",
+    validate: validateStorageList,
+  }),
+  "storage.getSensitive": Object.freeze({
+    domain: "storageData",
+    handler: "getSensitive",
+    validate: validateStorageItem,
+  }),
   "page.info": Object.freeze({
     domain: "page",
     handler: "info",
@@ -1939,6 +1984,100 @@ function validateCookiePartitionKey(value) {
   assertAllowedProperties(value, ["topLevelSite", "hasCrossSiteAncestor"]);
   validateCookieURL(value.topLevelSite, "params.partitionKey.topLevelSite");
   validateOptionalBoolean(value.hasCrossSiteAncestor, "params.partitionKey.hasCrossSiteAncestor");
+}
+
+const STORAGE_TYPES = Object.freeze(["localStorage", "sessionStorage"]);
+const CLEAR_STORAGE_TYPES = Object.freeze([
+  "localStorage",
+  "sessionStorage",
+  "cacheStorage",
+  "indexedDB",
+]);
+
+function validateStorageList(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, ["origin", "storageType", "cursor", "limit"]);
+  validateStorageOrigin(params.origin);
+  validateEnum(params.storageType, "params.storageType", STORAGE_TYPES);
+  validateStorageCursor(params.cursor);
+  requireIntegerRange(params.limit, "params.limit", 1, 200);
+}
+
+function validateStorageItem(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, ["origin", "storageType", "key"]);
+  validateStorageOrigin(params.origin);
+  validateEnum(params.storageType, "params.storageType", STORAGE_TYPES);
+  requireStorageString(params.key, "params.key", 1_024);
+}
+
+function validateStorageSet(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, ["origin", "storageType", "key", "value"]);
+  validateStorageOrigin(params.origin);
+  validateEnum(params.storageType, "params.storageType", STORAGE_TYPES);
+  requireStorageString(params.key, "params.key", 1_024);
+  requireStorageString(params.value, "params.value", 64 * 1_024);
+}
+
+function validateStorageMetadata(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, ["origin", "cursor", "limit"]);
+  validateStorageOrigin(params.origin);
+  validateStorageCursor(params.cursor);
+  requireIntegerRange(params.limit, "params.limit", 1, 200);
+}
+
+function validateStorageClear(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, ["origin", "types", "confirm"]);
+  validateStorageOrigin(params.origin);
+  if (params.confirm !== true) {
+    throw protocolError(
+      ErrorCode.CONFIRMATION_REQUIRED,
+      "Clearing origin storage requires confirm: true",
+    );
+  }
+  if (
+    !Array.isArray(params.types) ||
+    params.types.length < 1 ||
+    params.types.length > CLEAR_STORAGE_TYPES.length ||
+    new Set(params.types).size !== params.types.length ||
+    params.types.some((value) => !CLEAR_STORAGE_TYPES.includes(value))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.types is invalid");
+  }
+}
+
+function validateStorageOrigin(value) {
+  validateCookieURL(value, "params.origin");
+  const parsed = new URL(value);
+  if (parsed.origin !== value || parsed.pathname !== "/" || parsed.search || parsed.hash) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.origin must be an exact HTTP(S) origin");
+  }
+}
+
+function validateStorageCursor(value) {
+  if (
+    value !== undefined &&
+    (typeof value !== "string" ||
+      !/^\d+$/.test(value) ||
+      !Number.isSafeInteger(Number(value)) ||
+      Number(value) < 1)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is invalid");
+  }
+}
+
+function requireStorageString(value, path, maximumBytes) {
+  if (typeof value !== "string" || new TextEncoder().encode(value).byteLength > maximumBytes) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} exceeds its UTF-8 byte limit`);
+  }
 }
 
 function validateNonEmptyEmulationObject(value, name, allowed) {

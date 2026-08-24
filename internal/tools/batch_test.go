@@ -309,6 +309,8 @@ func TestBrowserBatchRejectsUnsafeOrCrossBrowserSteps(t *testing.T) {
 		{name: "network HAR", steps: []map[string]any{{"tool": "browser_export_network_har"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "cookie read", steps: []map[string]any{{"tool": "browser_list_cookies"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "cookie mutation", steps: []map[string]any{{"tool": "browser_set_cookie"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "storage read", steps: []map[string]any{{"tool": "browser_list_storage_items"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "storage clear", steps: []map[string]any{{"tool": "browser_clear_origin_storage"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "recursive", steps: []map[string]any{{"tool": "browser_batch"}}, wantCode: protocol.CodeInvalidCommand},
 		{
 			name: "different browser",
@@ -417,6 +419,9 @@ func TestBatchAllowedToolsAreRegisteredAndClassified(t *testing.T) {
 		"browser_start_network_capture", "browser_stop_network_capture", "browser_clear_network_log",
 		"browser_get_network_body", "browser_export_network_har",
 		"browser_list_cookies", "browser_get_cookie", "browser_set_cookie", "browser_remove_cookie",
+		"browser_list_storage_items", "browser_get_storage_item", "browser_set_storage_item",
+		"browser_remove_storage_item", "browser_get_cache_metadata",
+		"browser_get_indexeddb_metadata", "browser_clear_origin_storage",
 		"browser_send_command", "browser_batch",
 	} {
 		if _, allowed := batchAllowedTools[denied]; allowed {

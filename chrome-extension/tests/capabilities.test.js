@@ -16,13 +16,22 @@ test("capability detection uses browser version, APIs, and permissions", () => {
         tabGroups: true,
         sessions: true,
         cookies: true,
+        originStorage: true,
         scripting: true,
         webNavigation: true,
         frameTree: true,
         windows: true,
       },
       permissions: {
-        permissions: ["tabs", "scripting", "debugger", "tabGroups", "sessions", "cookies"],
+        permissions: [
+          "tabs",
+          "scripting",
+          "debugger",
+          "tabGroups",
+          "sessions",
+          "cookies",
+          "browsingData",
+        ],
         origins: ["https://example.com/*"],
       },
       featureFlags: {
@@ -202,6 +211,18 @@ test("capability detection removes unavailable or disabled commands", () => {
     cookiesWithoutPersonalData.some((name) => name.startsWith("cookies.")),
     false,
   );
+
+  const maskedStorageOnly = detectCapabilities({
+    browserVersion: "130",
+    apis: { tabs: true, scripting: true, webNavigation: true, originStorage: true },
+    permissions: {
+      permissions: ["tabs", "scripting", "browsingData"],
+      origins: ["https://example.com/*"],
+    },
+    featureFlags: { sensitiveData: false },
+  });
+  assert.equal(maskedStorageOnly.includes("storage.list"), true);
+  assert.equal(maskedStorageOnly.includes("storage.listSensitive"), false);
 });
 
 function tabCapabilitiesWithoutStop() {

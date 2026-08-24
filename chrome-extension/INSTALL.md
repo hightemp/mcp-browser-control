@@ -56,12 +56,12 @@ and select them independently.
 The extension separates permissions into profiles. Optional permissions are
 requested only after a user clicks the corresponding button in settings.
 
-| Profile           | Access                                                                                     | When to enable it                                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Core**          | Alarms, scripting, storage, tabs, and navigation metadata                                  | Installed automatically for connection, window, and tab management                                                                |
-| **Observe**       | HTTP/HTTPS site access and `webRequest` metadata                                           | Page inspection, actions, waits, screenshots, and base console capture                                                            |
-| **Debug**         | Chrome debugger backend                                                                    | PDF, accessibility, emulation, network capture, opt-in isolated evaluation, reviewed raw CDP, and bounded performance diagnostics |
-| **Personal data** | Cookies, downloads, sessions, tab groups, bookmarks, history, clipboard, and browsing data | Cookie tools, sessions, and tab-group metadata; grant only while explicitly needed                                                |
+| Profile           | Access                                                                                                     | When to enable it                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Core**          | Alarms, scripting, storage, tabs, and navigation metadata                                                  | Installed automatically for connection, window, and tab management                                                                |
+| **Observe**       | HTTP/HTTPS site access and `webRequest` metadata                                                           | Page inspection, actions, waits, screenshots, and base console capture                                                            |
+| **Debug**         | Chrome debugger backend                                                                                    | PDF, accessibility, emulation, network capture, opt-in isolated evaluation, reviewed raw CDP, and bounded performance diagnostics |
+| **Personal data** | Cookies, origin storage, downloads, sessions, tab groups, bookmarks, history, clipboard, and browsing data | Cookie and Web Storage tools, sessions, and tab-group metadata; grant only while explicitly needed                                |
 
 The Personal data profile also enables its Observe dependency. Removing one
 optional profile removes only that profile's grants. The server immediately
@@ -94,6 +94,10 @@ optional access.
 14. For exact-origin cookie tools, grant **Personal data**. Values stay masked
     unless you also enable the separate Sensitive data checkbox and explicitly
     request values on a read call. Disable that checkbox after use.
+15. For exact-origin Web Storage tools, grant **Personal data**. Stored values
+    remain masked under the same Sensitive data control. Cache Storage exposes
+    names only, IndexedDB exposes names and versions only, and clearing any
+    selected storage type requires `confirm: true`.
 
 A pairing code expires after ten minutes by default and is consumed by one
 successful pairing. Later connections use the browser credential stored in
@@ -176,7 +180,8 @@ to authenticate; a later installation must pair as a new browser.
   be controlled.
 - Do not expose the MCP or browser WebSocket ports outside the local machine.
 - Grant Debug or Personal data only for a specific tool that needs it.
-- Keep Sensitive data mode disabled unless an active cookie read needs values.
+- Keep Sensitive data mode disabled unless an active cookie or Web Storage read
+  needs values.
 - Review the displayed browser ID before running destructive browser actions.
 
 ## Troubleshooting

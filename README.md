@@ -297,6 +297,13 @@ rejects stale output.
 - `browser_get_cookie`
 - `browser_set_cookie`
 - `browser_remove_cookie`
+- `browser_list_storage_items`
+- `browser_get_storage_item`
+- `browser_set_storage_item`
+- `browser_remove_storage_item`
+- `browser_get_cache_metadata`
+- `browser_get_indexeddb_metadata`
+- `browser_clear_origin_storage`
 - `browser_batch`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
@@ -456,6 +463,18 @@ checks before returning; and are excluded from generic command and batch paths.
 Partition metadata is supported when the browser API exposes it. See
 [`docs/cookies.md`](docs/cookies.md).
 
+Web Storage tools list/get/set/remove `localStorage` and `sessionStorage` for
+one exact selected root-document origin. Values are masked by default; unmasked
+reads require both an explicit per-call option and the same disabled-by-default
+**Sensitive data** setting used by cookie reads. Cache Storage exposes bounded
+cache names only, while IndexedDB exposes bounded database names and versions
+only—never requests, responses, records, handles, or blobs. Confirmed clearing
+accepts an explicit subset of origin storage types, performs complete bounded
+preflight before mutation, and reports counts and partial browser-API failures.
+All storage tools require Personal data, Observe, and MCP `full`, and are
+excluded from generic command and batch paths. See
+[`docs/web-storage.md`](docs/web-storage.md).
+
 `browser_batch` runs up to 25 typed commands sequentially against one resolved
 browser. It uses a shared 30-second deadline by default (configurable up to 120
 seconds), stops on the first failed step unless `stopOnError` is false, and
@@ -503,7 +522,7 @@ paths, queries, arguments, or result data.
 
 `browser_send_command` is an expert extension-command entry point, but
 the extension still enforces its command allowlist and the server rejects
-dedicated-only evaluation, network, cookie, and raw CDP capabilities. Reviewed raw CDP has its
+dedicated-only evaluation, network, cookie, storage, and raw CDP capabilities. Reviewed raw CDP has its
 own typed `browser_send_cdp_command` tool and cannot be used as an arbitrary
 DevTools Protocol escape hatch. Performance metrics and captures likewise have
 dedicated typed tools and cannot be reached through the generic command tool.

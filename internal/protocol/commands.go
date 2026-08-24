@@ -198,4 +198,23 @@ const (
 	CommandCookiesSet = "cookies.set"
 	// CommandCookiesRemove removes one origin-scoped cookie.
 	CommandCookiesRemove = "cookies.remove"
+
+	// CommandStorageList lists bounded masked Web Storage items.
+	CommandStorageList = "storage.list"
+	// CommandStorageListSensitive lists Web Storage items with explicitly enabled values.
+	CommandStorageListSensitive = "storage.listSensitive"
+	// CommandStorageGet gets one masked Web Storage item.
+	CommandStorageGet = "storage.get"
+	// CommandStorageGetSensitive gets one explicitly enabled Web Storage value.
+	CommandStorageGetSensitive = "storage.getSensitive"
+	// CommandStorageSet sets one Web Storage item.
+	CommandStorageSet = "storage.set"
+	// CommandStorageRemove removes one Web Storage item.
+	CommandStorageRemove = "storage.remove"
+	// CommandStorageCacheMetadata lists bounded Cache Storage names.
+	CommandStorageCacheMetadata = "storage.cacheMetadata"
+	// CommandStorageIndexedDBMetadata lists bounded IndexedDB database metadata.
+	CommandStorageIndexedDBMetadata = "storage.indexedDBMetadata"
+	// CommandStorageClear clears explicitly confirmed storage types for one origin.
+	CommandStorageClear = "storage.clear"
 )

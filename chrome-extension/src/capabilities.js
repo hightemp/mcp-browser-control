@@ -84,6 +84,29 @@ export function detectCapabilities({
     }
   }
   if (
+    apis.originStorage &&
+    apis.tabs &&
+    apis.scripting &&
+    apis.webNavigation &&
+    grantedPermissions.has("tabs") &&
+    grantedPermissions.has("scripting") &&
+    grantedPermissions.has("browsingData") &&
+    hasWebsiteAccess
+  ) {
+    capabilities.push(
+      "storage.list",
+      "storage.get",
+      "storage.set",
+      "storage.remove",
+      "storage.cacheMetadata",
+      "storage.indexedDBMetadata",
+      "storage.clear",
+    );
+    if (featureFlags.sensitiveData === true) {
+      capabilities.push("storage.listSensitive", "storage.getSensitive");
+    }
+  }
+  if (
     featureFlags.pageAutomation !== false &&
     apis.scripting &&
     apis.webNavigation &&

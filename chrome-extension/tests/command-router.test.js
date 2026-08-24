@@ -36,6 +36,17 @@ test("router dispatches every allowlisted command to its domain handler", async 
         set: handler,
         remove: handler,
       },
+      storageData: {
+        list: handler,
+        listSensitive: handler,
+        get: handler,
+        getSensitive: handler,
+        set: handler,
+        remove: handler,
+        cacheMetadata: handler,
+        indexedDBMetadata: handler,
+        clear: handler,
+      },
       windows: {
         list: handler,
         get: handler,
@@ -129,6 +140,36 @@ test("router dispatches every allowlisted command to its domain handler", async 
     "cookies.remove": { url: "https://example.com/", name: "session" },
     "cookies.listSensitive": { url: "https://example.com/", limit: 50 },
     "cookies.getSensitive": { url: "https://example.com/", name: "session" },
+    "storage.list": { origin: "https://example.com", storageType: "localStorage", limit: 50 },
+    "storage.get": { origin: "https://example.com", storageType: "localStorage", key: "theme" },
+    "storage.set": {
+      origin: "https://example.com",
+      storageType: "localStorage",
+      key: "theme",
+      value: "dark",
+    },
+    "storage.remove": {
+      origin: "https://example.com",
+      storageType: "localStorage",
+      key: "theme",
+    },
+    "storage.cacheMetadata": { origin: "https://example.com", limit: 50 },
+    "storage.indexedDBMetadata": { origin: "https://example.com", limit: 50 },
+    "storage.clear": {
+      origin: "https://example.com",
+      types: ["sessionStorage"],
+      confirm: true,
+    },
+    "storage.listSensitive": {
+      origin: "https://example.com",
+      storageType: "sessionStorage",
+      limit: 50,
+    },
+    "storage.getSensitive": {
+      origin: "https://example.com",
+      storageType: "sessionStorage",
+      key: "token",
+    },
     "page.info": {},
     "page.getHTML": {},
     "page.getHTMLBySelector": { selector: "main" },
@@ -381,6 +422,35 @@ test("router validates target and command params before invoking handlers", asyn
           calls += 1;
         },
         remove: () => {
+          calls += 1;
+        },
+      },
+      storageData: {
+        list: () => {
+          calls += 1;
+        },
+        listSensitive: () => {
+          calls += 1;
+        },
+        get: () => {
+          calls += 1;
+        },
+        getSensitive: () => {
+          calls += 1;
+        },
+        set: () => {
+          calls += 1;
+        },
+        remove: () => {
+          calls += 1;
+        },
+        cacheMetadata: () => {
+          calls += 1;
+        },
+        indexedDBMetadata: () => {
+          calls += 1;
+        },
+        clear: () => {
           calls += 1;
         },
       },
@@ -646,6 +716,27 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("cookies.remove", {
       url: "https://example.com/",
       name: "bad name",
+    }),
+    createRequest("storage.list", {
+      origin: "https://example.com/path",
+      storageType: "localStorage",
+      limit: 50,
+    }),
+    createRequest("storage.get", {
+      origin: "https://example.com",
+      storageType: "unknown",
+      key: "theme",
+    }),
+    createRequest("storage.set", {
+      origin: "https://example.com",
+      storageType: "localStorage",
+      key: "theme",
+      value: "x".repeat(65_537),
+    }),
+    createRequest("storage.clear", {
+      origin: "https://example.com",
+      types: ["localStorage", "localStorage"],
+      confirm: true,
     }),
     createRequest("runtime.evaluateIsolated", {
       expression: "document.title",

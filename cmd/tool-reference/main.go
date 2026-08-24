@@ -107,21 +107,28 @@ var toolCapabilities = map[string]string{
 	"browser_get_performance_metrics": protocol.CommandPerformanceMetrics,
 	"browser_capture_performance":     protocol.CommandPerformanceCapture,
 
-	"browser_start_console_capture": protocol.CommandConsoleStart,
-	"browser_stop_console_capture":  protocol.CommandConsoleStop,
-	"browser_clear_console_log":     protocol.CommandConsoleClear,
-	"browser_get_console_log":       protocol.CommandConsoleRead,
-	"browser_start_network_capture": protocol.CommandNetworkStart,
-	"browser_stop_network_capture":  protocol.CommandNetworkStop,
-	"browser_clear_network_log":     protocol.CommandNetworkClear,
-	"browser_get_network_log":       protocol.CommandNetworkRead,
-	"browser_get_network_body":      protocol.CommandNetworkGetBody,
-	"browser_export_network_har":    protocol.CommandNetworkExportHAR,
-	"browser_list_cookies":          protocol.CommandCookiesList,
-	"browser_get_cookie":            protocol.CommandCookiesGet,
-	"browser_set_cookie":            protocol.CommandCookiesSet,
-	"browser_remove_cookie":         protocol.CommandCookiesRemove,
-	"browser_send_command":          dynamicCapability,
+	"browser_start_console_capture":  protocol.CommandConsoleStart,
+	"browser_stop_console_capture":   protocol.CommandConsoleStop,
+	"browser_clear_console_log":      protocol.CommandConsoleClear,
+	"browser_get_console_log":        protocol.CommandConsoleRead,
+	"browser_start_network_capture":  protocol.CommandNetworkStart,
+	"browser_stop_network_capture":   protocol.CommandNetworkStop,
+	"browser_clear_network_log":      protocol.CommandNetworkClear,
+	"browser_get_network_log":        protocol.CommandNetworkRead,
+	"browser_get_network_body":       protocol.CommandNetworkGetBody,
+	"browser_export_network_har":     protocol.CommandNetworkExportHAR,
+	"browser_list_cookies":           protocol.CommandCookiesList,
+	"browser_get_cookie":             protocol.CommandCookiesGet,
+	"browser_set_cookie":             protocol.CommandCookiesSet,
+	"browser_remove_cookie":          protocol.CommandCookiesRemove,
+	"browser_list_storage_items":     protocol.CommandStorageList,
+	"browser_get_storage_item":       protocol.CommandStorageGet,
+	"browser_set_storage_item":       protocol.CommandStorageSet,
+	"browser_remove_storage_item":    protocol.CommandStorageRemove,
+	"browser_get_cache_metadata":     protocol.CommandStorageCacheMetadata,
+	"browser_get_indexeddb_metadata": protocol.CommandStorageIndexedDBMetadata,
+	"browser_clear_origin_storage":   protocol.CommandStorageClear,
+	"browser_send_command":           dynamicCapability,
 }
 
 var exampleOverrides = map[string]map[string]any{
@@ -184,18 +191,25 @@ var exampleOverrides = map[string]map[string]any{
 		"method": "Performance.getMetrics",
 		"params": map[string]any{},
 	},
-	"browser_capture_performance":   {"kind": "trace", "durationMs": 1_000, "maxBytes": 1_000_000},
-	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
-	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
-	"browser_start_network_capture": {"maxEntries": 1_000},
-	"browser_get_network_log":       {"limit": 50, "maxBytes": 524_288},
-	"browser_get_network_body":      {"entryId": "1", "direction": "response", "maxBytes": 262_144},
-	"browser_export_network_har":    {"maxBytes": 1_000_000},
-	"browser_list_cookies":          {"url": "https://example.com/", "limit": 50},
-	"browser_get_cookie":            {"url": "https://example.com/", "name": "session"},
-	"browser_set_cookie":            {"url": "https://example.com/", "name": "preference", "value": "compact", "sameSite": "lax"},
-	"browser_remove_cookie":         {"url": "https://example.com/", "name": "preference"},
-	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
+	"browser_capture_performance":    {"kind": "trace", "durationMs": 1_000, "maxBytes": 1_000_000},
+	"browser_start_console_capture":  {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
+	"browser_get_console_log":        {"levels": []string{"error", "warn"}, "limit": 50},
+	"browser_start_network_capture":  {"maxEntries": 1_000},
+	"browser_get_network_log":        {"limit": 50, "maxBytes": 524_288},
+	"browser_get_network_body":       {"entryId": "1", "direction": "response", "maxBytes": 262_144},
+	"browser_export_network_har":     {"maxBytes": 1_000_000},
+	"browser_list_cookies":           {"url": "https://example.com/", "limit": 50},
+	"browser_get_cookie":             {"url": "https://example.com/", "name": "session"},
+	"browser_set_cookie":             {"url": "https://example.com/", "name": "preference", "value": "compact", "sameSite": "lax"},
+	"browser_remove_cookie":          {"url": "https://example.com/", "name": "preference"},
+	"browser_list_storage_items":     {"origin": "https://example.com", "storageType": "localStorage", "limit": 50},
+	"browser_get_storage_item":       {"origin": "https://example.com", "storageType": "localStorage", "key": "theme"},
+	"browser_set_storage_item":       {"origin": "https://example.com", "storageType": "localStorage", "key": "theme", "value": "dark"},
+	"browser_remove_storage_item":    {"origin": "https://example.com", "storageType": "localStorage", "key": "theme"},
+	"browser_get_cache_metadata":     {"origin": "https://example.com", "limit": 50},
+	"browser_get_indexeddb_metadata": {"origin": "https://example.com", "limit": 50},
+	"browser_clear_origin_storage":   {"origin": "https://example.com", "types": []string{"localStorage", "cacheStorage"}, "confirm": true},
+	"browser_send_command":           {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
 	"browser_batch": {
 		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
 		"stopOnError": true,
@@ -453,6 +467,10 @@ func permissionDescription(capability string) string {
 		return "Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`; unmasked reads also require Sensitive data mode"
 	case capability == protocol.CommandCookiesSet || capability == protocol.CommandCookiesRemove:
 		return "Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`"
+	case capability == protocol.CommandStorageList || capability == protocol.CommandStorageGet:
+		return "Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`; unmasked Web Storage reads also require Sensitive data mode"
+	case strings.HasPrefix(capability, "storage."):
+		return "Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`"
 	case capability == protocol.CommandPagePrintToPDF:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
 	case capability == protocol.CommandAccessibilityGetTree:
@@ -560,6 +578,18 @@ func resultDescription(name string) string {
 		return "the normalized cookie metadata with its value masked; the supplied value is never echoed"
 	case "browser_remove_cookie":
 		return "whether one exact-origin cookie was removed, without cookie content"
+	case "browser_list_storage_items":
+		return "bounded paginated exact-origin Web Storage items; values are masked unless explicitly requested with Sensitive data mode enabled"
+	case "browser_get_storage_item":
+		return "zero or one exact-origin Web Storage item; its value is masked unless explicitly requested with Sensitive data mode enabled"
+	case "browser_set_storage_item", "browser_remove_storage_item":
+		return "whether the exact-origin Web Storage item changed; supplied and previous values are never returned"
+	case "browser_get_cache_metadata":
+		return "bounded paginated exact-origin Cache Storage names without requests, responses, or bodies"
+	case "browser_get_indexeddb_metadata":
+		return "bounded paginated exact-origin IndexedDB names and versions without stores, records, or blobs"
+	case "browser_clear_origin_storage":
+		return "requested storage types, completed types, bounded deletion counts, and warnings; no stored content is returned"
 	case "browser_send_command":
 		return "the selected extension command's bounded, redacted payload in `data`"
 	default:
@@ -580,6 +610,7 @@ func errorDescription(name, capability string) string {
 		strings.HasPrefix(capability, "accessibility.") || strings.HasPrefix(capability, "emulation.") ||
 		strings.HasPrefix(capability, "performance.") || strings.HasPrefix(capability, "network.") ||
 		strings.HasPrefix(capability, "cookies.") ||
+		strings.HasPrefix(capability, "storage.") ||
 		capability == protocol.CommandRuntimeEvaluateIsolated ||
 		capability == protocol.CommandCDPSendReadOnly) &&
 		capability != protocol.CommandEmulationReset {
@@ -629,6 +660,18 @@ func errorDescription(name, capability string) string {
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` or artifact storage failure")
 	case "browser_list_cookies", "browser_get_cookie":
 		errors = append(errors, "`CAPABILITY_UNAVAILABLE` when an unmasked value is requested while Sensitive data mode is disabled")
+	case "browser_list_storage_items", "browser_get_storage_item":
+		errors = append(errors,
+			"`CAPABILITY_UNAVAILABLE` when an unmasked value is requested while Sensitive data mode is disabled",
+			"`PAYLOAD_TOO_LARGE` when an area, key, value, or result exceeds a fixed bound",
+		)
+	case "browser_set_storage_item", "browser_remove_storage_item", "browser_get_cache_metadata", "browser_get_indexeddb_metadata":
+		errors = append(errors, "`PAYLOAD_TOO_LARGE` when an area, key, value, metadata set, or result exceeds a fixed bound")
+	case "browser_clear_origin_storage":
+		errors = append(errors,
+			"`CONFIRMATION_REQUIRED` unless `confirm` is true",
+			"`PAYLOAD_TOO_LARGE` when an origin inventory exceeds a fixed bound",
+		)
 	case "browser_send_command":
 		errors = append(errors, "`INVALID_COMMAND` for an unknown or dedicated-only command")
 	case "browser_batch":
@@ -678,7 +721,8 @@ func categoryFor(name string) string {
 		return "Windows"
 	case strings.Contains(name, "tab") || strings.Contains(name, "recently_closed") || strings.Contains(name, "restore_session"):
 		return "Tabs, Groups, and Sessions"
-	case strings.Contains(name, "cookie"):
+	case strings.Contains(name, "cookie") || strings.Contains(name, "storage") ||
+		name == "browser_get_cache_metadata" || name == "browser_get_indexeddb_metadata":
 		return "Cookies and Personal Data"
 	case name == "browser_page_info" || name == "browser_get_html" ||
 		name == "browser_get_html_by_selector" || name == "browser_get_text" ||

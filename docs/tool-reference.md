@@ -1591,6 +1591,154 @@ Example MCP tool payload:
 
 ## Cookies and Personal Data
 
+### `browser_clear_origin_storage`
+
+Clear explicitly selected storage types for one exact origin after confirmation.
+
+- MCP profile: `full`
+- Extension capability: `storage.clear`
+- Permissions: Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`
+- Result: requested storage types, completed types, bounded deletion counts, and warnings; no stored content is returned
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `CONFIRMATION_REQUIRED` unless `confirm` is true; `PAYLOAD_TOO_LARGE` when an origin inventory exceeds a fixed bound
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "confirm": {
+      "description": "Must be true because this deletes origin data",
+      "type": "boolean"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "origin": {
+      "description": "Exact HTTP(S) origin of the selected root document",
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "types": {
+      "description": "Storage types to clear",
+      "items": {
+        "enum": [
+          "localStorage",
+          "sessionStorage",
+          "cacheStorage",
+          "indexedDB"
+        ],
+        "type": "string"
+      },
+      "maxItems": 4,
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "origin",
+    "types",
+    "confirm"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "confirm": true,
+    "origin": "https://example.com",
+    "types": [
+      "localStorage",
+      "cacheStorage"
+    ]
+  },
+  "name": "browser_clear_origin_storage"
+}
+```
+
+### `browser_get_cache_metadata`
+
+List bounded Cache Storage names without requests or response bodies.
+
+- MCP profile: `full`
+- Extension capability: `storage.cacheMetadata`
+- Permissions: Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`
+- Result: bounded paginated exact-origin Cache Storage names without requests, responses, or bodies
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` when an area, key, value, metadata set, or result exceeds a fixed bound
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum metadata records to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "origin": {
+      "description": "Exact HTTP(S) origin of the selected root document",
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "origin"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "origin": "https://example.com"
+  },
+  "name": "browser_get_cache_metadata"
+}
+```
+
 ### `browser_get_cookie`
 
 Get one exact-origin cookie with its value masked by default.
@@ -1674,6 +1822,150 @@ Example MCP tool payload:
     "url": "https://example.com/"
   },
   "name": "browser_get_cookie"
+}
+```
+
+### `browser_get_indexeddb_metadata`
+
+List bounded IndexedDB database names and versions without records or blobs.
+
+- MCP profile: `full`
+- Extension capability: `storage.indexedDBMetadata`
+- Permissions: Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`
+- Result: bounded paginated exact-origin IndexedDB names and versions without stores, records, or blobs
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` when an area, key, value, metadata set, or result exceeds a fixed bound
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum metadata records to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "origin": {
+      "description": "Exact HTTP(S) origin of the selected root document",
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "origin"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "origin": "https://example.com"
+  },
+  "name": "browser_get_indexeddb_metadata"
+}
+```
+
+### `browser_get_storage_item`
+
+Get one localStorage or sessionStorage item with its value masked by default.
+
+- MCP profile: `full`
+- Extension capability: `storage.get`
+- Permissions: Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`; unmasked Web Storage reads also require Sensitive data mode
+- Result: zero or one exact-origin Web Storage item; its value is masked unless explicitly requested with Sensitive data mode enabled
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `CAPABILITY_UNAVAILABLE` when an unmasked value is requested while Sensitive data mode is disabled; `PAYLOAD_TOO_LARGE` when an area, key, value, or result exceeds a fixed bound
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "includeValue": {
+      "default": false,
+      "description": "Return the value only when Sensitive data is enabled",
+      "type": "boolean"
+    },
+    "key": {
+      "description": "Exact storage key",
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "origin": {
+      "description": "Exact HTTP(S) origin of the selected root document",
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "storageType": {
+      "description": "Web Storage area",
+      "enum": [
+        "localStorage",
+        "sessionStorage"
+      ],
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "origin",
+    "storageType",
+    "key"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "key": "theme",
+    "origin": "https://example.com",
+    "storageType": "localStorage"
+  },
+  "name": "browser_get_storage_item"
 }
 ```
 
@@ -1794,6 +2086,88 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_list_storage_items`
+
+List bounded localStorage or sessionStorage items with values masked by default.
+
+- MCP profile: `full`
+- Extension capability: `storage.list`
+- Permissions: Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`; unmasked Web Storage reads also require Sensitive data mode
+- Result: bounded paginated exact-origin Web Storage items; values are masked unless explicitly requested with Sensitive data mode enabled
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `CAPABILITY_UNAVAILABLE` when an unmasked value is requested while Sensitive data mode is disabled; `PAYLOAD_TOO_LARGE` when an area, key, value, or result exceeds a fixed bound
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "includeValues": {
+      "default": false,
+      "description": "Return values only when Sensitive data is enabled",
+      "type": "boolean"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum items to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "origin": {
+      "description": "Exact HTTP(S) origin of the selected root document",
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "storageType": {
+      "description": "Web Storage area",
+      "enum": [
+        "localStorage",
+        "sessionStorage"
+      ],
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "origin",
+    "storageType"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "origin": "https://example.com",
+    "storageType": "localStorage"
+  },
+  "name": "browser_list_storage_items"
+}
+```
+
 ### `browser_remove_cookie`
 
 Remove one exact-origin cookie.
@@ -1872,6 +2246,77 @@ Example MCP tool payload:
     "url": "https://example.com/"
   },
   "name": "browser_remove_cookie"
+}
+```
+
+### `browser_remove_storage_item`
+
+Remove one localStorage or sessionStorage item.
+
+- MCP profile: `full`
+- Extension capability: `storage.remove`
+- Permissions: Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`
+- Result: whether the exact-origin Web Storage item changed; supplied and previous values are never returned
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` when an area, key, value, metadata set, or result exceeds a fixed bound
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "origin": {
+      "description": "Exact HTTP(S) origin of the selected root document",
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "storageType": {
+      "description": "Web Storage area",
+      "enum": [
+        "localStorage",
+        "sessionStorage"
+      ],
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "origin",
+    "storageType",
+    "key"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "key": "theme",
+    "origin": "https://example.com",
+    "storageType": "localStorage"
+  },
+  "name": "browser_remove_storage_item"
 }
 ```
 
@@ -1988,6 +2433,83 @@ Example MCP tool payload:
     "value": "compact"
   },
   "name": "browser_set_cookie"
+}
+```
+
+### `browser_set_storage_item`
+
+Set one bounded localStorage or sessionStorage item without echoing its value.
+
+- MCP profile: `full`
+- Extension capability: `storage.set`
+- Permissions: Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`
+- Result: whether the exact-origin Web Storage item changed; supplied and previous values are never returned
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` when an area, key, value, metadata set, or result exceeds a fixed bound
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "key": {
+      "maxLength": 1024,
+      "type": "string"
+    },
+    "origin": {
+      "description": "Exact HTTP(S) origin of the selected root document",
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "storageType": {
+      "description": "Web Storage area",
+      "enum": [
+        "localStorage",
+        "sessionStorage"
+      ],
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "value": {
+      "maxLength": 65536,
+      "type": "string"
+    }
+  },
+  "required": [
+    "origin",
+    "storageType",
+    "key",
+    "value"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "key": "theme",
+    "origin": "https://example.com",
+    "storageType": "localStorage",
+    "value": "dark"
+  },
+  "name": "browser_set_storage_item"
 }
 ```
 

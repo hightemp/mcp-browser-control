@@ -38,8 +38,8 @@ caller-supplied value.
 
 Unmasked reads require both of these explicit choices:
 
-1. Enable **Allow cookie values in explicitly requested sensitive-data
-   results** in extension settings.
+1. Enable **Allow cookie and Web Storage values in explicitly requested
+   sensitive-data results** in extension settings.
 2. Set `includeValues: true` on `browser_list_cookies`, or `includeValue: true`
    on `browser_get_cookie`.
 

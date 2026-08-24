@@ -336,6 +336,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerConsoleTools(mcpServer)
 	s.registerNetworkTools(mcpServer)
 	s.registerCookieTools(mcpServer)
+	s.registerStorageTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -906,7 +907,8 @@ func (s *Service) browserSendCommandHandler(
 		args.Command == protocol.CommandPerformanceMetrics ||
 		args.Command == protocol.CommandPerformanceCapture ||
 		isDedicatedNetworkCommand(args.Command) ||
-		isDedicatedCookieCommand(args.Command) {
+		isDedicatedCookieCommand(args.Command) ||
+		isDedicatedStorageCommand(args.Command) {
 		return errorResult(protocol.NewError(
 			protocol.CodeInvalidCommand,
 			"the command requires its dedicated MCP tool",
@@ -1127,6 +1129,16 @@ func (s *Service) enforceCommandPolicy(command, browserID string, params any) er
 				if err := s.actionPolicy.CheckURL(command, browserID, topLevelSite); err != nil {
 					return err
 				}
+			}
+		}
+	case protocol.CommandStorageList, protocol.CommandStorageListSensitive,
+		protocol.CommandStorageGet, protocol.CommandStorageGetSensitive,
+		protocol.CommandStorageSet, protocol.CommandStorageRemove,
+		protocol.CommandStorageCacheMetadata, protocol.CommandStorageIndexedDBMetadata,
+		protocol.CommandStorageClear:
+		if origin, ok := values["origin"].(string); ok && origin != "" {
+			if err := s.actionPolicy.CheckURL(command, browserID, origin); err != nil {
+				return err
 			}
 		}
 	case protocol.CommandWindowsCreate:

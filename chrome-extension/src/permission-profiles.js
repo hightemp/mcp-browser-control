@@ -66,6 +66,7 @@ const PROFILE_DEFINITIONS = Object.freeze([
     dependencies: Object.freeze(["observe"]),
     tools: Object.freeze([
       "cookies",
+      "origin storage",
       "downloads",
       "sessions",
       "tab groups",

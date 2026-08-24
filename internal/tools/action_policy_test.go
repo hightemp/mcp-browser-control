@@ -66,6 +66,18 @@ func TestActionPolicyRejectsDestinationBeforeBrowserDispatch(t *testing.T) {
 			},
 		},
 		{
+			name: "storage origin outside allowlist",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserListStorageItemsHandler(
+					context.Background(), mcp.CallToolRequest{},
+					storageListArgs{
+						storageTargetArgs: storageTargetArgs{BrowserID: "browser-a"},
+						Origin:            "https://blocked.example", StorageType: "localStorage",
+					},
+				)
+			},
+		},
+		{
 			name: "incognito window",
 			call: func() (*mcp.CallToolResult, error) {
 				incognito := true

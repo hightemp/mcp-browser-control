@@ -270,6 +270,7 @@ rejects stale output.
 - `browser_stop_console_capture`
 - `browser_clear_console_log`
 - `browser_get_console_log`
+- `browser_batch`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
 accept optional `tabId`, `frameId`, and `documentId`; when `tabId` is omitted,
@@ -339,6 +340,15 @@ getters, limits depth and breadth, handles cycles, and redacts credentials,
 authorization values, and sensitive URL query parameters in both bridge worlds.
 Capture is document-scoped and must be started again after navigation. CDP
 Runtime and Log enrichment remains part of the P1 debugger implementation.
+
+`browser_batch` runs up to 25 typed commands sequentially against one resolved
+browser. It uses a shared 30-second deadline by default (configurable up to 120
+seconds), stops on the first failed step unless `stopOnError` is false, and
+returns ordered nested tool envelopes within the configured MCP result limit.
+Every step passes through the same tool-profile, extension-capability, action
+policy, redaction, timeout, and result-size checks as a direct call. Discovery,
+selection, raw command dispatch, and recursive batches are not batchable.
+Execution is not transactional and completed side effects are never rolled back.
 
 Page inspection never returns unrestricted raw DOM by default. HTML defaults to
 100,000 characters and depth 50, supports include/exclude CSS filters, and has

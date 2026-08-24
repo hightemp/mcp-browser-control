@@ -27,6 +27,7 @@ import (
 const (
 	defaultOutputPath = "docs/tool-reference.md"
 	serverLocal       = "server-local"
+	batchCapability   = "batch"
 	dynamicCapability = "dynamic"
 )
 
@@ -39,6 +40,7 @@ var toolCapabilities = map[string]string{
 	"browser_rename":           serverLocal,
 	"browser_get_capabilities": serverLocal,
 	"browser_ping":             protocol.CommandBrowserPing,
+	"browser_batch":            batchCapability,
 
 	"browser_get_windows":   protocol.CommandWindowsList,
 	"browser_get_window":    protocol.CommandWindowsGet,
@@ -152,6 +154,10 @@ var exampleOverrides = map[string]map[string]any{
 	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
 	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
 	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
+	"browser_batch": {
+		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
+		"stopOnError": true,
+	},
 }
 
 func main() {
@@ -378,6 +384,8 @@ func capabilityDescription(capability string) string {
 	switch capability {
 	case serverLocal:
 		return "server-local; no extension command"
+	case batchCapability:
+		return "the capability required by each nested typed command"
 	case dynamicCapability:
 		return "the value of `command`; the extension still requires it in its advertised capability set"
 	case protocol.CommandNetworkRead:
@@ -391,6 +399,8 @@ func permissionDescription(capability string) string {
 	switch {
 	case capability == serverLocal:
 		return "authenticated MCP access only; no browser permission"
+	case capability == batchCapability:
+		return "depends on every nested command; each command is checked independently"
 	case capability == dynamicCapability:
 		return "depends on `command`; the tool itself also requires the `full` MCP profile"
 	case capability == protocol.CommandTabGroupsUpdate:
@@ -418,6 +428,8 @@ func resultDescription(name string) string {
 		return "the current browser/tab selection and its connection state in `data`"
 	case "browser_ping":
 		return "the extension pong payload and measured `durationMs`"
+	case "browser_batch":
+		return "ordered nested result envelopes, completion state, and deadline state; execution is sequential with no rollback"
 	case "browser_get_windows":
 		return "an array of normalized windows in `data.windows`"
 	case "browser_get_window", "browser_create_window", "browser_update_window", "browser_focus_window":
@@ -502,6 +514,12 @@ func errorDescription(name, capability string) string {
 		errors = append(errors, "currently always `CAPABILITY_UNAVAILABLE`")
 	case "browser_send_command":
 		errors = append(errors, "`INVALID_COMMAND` for an unknown command")
+	case "browser_batch":
+		errors = append(errors,
+			"`INVALID_COMMAND` for a non-batchable nested tool",
+			"`PAYLOAD_TOO_LARGE` for the combined result",
+			"individual step errors retained in ordered results",
+		)
 	}
 	return strings.Join(uniqueStrings(errors), "; ")
 }
@@ -549,6 +567,8 @@ func categoryFor(name string) string {
 		return "Page Inspection"
 	case isInteractionTool(name) || name == "browser_scroll":
 		return "Page Interaction"
+	case name == "browser_batch":
+		return "Batch"
 	default:
 		return "Waits, Artifacts, and Diagnostics"
 	}
@@ -561,6 +581,7 @@ func categoryOrder(category string) int {
 		"Tabs, Groups, and Sessions",
 		"Page Inspection",
 		"Page Interaction",
+		"Batch",
 		"Waits, Artifacts, and Diagnostics",
 	} {
 		if category == candidate {

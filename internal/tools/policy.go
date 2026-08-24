@@ -80,6 +80,7 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_stop_console_capture":  toolProfileStandard,
 	"browser_clear_console_log":     toolProfileStandard,
 	"browser_get_console_log":       toolProfileStandard,
+	"browser_batch":                 toolProfileStandard,
 
 	"browser_group_tabs":          toolProfileFull,
 	"browser_ungroup_tabs":        toolProfileFull,

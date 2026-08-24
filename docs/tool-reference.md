@@ -6402,6 +6402,89 @@ Example MCP tool payload:
 }
 ```
 
+## Batch
+
+### `browser_batch`
+
+Run a bounded sequential list of typed commands against one browser.
+
+- MCP profile: `standard`
+- Extension capability: the capability required by each nested typed command
+- Permissions: depends on every nested command; each command is checked independently
+- Result: ordered nested result envelopes, completion state, and deadline state; execution is sequential with no rollback
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `INVALID_COMMAND` for a non-batchable nested tool; `PAYLOAD_TOO_LARGE` for the combined result; individual step errors retained in ordered results
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "steps": {
+      "description": "Ordered typed browser commands",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "arguments": {
+            "additionalProperties": true,
+            "description": "Arguments for the nested tool; browserId is injected by the batch",
+            "type": "object"
+          },
+          "tool": {
+            "description": "Typed browser tool to call",
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool"
+        ],
+        "type": "object"
+      },
+      "maxItems": 25,
+      "minItems": 1,
+      "type": "array"
+    },
+    "stopOnError": {
+      "default": true,
+      "description": "Stop after the first failed nested command",
+      "type": "boolean"
+    },
+    "timeoutMs": {
+      "default": 30000,
+      "description": "Shared batch deadline in milliseconds",
+      "maximum": 120000,
+      "minimum": 1,
+      "type": "number"
+    }
+  },
+  "required": [
+    "steps"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "steps": [
+      {
+        "arguments": {},
+        "tool": "browser_get_tabs"
+      }
+    ],
+    "stopOnError": true
+  },
+  "name": "browser_batch"
+}
+```
+
 ## Waits, Artifacts, and Diagnostics
 
 ### `browser_clear_console_log`

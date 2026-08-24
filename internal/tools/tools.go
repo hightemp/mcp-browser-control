@@ -89,6 +89,7 @@ func (s *Service) Register(mcpServer *server.MCPServer) {
 	s.registerResources(mcpServer)
 	s.registerDiscoveryTools(mcpServer)
 	s.registerBrowserCommandTools(mcpServer)
+	s.registerBatchTool(mcpServer)
 }
 
 type emptyArgs struct{}

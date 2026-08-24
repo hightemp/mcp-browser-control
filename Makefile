@@ -6,6 +6,14 @@ BINARY := $(BUILD_DIR)/$(APP_NAME)
 COMMAND := ./cmd/server
 COVERAGE_FILE := coverage.out
 GO_PACKAGES := ./cmd/... ./internal/...
+VERSION ?= $(shell node -p "require('./chrome-extension/manifest.json').version")
+COMMIT ?= $(shell git rev-parse HEAD)
+SOURCE_DATE_EPOCH ?= $(shell git show -s --format=%ct HEAD)
+BUILD_DATE := $(shell date -u --date="@$(SOURCE_DATE_EPOCH)" +%Y-%m-%dT%H:%M:%S.000Z)
+TARGETS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
+RELEASE_DIR ?= release
+VERSION_PACKAGE := github.com/hightemp/go_mcp_browser_ext_tool/internal/app
+BUILD_LDFLAGS := -s -w -buildid= -X $(VERSION_PACKAGE).Version=$(VERSION) -X $(VERSION_PACKAGE).Commit=$(COMMIT) -X $(VERSION_PACKAGE).BuildDate=$(BUILD_DATE)
 
 GO ?= go
 NPM ?= npm
@@ -18,7 +26,7 @@ E2E_EXTENSION_DIR := $(CURDIR)/chrome-extension/dist/e2e-extension
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e security-check check verify clean
+.PHONY: help deps fmt fmt-check build version release release-check run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -27,6 +35,9 @@ help:
 		'  fmt             Format Go source files' \
 		'  fmt-check       Check Go formatting without changing files' \
 		'  build           Build bin/mcp-browser-control' \
+		'  version         Print build version metadata' \
+		'  release         Build cross-platform release artifacts' \
+		'  release-check   Build twice and compare release checksums' \
 		'  run             Run the server; pass flags through ARGS' \
 		'  test            Run all Go tests' \
 		'  test-race       Run all Go tests with the race detector' \
@@ -55,7 +66,20 @@ fmt-check:
 
 build:
 	@mkdir -p "$(BUILD_DIR)"
-	$(GO) build -trimpath -o "$(BINARY)" "$(COMMAND)"
+	CGO_ENABLED=0 $(GO) build -mod=readonly -trimpath -buildvcs=false \
+		-ldflags="$(BUILD_LDFLAGS)" -o "$(BINARY)" "$(COMMAND)"
+
+version: build
+	"$(BINARY)" --version
+
+release:
+	VERSION="$(VERSION)" COMMIT="$(COMMIT)" SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
+		TARGETS="$(TARGETS)" RELEASE_DIR="$(RELEASE_DIR)" sh scripts/build-release.sh
+
+release-check: release
+	VERSION="$(VERSION)" COMMIT="$(COMMIT)" SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
+		TARGETS="$(TARGETS)" RELEASE_DIR="$(RELEASE_DIR)" \
+		sh scripts/check-release-reproducibility.sh
 
 run:
 	$(GO) run "$(COMMAND)" $(ARGS)
@@ -115,4 +139,5 @@ verify: fmt check coverage build
 clean:
 	rm -f "$(BINARY)" "$(COVERAGE_FILE)" coverage.html
 	rm -rf chrome-extension/dist
+	rm -rf release
 	@rmdir "$(BUILD_DIR)" 2>/dev/null || true

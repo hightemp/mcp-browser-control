@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,17 @@ await cp(path.join(extensionRoot, "src"), path.join(extensionOutput, "src"), {
 });
 
 const manifest = JSON.parse(await readFile(path.join(extensionOutput, "manifest.json"), "utf8"));
+const releaseVersion = process.env.MCP_BROWSER_VERSION;
+if (releaseVersion) {
+  if (!/^\d+(?:\.\d+){0,3}$/u.test(releaseVersion)) {
+    throw new Error("MCP_BROWSER_VERSION must be a Chrome manifest version");
+  }
+  manifest.version = releaseVersion;
+  await writeFile(
+    path.join(extensionOutput, "manifest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+}
 const referencedFiles = [
   manifest.background?.service_worker,
   manifest.action?.default_popup,

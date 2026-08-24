@@ -29,7 +29,6 @@ import (
 
 const (
 	serverName                    = "go_mcp_browser_ext_tool"
-	serverVersion                 = "0.3.0"
 	maxTrackedMCPRateLimitBuckets = 4_096
 	mcpRateLimitBucketIdleTTL     = 30 * time.Minute
 )
@@ -42,6 +41,10 @@ func Run(
 	stdout io.Writer,
 	stderr io.Writer,
 ) error {
+	if versionRequested(args) {
+		_, err := fmt.Fprintln(stdout, versionText())
+		return err
+	}
 	config, err := parseConfig(args, stderr)
 	if err != nil {
 		return err
@@ -132,7 +135,7 @@ func run(
 	addMCPRequestRateLimitHook(hooks, mcpRequestLimits)
 	mcpServer := server.NewMCPServer(
 		serverName,
-		serverVersion,
+		Version,
 		server.WithHooks(hooks),
 		server.WithRecovery(),
 		server.WithToolCapabilities(true),

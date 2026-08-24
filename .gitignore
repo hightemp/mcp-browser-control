@@ -3,3 +3,5 @@
 /coverage.html
 /chrome-extension/node_modules/
 /chrome-extension/dist/
+/release/
+/.release-reproducibility-*/

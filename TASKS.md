@@ -1239,7 +1239,7 @@ CI запускает:
 
 - Приоритет: P1
 - Зависимости: T-103
-- Статус: `[ ]`
+- Статус: `[x]`
 
 - Go binaries для поддерживаемых ОС/архитектур;
 - version metadata;
@@ -1248,6 +1248,16 @@ CI запускает:
 - manifest version update;
 - SBOM;
 - release notes.
+
+Добавлен `make release-check`, дважды собирающий и сравнивающий byte-identical
+release bundle из version/commit/SOURCE_DATE_EPOCH. Bundle содержит статические
+Go binaries для Linux/macOS/Windows на amd64/arm64 с embedded metadata,
+deterministic extension ZIP версии `0.3.0`, SHA-256 checksums, CycloneDX 1.6
+SBOM, release manifest и автоматически сгенерированные release notes. Версии
+manifest/package/lock синхронизированы и проверяются тестом; `--version`
+показывает metadata бинарника. CI собирает, повторно проверяет и публикует
+release directory. Матрица, требования и verification flow описаны по-английски
+в `docs/releasing.md`.
 
 ### T-105 — Подготовить release checklist
 

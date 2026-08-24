@@ -402,7 +402,7 @@ The extension starts with a `hello` envelope:
   "browserId": "7ec37ee7-...",
   "params": {
     "displayName": "Work Chrome",
-    "extensionVersion": "0.1.0",
+    "extensionVersion": "0.3.0",
     "pairingCode": "1234-5678",
     "capabilities": ["browser.ping", "tabs.list"]
   }
@@ -458,6 +458,17 @@ Run the full local verification suite:
 ```bash
 make verify
 ```
+
+Build and compare two byte-identical cross-platform release bundles:
+
+```bash
+make release-check
+```
+
+The bundle includes versioned Go binaries, a deterministic extension ZIP,
+checksums, generated release notes, a release manifest, and a CycloneDX SBOM.
+See [docs/releasing.md](docs/releasing.md) for supported targets, required
+tooling, version updates, embedded metadata, and checksum verification.
 
 Individual Go checks remain available:
 

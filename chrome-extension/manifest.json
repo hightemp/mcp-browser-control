@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MCP Browser Control",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Connects this browser profile to a local MCP browser control server.",
   "minimum_chrome_version": "116",
   "permissions": ["alarms", "scripting", "storage", "tabs", "webNavigation"],

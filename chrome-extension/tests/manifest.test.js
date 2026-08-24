@@ -5,6 +5,8 @@ import test from "node:test";
 const extensionRoot = new URL("../", import.meta.url);
 const manifestURL = new URL("manifest.json", extensionRoot);
 const manifest = JSON.parse(await readFile(manifestURL, "utf8"));
+const packageJSON = JSON.parse(await readFile(new URL("package.json", extensionRoot), "utf8"));
+const packageLock = JSON.parse(await readFile(new URL("package-lock.json", extensionRoot), "utf8"));
 
 const requiredPermissions = ["alarms", "scripting", "storage", "tabs", "webNavigation"];
 const optionalPermissions = [
@@ -25,6 +27,13 @@ test("manifest uses MV3 with the minimal baseline permission set", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual([...manifest.permissions].sort(), requiredPermissions);
   assert.equal("host_permissions" in manifest, false);
+});
+
+test("manifest and locked package metadata use one release version", () => {
+  assert.match(manifest.version, /^\d+(?:\.\d+){0,3}$/u);
+  assert.equal(packageJSON.version, manifest.version);
+  assert.equal(packageLock.version, manifest.version);
+  assert.equal(packageLock.packages[""].version, manifest.version);
 });
 
 test("sensitive capabilities and site access remain optional", () => {

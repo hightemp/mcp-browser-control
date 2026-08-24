@@ -21,10 +21,10 @@
 - `[x]` Реализованы protocol-v1 handshake, стабильный `browserId` и атомарная замена `connectionId` при reconnect.
 - `[x]` Broadcast удалён: команды адресуются ровно одному браузеру.
 - `[x]` Корреляция учитывает `browserId + connectionId + requestId`.
-- `[~]` Базовые page tools и tabs list работают; полный каталог browser automation ещё не реализован.
-- `[x]` Создано минимальное Manifest V3 расширение с English UI и optional host access.
+- `[x]` Типизированный каталог browser automation зарегистрирован и связан с рабочими extension backends и server-local operations.
+- `[x]` Создано production Manifest V3 расширение с English UI и optional host access.
 - `[x]` Добавлены Go unit/race tests, WebSocket integration tests, JavaScript protocol tests и двухбраузерный MCP integration test.
-- `[x]` Суммарное покрытие внутренних Go-пакетов первого инкремента — не менее 80%.
+- `[x]` Суммарное statement coverage внутренних Go-пакетов — не менее 80%.
 - `[x]` Точка входа перенесена в `cmd/server`, локальные операции унифицированы в `Makefile`.
 
 ## 4. Общий Definition of Done
@@ -106,9 +106,9 @@ Chrome, Edge и другие Chromium-продукты независимо от
 
 Матрица профилей зафиксирована в разделе 10 PRD: install-time Core с
 `activeTab` для временного user-invoked viewport capture, optional Observe
-(`http://*/*`, `https://*/*`), Debug (`debugger`) и Personal data (`bookmarks`,
+(`http://*/*`, `https://*/*`, `webRequest`), Debug (`debugger`) и Personal data (`bookmarks`,
 `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`,
-`history`, `sessions`, `tabGroups`). Для каждого профиля указаны системные
+`history`, `readingList`, `sessions`, `tabGroups`). Для каждого профиля указаны системные
 предупреждения, связанные tool domains, redaction и зависимость Personal data
 от Observe для origin-scoped данных. Permission events применяются без
 reload/reconnect.
@@ -1499,8 +1499,8 @@ revocation и identity reset, поля diagnostics, безопасный uninsta
 
 Для каждого tool: назначение, input schema, result, permissions, capabilities, errors и пример.
 
-Добавлен детерминированный английский `docs/tool-reference.md` для всех 66
-зарегистрированных tools. Генератор получает реальные описания и input schemas
+Добавлен детерминированный английский `docs/tool-reference.md` для всех
+зарегистрированных tools без вручную зафиксированного счётчика. Генератор получает реальные описания и input schemas
 через production-регистрацию `tools/list`, объединяет их с fail-closed MCP
 profiles, extension capabilities, permission requirements, результатами,
 ошибками и примерами. `make tool-reference` обновляет документ, а Go-тесты и
@@ -1594,9 +1594,9 @@ release notes ссылаются на него, CI запускает static gat
 
 P1/P2 задачи не должны задерживать MVP. Базовая часть T-061 относится к P0; CDP-расширение console diagnostics можно завершить на P1.
 
-## 17. Предлагаемый первый инкремент
+## 17. Завершённый первый инкремент
 
-Первый вертикальный инкремент должен доказать мультибраузерную архитектуру до расширения каталога tools:
+Первый вертикальный инкремент доказал мультибраузерную архитектуру до расширения каталога tools:
 
 - protocol v1;
 - два fake extension clients с разными browserId;
@@ -1608,4 +1608,4 @@ P1/P2 задачи не должны задерживать MVP. Базовая 
 - integration test, доказывающий отсутствие cross-routing;
 - затем минимальное MV3 расширение, выполняющее тот же сценарий в двух профилях.
 
-Только после прохождения этого теста следует массово добавлять page/action/network tools.
+После прохождения этого теста были добавлены page/action/network tools и остальной типизированный каталог.

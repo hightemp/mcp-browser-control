@@ -6,7 +6,7 @@ Protocol.
 
 ## Current Status
 
-The first multi-browser vertical slice is implemented:
+The release-candidate implementation includes:
 
 - multiple extensions can connect with stable browser IDs;
 - every command is routed to exactly one browser connection;

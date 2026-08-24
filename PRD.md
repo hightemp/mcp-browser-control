@@ -16,7 +16,7 @@
 
 ## 3. Проблема
 
-Текущий прототип подтверждает возможность связать MCP-сервер и расширение по WebSocket, но не является надёжной мультибраузерной системой:
+Проект был начат как WebSocket-прототип, связывающий MCP-сервер и расширение. Исходное состояние не было надёжной мультибраузерной системой:
 
 - сервер рассылает команды всем WebSocket-клиентам;
 - постоянный идентификатор браузера отсутствует;
@@ -439,9 +439,9 @@ Manifest V3 расширение включает:
 | Профиль | Состав | Установка | Связанные tools | Предупреждение и redaction |
 | --- | --- | --- | --- | --- |
 | **Core** | `activeTab`, `alarms`, `scripting`, `storage`, `tabs`, `webNavigation`; `chrome.windows` не требует отдельного permission | install-time | pairing/status, browser, windows, tabs, connection lifecycle и viewport screenshot после явного вызова extension action на target tab | `activeTab` не добавляет install warning и выдаёт временный доступ только после пользовательского жеста; браузер может показать предупреждение о tabs/navigation history. В логах редактируются URL query/fragment, заголовки вкладок и введённые значения. |
-| **Observe** | host access `http://*/*`, `https://*/*` | optional | page inspection/actions, `tabs.stop`, console/page errors и ограниченный network metadata capture | Системный prompt сообщает о чтении и изменении данных на посещаемых сайтах. DOM, form values, console arguments и URL secrets не журналируются без redaction. |
+| **Observe** | host access `http://*/*`, `https://*/*` и `webRequest` | optional | page inspection/actions, `tabs.stop`, console/page errors и ограниченный network metadata capture | Системный prompt сообщает о чтении и изменении данных на посещаемых сайтах. DOM, form values, console arguments и URL secrets не журналируются без redaction. |
 | **Debug** | `debugger` | optional | CDP-backed console/network bodies, accessibility, emulation, performance и allowlisted evaluation | Системный prompt сообщает о доступе к debugger backend. Headers, cookies, authorization data, bodies и evaluation results считаются чувствительными и редактируются или выносятся в ограниченные artifacts. |
-| **Personal data** | `bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`, `tabGroups`; для origin-scoped cookies/storage также требуется Observe | optional | cookies/storage, downloads, recently closed sessions, tab-group presentation, bookmarks/history, clipboard и browsing-data operations | UI перечисляет категории персональных данных и предупреждение Chrome «View and manage your tab groups» до prompt. Cookie values, history queries, bookmark titles/URLs, download paths и clipboard contents не попадают в обычные логи. Массовое удаление дополнительно требует `confirm: true`. |
+| **Personal data** | `bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `readingList`, `sessions`, `tabGroups`; для origin-scoped cookies/storage также требуется Observe | optional | cookies/storage, downloads, recently closed sessions, tab-group presentation, bookmarks/history/reading list, clipboard и browsing-data operations | UI перечисляет категории персональных данных и предупреждение Chrome «View and manage your tab groups» до prompt. Cookie values, history queries, bookmark titles/URLs, download paths и clipboard contents не попадают в обычные логи. Массовое удаление дополнительно требует `confirm: true`. |
 
 Core объявляется в `permissions`. Observe объявляется в `optional_host_permissions`, Debug и Personal data — в `optional_permissions`. Включение Personal data также запрашивает Observe; отключение Observe оставляет Personal data в partial state до восстановления host access. Optional profiles включаются и выключаются только явным действием пользователя в extension UI. Permission changes отправляют `capabilities_changed`, поэтому reload вкладок и reconnect не требуются.
 

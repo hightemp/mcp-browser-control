@@ -53,9 +53,9 @@ The server and extension both reject unlisted methods. They additionally keep
 explicit denial boundaries for Runtime execution, persistent scripts,
 `DOM.setFileInputFiles`, browser closing, Network cookies/cache/modification,
 Storage deletion, Fetch interception, arbitrary Target/Security/SystemInfo/
-HeapProfiler/IO access, and every unknown domain. Tracing and stream reads stay
-behind the future dedicated performance tool, which will own their lifecycle
-and artifacts.
+HeapProfiler/IO access, and every unknown domain. Tracing and IO stream handling
+are exposed only through the dedicated performance tool, which owns their
+lifecycle and artifacts.
 
 `browser_send_command` rejects `cdp.sendReadOnly`, so callers cannot bypass the
 typed Go validation or audit. The tool is excluded from `browser_batch` to keep

@@ -4,8 +4,9 @@ Status: approved with mandatory gates
 
 Reviewed baseline: protocol v1, server v0.3.0
 
-Scope: planned P1/P2 debugging, personal-data, CDP, performance, clipboard,
-file-input, proxy, content-settings, and browsing-data features
+Scope: implemented and designed P1/P2 debugging, personal-data, CDP,
+performance, clipboard, file-input, proxy, content-settings, and browsing-data
+features
 
 ## Decision Summary
 
@@ -161,7 +162,7 @@ task can be marked complete:
 10. Documentation names the permission warning, data sensitivity, residual
     risk, and disable/revoke procedure.
 
-## Review Outcome by Planned Task
+## Review Outcome by Task
 
 | Task | Outcome |
 | --- | --- |

@@ -758,6 +758,142 @@ test("page JPEG screenshot applies quality and rejects bounded payloads", async 
   assert.deepEqual(captureOptions, { format: "jpeg", quality: 72 });
 });
 
+test("page PDF printing uses a managed exact-method CDP lease", async () => {
+  const pdfBase64 = btoa("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n");
+  const calls = [];
+  const signal = new AbortController().signal;
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/report",
+      }),
+    },
+    permissions: {
+      contains: async (request) => {
+        calls.push(["permission", request]);
+        return true;
+      },
+    },
+  };
+  const cdpSessions = {
+    withSession: async (target, options, operation) => {
+      calls.push([
+        "session",
+        target,
+        { ...options, signal: options.signal instanceof AbortSignal },
+      ]);
+      return operation({
+        sendCommand: async (method, params, commandOptions) => {
+          calls.push([
+            "command",
+            method,
+            params,
+            { signal: commandOptions.signal instanceof AbortSignal },
+          ]);
+          return { data: pdfBase64 };
+        },
+      });
+    },
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const result = await page.printToPDF(
+    {
+      requestId: "pdf-request",
+      command: "page.printToPDF",
+      target: { tabId: 7 },
+      params: {
+        landscape: true,
+        printBackground: true,
+        scale: 0.9,
+        paperWidth: 11,
+        paperHeight: 8.5,
+        marginTop: 0.25,
+        marginBottom: 0.25,
+        marginLeft: 0.5,
+        marginRight: 0.5,
+        pageRanges: "1-3,5",
+        preferCSSPageSize: false,
+        maxBytes: 10_000,
+      },
+    },
+    signal,
+  );
+
+  assert.equal(result.mimeType, "application/pdf");
+  assert.equal(result.dataBase64, pdfBase64);
+  assert.equal(result.tabId, 7);
+  assert.deepEqual(calls[1], ["permission", { permissions: ["debugger"] }]);
+  assert.deepEqual(calls[2], [
+    "session",
+    { tabId: 7 },
+    {
+      consumerId: "pdf:pdf-request",
+      domains: ["Page"],
+      commands: ["Page.printToPDF"],
+      signal: true,
+    },
+  ]);
+  assert.deepEqual(calls.at(-1), [
+    "command",
+    "Page.printToPDF",
+    {
+      landscape: true,
+      displayHeaderFooter: false,
+      printBackground: true,
+      scale: 0.9,
+      paperWidth: 11,
+      paperHeight: 8.5,
+      marginTop: 0.25,
+      marginBottom: 0.25,
+      marginLeft: 0.5,
+      marginRight: 0.5,
+      pageRanges: "1-3,5",
+      preferCSSPageSize: false,
+      transferMode: "ReturnAsBase64",
+    },
+    { signal: true },
+  ]);
+});
+
+test("page PDF printing rejects missing permission and invalid PDF bytes", async () => {
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({ id: tabId, windowId: 3, url: "https://example.com/" }),
+    },
+    permissions: {
+      contains: async (request) => !request.permissions?.includes("debugger"),
+    },
+  };
+  let sessions = 0;
+  const cdpSessions = {
+    withSession: async () => {
+      sessions += 1;
+    },
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const request = {
+    requestId: "pdf-denied",
+    command: "page.printToPDF",
+    target: { tabId: 7 },
+    params: { maxBytes: 10_000 },
+  };
+  await assert.rejects(
+    page.printToPDF(request, new AbortController().signal),
+    (error) => error.code === ErrorCode.PERMISSION_REQUIRED,
+  );
+  assert.equal(sessions, 0);
+
+  chromeAPI.permissions.contains = async () => true;
+  cdpSessions.withSession = async (_target, _options, operation) =>
+    operation({ sendCommand: async () => ({ data: btoa("not a PDF") }) });
+  await assert.rejects(
+    page.printToPDF(request, new AbortController().signal),
+    (error) => error.code === ErrorCode.INVALID_MESSAGE,
+  );
+});
+
 test("console handlers inject packaged bridges and preserve document targeting", async () => {
   let contentReady = false;
   const injections = [];

@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; no CDP-backed MCP tool is advertised yet
+Status: implemented infrastructure; used by the typed PDF tool
 
 Last reviewed: 2026-08-24
 
@@ -162,7 +162,7 @@ session and consumer pressure, cancellation cleanup, Chrome 124 fail-closed
 behavior, Chrome 125 recursive child sessions, frame-context cleanup, and slow
 consumer event drops.
 
-Each future CDP-backed feature must add handler, protocol-contract,
+Each CDP-backed feature must add handler, protocol-contract,
 multi-browser-isolation, permission-revocation, real Chrome, and Edge smoke
 tests. The session manager alone does not cause a CDP capability to be
 advertised and does not make any MCP tool available.

@@ -88,6 +88,7 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_get_recently_closed": toolProfileFull,
 	"browser_restore_session":     toolProfileFull,
 	"browser_get_network_log":     toolProfileFull,
+	"browser_print_to_pdf":        toolProfileFull,
 	"browser_send_command":        toolProfileFull,
 }
 

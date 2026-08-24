@@ -778,9 +778,23 @@ P1 и будут реализованы после CDP Session Manager (T-060), 
 
 - Приоритет: P1
 - Зависимости: T-034, T-060
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Поддержать page ranges, landscape, margins, backgrounds и artifact result при наличии CDP capability.
+
+Добавлен full-profile MCP tool `browser_print_to_pdf` и типизированная extension
+команда `page.printToPDF`, доступная только при Observe site access и явно
+выданном Debug permission. Реализация использует общий CDP Session Manager с
+exact allowlist единственного метода `Page.printToPDF`, повторно проверяет URL
+вкладки перед печатью и не входит в batch/raw пути. Поддержаны нормализованные
+page ranges, landscape, backgrounds, scale, paper width/height, четыре margin и
+CSS `@page` preference; произвольные header/footer templates не выставлены.
+Base64 PDF ограничен 2 MB, независимо проверяется расширением и Go-сервером по
+размеру, MIME, сигнатуре и EOF, удаляется из обычного результата и сохраняется
+только как TTL/quota-controlled artifact с предупреждением о чувствительном
+содержимом. Добавлены Go/extension tests для permission/capability gates,
+параметров CDP, invalid ranges/margins/PDF, target binding и отсутствия inline
+данных.
 
 ### T-05A — Реализовать batch
 

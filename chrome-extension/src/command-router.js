@@ -262,6 +262,11 @@ const COMMANDS = Object.freeze({
     handler: "screenshot",
     validate: validateScreenshot,
   }),
+  "page.printToPDF": Object.freeze({
+    domain: "page",
+    handler: "printToPDF",
+    validate: validatePrintToPDF,
+  }),
   "console.start": Object.freeze({
     domain: "console",
     handler: "start",
@@ -450,6 +455,15 @@ function validateCursor(cursor) {
 
 function validateIntegerRange(value, path, minimum, maximum) {
   if (value !== undefined && (!Number.isInteger(value) || value < minimum || value > maximum)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `${path} must be between ${minimum} and ${maximum}`,
+    );
+  }
+}
+
+function validateNumberRange(value, path, minimum, maximum) {
+  if (value !== undefined && (!Number.isFinite(value) || value < minimum || value > maximum)) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
       `${path} must be between ${minimum} and ${maximum}`,
@@ -1065,6 +1079,64 @@ function validateScreenshot(params, target) {
   validateIntegerRange(params.maxWidth, "params.maxWidth", 1, 16_384);
   validateIntegerRange(params.maxHeight, "params.maxHeight", 1, 16_384);
   validateIntegerRange(params.maxBytes, "params.maxBytes", 1_024, 2_000_000);
+}
+
+function validatePrintToPDF(params, target) {
+  validateParamsObject(params);
+  validateOptionalTabTarget(target);
+  assertAllowedProperties(params, [
+    "landscape",
+    "printBackground",
+    "scale",
+    "paperWidth",
+    "paperHeight",
+    "marginTop",
+    "marginBottom",
+    "marginLeft",
+    "marginRight",
+    "pageRanges",
+    "preferCSSPageSize",
+    "maxBytes",
+  ]);
+  validateOptionalBoolean(params.landscape, "params.landscape");
+  validateOptionalBoolean(params.printBackground, "params.printBackground");
+  validateOptionalBoolean(params.preferCSSPageSize, "params.preferCSSPageSize");
+  validateNumberRange(params.scale, "params.scale", 0.1, 2);
+  validateNumberRange(params.paperWidth, "params.paperWidth", 1, 200);
+  validateNumberRange(params.paperHeight, "params.paperHeight", 1, 200);
+  for (const field of ["marginTop", "marginBottom", "marginLeft", "marginRight"]) {
+    validateNumberRange(params[field], `params.${field}`, 0, 10);
+  }
+  validatePageRanges(params.pageRanges);
+  validateIntegerRange(params.maxBytes, "params.maxBytes", 1_024, 2_000_000);
+
+  const paperWidth = params.paperWidth ?? 8.5;
+  const paperHeight = params.paperHeight ?? 11;
+  if ((params.marginLeft ?? 0.4) + (params.marginRight ?? 0.4) >= paperWidth) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Horizontal PDF margins exceed paper width");
+  }
+  if ((params.marginTop ?? 0.4) + (params.marginBottom ?? 0.4) >= paperHeight) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Vertical PDF margins exceed paper height");
+  }
+}
+
+function validatePageRanges(pageRanges) {
+  if (pageRanges === undefined || pageRanges === "") return;
+  if (typeof pageRanges !== "string" || pageRanges.length > 256) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.pageRanges is too long");
+  }
+  const ranges = pageRanges.split(",");
+  if (ranges.length > 50) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.pageRanges contains too many ranges");
+  }
+  for (const range of ranges) {
+    const match = range.trim().match(/^(\d+)(?:\s*-\s*(\d+))?$/);
+    const start = Number.parseInt(match?.[1] || "", 10);
+    const end = Number.parseInt(match?.[2] || match?.[1] || "", 10);
+    if (!match || start < 1 || end < start || end > 100_000) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, "params.pageRanges is invalid");
+    }
+  }
 }
 
 function validateConsoleStart(params, target) {

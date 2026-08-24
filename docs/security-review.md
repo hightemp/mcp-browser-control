@@ -163,6 +163,7 @@ task can be marked complete:
 
 | Task | Outcome |
 | --- | --- |
+| T-059 print to PDF | Implemented through a typed full-profile tool, an exact `Page.printToPDF` lease, independently validated bounded PDF artifact output, Observe + Debug gates, and no header/footer templates or batch path |
 | T-060 CDP Session Manager | Implemented as documented in [`cdp-session-manager.md`](cdp-session-manager.md): one root session per tab, reference-counted leases, exact command/event allowlists, bounded fan-out, version-gated child sessions, and forced detach |
 | T-062 network capture | Conditional approval for metadata and bounded allowlisted bodies; interception remains prohibited |
 | T-063 emulation | Conditional approval through typed reversible settings with restore-on-detach |

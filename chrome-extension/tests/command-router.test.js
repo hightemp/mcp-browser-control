@@ -63,6 +63,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
         submit: handler,
         wait: handler,
         screenshot: handler,
+        printToPDF: handler,
       },
     },
   });
@@ -145,6 +146,20 @@ test("router dispatches every allowlisted command to its domain handler", async 
       quality: 80,
       maxWidth: 1_920,
       maxHeight: 1_080,
+      maxBytes: 1_000_000,
+    },
+    "page.printToPDF": {
+      landscape: true,
+      printBackground: true,
+      scale: 1,
+      paperWidth: 11,
+      paperHeight: 8.5,
+      marginTop: 0.4,
+      marginBottom: 0.4,
+      marginLeft: 0.4,
+      marginRight: 0.4,
+      pageRanges: "1-3, 5",
+      preferCSSPageSize: false,
       maxBytes: 1_000_000,
     },
     "console.start": {
@@ -324,6 +339,9 @@ test("router validates target and command params before invoking handlers", asyn
         screenshot: () => {
           calls += 1;
         },
+        printToPDF: () => {
+          calls += 1;
+        },
       },
     },
   });
@@ -382,6 +400,8 @@ test("router validates target and command params before invoking handlers", asyn
     }),
     createRequest("page.screenshot", { format: "png", quality: 80 }),
     createRequest("page.screenshot", { format: "jpeg", maxBytes: 2_000_001 }),
+    createRequest("page.printToPDF", { pageRanges: "5-2" }),
+    createRequest("page.printToPDF", { paperWidth: 2, marginLeft: 1, marginRight: 1 }),
     createRequest("console.start", {
       captureConsole: false,
       captureErrors: false,
@@ -593,6 +613,7 @@ function defaultHandlers() {
       submit: () => ({ submitted: true }),
       wait: () => ({ matched: true }),
       screenshot: () => ({ dataBase64: "image" }),
+      printToPDF: () => ({ dataBase64: "pdf" }),
     },
   };
 }

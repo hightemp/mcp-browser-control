@@ -54,7 +54,7 @@ const commandRouter = new CommandRouter({
   handlers: {
     browser: createBrowserHandlers(),
     console: createConsoleHandlers(chrome),
-    page: createPageHandlers(chrome, { networkActivity }),
+    page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
     tabGroups: createTabGroupHandlers(chrome),
@@ -486,6 +486,7 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
     apis: {
       tabs: Boolean(chrome.tabs),
       captureVisibleTab: Boolean(chrome.tabs?.captureVisibleTab),
+      debugger: Boolean(chrome.debugger?.attach && chrome.debugger?.sendCommand),
       tabGrouping: Boolean(chrome.tabs?.group && chrome.tabs?.ungroup),
       tabGroups: Boolean(chrome.tabGroups?.update),
       sessions: Boolean(chrome.sessions?.getRecentlyClosed && chrome.sessions?.restore),

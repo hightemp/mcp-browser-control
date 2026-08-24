@@ -56,7 +56,8 @@ change. The server rejects a command that is not currently advertised.
 | Viewport screenshot | `tabs.captureVisibleTab`, target-origin access | Observe plus Core | Capability-gated | Capability-gated | Capability-gated |
 | Basic console capture | packaged MAIN/ISOLATED world bridges and target-origin access | Observe plus Core | Capability-gated | Capability-gated | Capability-gated |
 | Network idle observation | `webRequest` and target-origin access | Observe | Capability-gated per wait | Capability-gated per wait | Capability-gated |
-| CDP session infrastructure | `debugger`; flat child sessions require browser 125+ | Debug plus MCP `full` profile | Root manager implemented; no feature command advertised yet | Root manager implemented; release smoke still required | Not supported until tested |
+| CDP session infrastructure | `debugger`; flat child sessions require browser 125+ | Debug plus MCP `full` profile | Root manager implemented | Root manager implemented; release smoke still required | Not supported until tested |
+| Print to PDF | managed `Page.printToPDF` | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Personal-data tools beyond sessions/groups | domain-specific optional APIs | Personal data plus MCP `full` profile | Planned | Planned | Not supported until tested |
 
 `browser_get_capabilities` exposes the server's current view. A missing API,

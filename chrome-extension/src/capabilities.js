@@ -99,6 +99,9 @@ export function detectCapabilities({
       "page.wait",
     );
     if (apis.captureVisibleTab) capabilities.push("page.screenshot");
+    if (apis.debugger && grantedPermissions.has("debugger")) {
+      capabilities.push("page.printToPDF");
+    }
     capabilities.push("console.start", "console.stop", "console.clear", "console.read");
   }
   return capabilities;

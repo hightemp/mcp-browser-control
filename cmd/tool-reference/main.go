@@ -97,6 +97,7 @@ var toolCapabilities = map[string]string{
 	"browser_submit":               protocol.CommandPageSubmit,
 	"browser_wait":                 protocol.CommandPageWait,
 	"browser_screenshot":           protocol.CommandPageScreenshot,
+	"browser_print_to_pdf":         protocol.CommandPagePrintToPDF,
 
 	"browser_start_console_capture": protocol.CommandConsoleStart,
 	"browser_stop_console_capture":  protocol.CommandConsoleStop,
@@ -151,6 +152,7 @@ var exampleOverrides = map[string]map[string]any{
 	"browser_submit":                {"locator": map[string]any{"css": "form"}},
 	"browser_wait":                  {"condition": "delay", "delayMs": 250},
 	"browser_screenshot":            {"format": "png", "capture": "viewport"},
+	"browser_print_to_pdf":          {"pageRanges": "1-3", "printBackground": true},
 	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
 	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
 	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
@@ -409,6 +411,8 @@ func permissionDescription(capability string) string {
 		return "Personal data (`sessions`)"
 	case capability == protocol.CommandNetworkRead:
 		return "Debug (`debugger`); the current extension backend is not implemented"
+	case capability == protocol.CommandPagePrintToPDF:
+		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`"
 	default:
@@ -466,6 +470,8 @@ func resultDescription(name string) string {
 		return "a bounded semantic tree with document-scoped element references"
 	case "browser_screenshot":
 		return "image metadata plus `artifactUri` and artifact metadata URI; binary data stays in the artifact store"
+	case "browser_print_to_pdf":
+		return "PDF metadata and normalized print settings plus `artifactUri`; binary data stays in the artifact store"
 	case "browser_wait":
 		return "the satisfied condition, observation mode, elapsed time, and matching state in `data`"
 	case "browser_start_console_capture", "browser_stop_console_capture", "browser_clear_console_log":
@@ -508,7 +514,7 @@ func errorDescription(name, capability string) string {
 		errors = append(errors, "`CONFIRMATION_REQUIRED` unless `confirm` is true")
 	case "browser_create_window", "browser_create_tab", "browser_navigate_tab":
 		errors = append(errors, "`RESTRICTED_URL` for a disallowed URL or browser store")
-	case "browser_screenshot":
+	case "browser_screenshot", "browser_print_to_pdf":
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` or artifact storage failure")
 	case "browser_get_network_log":
 		errors = append(errors, "currently always `CAPABILITY_UNAVAILABLE`")

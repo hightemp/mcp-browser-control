@@ -3,9 +3,10 @@ import { ContentScriptBridge } from "../content-bridge.js";
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 
-export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
+export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } = {}) {
   const bridge = new ContentScriptBridge(chromeAPI);
   const captureQueues = new Map();
+  let printSequence = 0;
 
   function execute(request, signal) {
     const timeoutMs = request.timeoutMs || DEFAULT_COMMAND_TIMEOUT_MS;
@@ -23,6 +24,9 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     throwIfCancelled(signal);
     if (request.command === "page.screenshot") {
       return executeScreenshot(request, tab, signal);
+    }
+    if (request.command === "page.printToPDF") {
+      return executePrintToPDF(request, tab, signal);
     }
     const frameId = request.target?.frameId ?? 0;
     const documentId = await currentDocument(request, tab.id, frameId);
@@ -238,6 +242,58 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     });
   }
 
+  async function executePrintToPDF(request, tab, signal) {
+    if (!cdpSessions) {
+      throw protocolError(ErrorCode.CAPABILITY_UNAVAILABLE, "Managed CDP sessions are unavailable");
+    }
+    const debuggerGranted = await chromeAPI.permissions.contains({ permissions: ["debugger"] });
+    if (!debuggerGranted) {
+      throw protocolError(
+        ErrorCode.PERMISSION_REQUIRED,
+        "Debug permission is required. Grant it from the extension settings page.",
+      );
+    }
+    throwIfCancelled(signal);
+
+    printSequence += 1;
+    const consumerId = `pdf:${String(request.requestId || printSequence).slice(0, 120)}`;
+    return cdpSessions.withSession(
+      { tabId: tab.id },
+      {
+        consumerId,
+        domains: ["Page"],
+        commands: ["Page.printToPDF"],
+        signal,
+      },
+      async (lease) => {
+        const currentTab = await resolveTab(tab.id);
+        await assertPageAccess(currentTab);
+        throwIfCancelled(signal);
+        const result = await lease.sendCommand(
+          "Page.printToPDF",
+          {
+            landscape: request.params.landscape ?? false,
+            displayHeaderFooter: false,
+            printBackground: request.params.printBackground ?? false,
+            scale: request.params.scale ?? 1,
+            paperWidth: request.params.paperWidth ?? 8.5,
+            paperHeight: request.params.paperHeight ?? 11,
+            marginTop: request.params.marginTop ?? 0.4,
+            marginBottom: request.params.marginBottom ?? 0.4,
+            marginLeft: request.params.marginLeft ?? 0.4,
+            marginRight: request.params.marginRight ?? 0.4,
+            pageRanges: request.params.pageRanges ?? "",
+            preferCSSPageSize: request.params.preferCSSPageSize ?? false,
+            transferMode: "ReturnAsBase64",
+          },
+          { signal },
+        );
+        throwIfCancelled(signal);
+        return decodePDFResult(result, request.params.maxBytes ?? 2_000_000, tab.id);
+      },
+    );
+  }
+
   async function resolveTab(explicitTabId) {
     if (Number.isInteger(explicitTabId)) {
       try {
@@ -333,6 +389,7 @@ export function createPageHandlers(chromeAPI, { networkActivity } = {}) {
     submit: execute,
     wait: execute,
     screenshot: execute,
+    printToPDF: execute,
   };
 }
 
@@ -386,6 +443,54 @@ function decodeScreenshotDataURL(dataURL, format, maxBytes) {
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const { width, height } = format === "jpeg" ? jpegDimensions(bytes) : pngDimensions(bytes);
   return { mimeType, dataBase64, byteLength, width, height };
+}
+
+function decodePDFResult(result, maxBytes, tabId) {
+  const dataBase64 = result?.data;
+  if (
+    typeof dataBase64 !== "string" ||
+    dataBase64.length === 0 ||
+    dataBase64.length % 4 !== 0 ||
+    !/^[A-Za-z0-9+/]*={0,2}$/.test(dataBase64) ||
+    result.stream !== undefined
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid PDF data");
+  }
+  const padding = dataBase64.endsWith("==") ? 2 : dataBase64.endsWith("=") ? 1 : 0;
+  const byteLength = (dataBase64.length / 4) * 3 - padding;
+  if (byteLength < 8 || byteLength > maxBytes) {
+    throw protocolError(
+      ErrorCode.PAYLOAD_TOO_LARGE,
+      `PDF size ${byteLength} bytes exceeds the ${maxBytes} byte limit`,
+    );
+  }
+  let binary;
+  try {
+    binary = atob(dataBase64);
+  } catch {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid PDF data");
+  }
+  if (binary.length !== byteLength || !validPDFBinary(binary)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid PDF data");
+  }
+  return {
+    mimeType: "application/pdf",
+    dataBase64,
+    byteLength,
+    tabId,
+    warnings: [],
+  };
+}
+
+function validPDFBinary(binary) {
+  if (!binary.startsWith("%PDF-")) return false;
+  const start = Math.max(0, binary.length - 1_024);
+  const eof = binary.lastIndexOf("%%EOF");
+  if (eof < start) return false;
+  for (let index = eof + 5; index < binary.length; index += 1) {
+    if (![0x09, 0x0a, 0x0c, 0x0d, 0x20].includes(binary.charCodeAt(index))) return false;
+  }
+  return true;
 }
 
 function pngDimensions(bytes) {

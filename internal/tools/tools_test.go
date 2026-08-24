@@ -962,6 +962,7 @@ func newTestService(
 					protocol.CommandPageSubmit,
 					protocol.CommandPageWait,
 					protocol.CommandPageScreenshot,
+					protocol.CommandPagePrintToPDF,
 					protocol.CommandPageInfo,
 					protocol.CommandPageGetText,
 					protocol.CommandPageQuery,

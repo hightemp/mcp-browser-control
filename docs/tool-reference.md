@@ -6759,6 +6759,115 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_print_to_pdf`
+
+Print the selected tab to a validated temporary PDF artifact.
+
+- MCP profile: `full`
+- Extension capability: `page.printToPDF`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access)
+- Result: PDF metadata and normalized print settings plus `artifactUri`; binary data stays in the artifact store
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` or artifact storage failure
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "landscape": {
+      "description": "Use landscape paper orientation",
+      "type": "boolean"
+    },
+    "marginBottom": {
+      "description": "Bottom margin in inches",
+      "maximum": 10,
+      "minimum": 0,
+      "type": "number"
+    },
+    "marginLeft": {
+      "description": "Left margin in inches",
+      "maximum": 10,
+      "minimum": 0,
+      "type": "number"
+    },
+    "marginRight": {
+      "description": "Right margin in inches",
+      "maximum": 10,
+      "minimum": 0,
+      "type": "number"
+    },
+    "marginTop": {
+      "description": "Top margin in inches",
+      "maximum": 10,
+      "minimum": 0,
+      "type": "number"
+    },
+    "maxBytes": {
+      "description": "Reject larger encoded PDFs",
+      "maximum": 2000000,
+      "minimum": 1024,
+      "type": "number"
+    },
+    "pageRanges": {
+      "description": "One-based page ranges such as 1-5, 8, 11-13",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "paperHeight": {
+      "description": "Paper height in inches",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "paperWidth": {
+      "description": "Paper width in inches",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "preferCSSPageSize": {
+      "description": "Prefer the page size declared by CSS @page",
+      "type": "boolean"
+    },
+    "printBackground": {
+      "description": "Include CSS background graphics",
+      "type": "boolean"
+    },
+    "scale": {
+      "description": "Page rendering scale",
+      "maximum": 2,
+      "minimum": 0.1,
+      "type": "number"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "pageRanges": "1-3",
+    "printBackground": true
+  },
+  "name": "browser_print_to_pdf"
+}
+```
+
 ### `browser_screenshot`
 
 Capture the selected tab viewport and store it as a temporary artifact.

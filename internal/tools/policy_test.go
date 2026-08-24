@@ -51,6 +51,9 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 	if !filtered["standard"]["browser_click_element"] || filtered["standard"]["browser_send_command"] {
 		t.Fatalf("standard profile = %#v", filtered["standard"])
 	}
+	if filtered["standard"]["browser_print_to_pdf"] || !filtered["full"]["browser_print_to_pdf"] {
+		t.Fatal("PDF printing must remain full-profile only")
+	}
 	if !filtered["full"]["browser_send_command"] {
 		t.Fatal("full profile does not allow browser_send_command")
 	}

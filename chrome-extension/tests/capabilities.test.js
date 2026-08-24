@@ -11,6 +11,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
       apis: {
         tabs: true,
         captureVisibleTab: true,
+        debugger: true,
         tabGrouping: true,
         tabGroups: true,
         sessions: true,
@@ -20,7 +21,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
         windows: true,
       },
       permissions: {
-        permissions: ["tabs", "scripting", "tabGroups", "sessions"],
+        permissions: ["tabs", "scripting", "debugger", "tabGroups", "sessions"],
         origins: ["https://example.com/*"],
       },
       featureFlags: { pageAutomation: true },
@@ -119,6 +120,17 @@ test("capability detection removes unavailable or disabled commands", () => {
   assert.equal(withoutFrameTree.includes("page.getHTML"), true);
   assert.equal(withoutFrameTree.includes("page.info"), false);
   assert.equal(withoutFrameTree.includes("page.screenshot"), false);
+  assert.equal(withoutFrameTree.includes("page.printToPDF"), false);
+
+  const withDebugger = detectCapabilities({
+    browserVersion: "125",
+    apis: { tabs: true, scripting: true, webNavigation: true, debugger: true },
+    permissions: {
+      permissions: ["tabs", "scripting", "debugger"],
+      origins: ["https://example.com/*"],
+    },
+  });
+  assert.equal(withDebugger.includes("page.printToPDF"), true);
 });
 
 function tabCapabilitiesWithoutStop() {

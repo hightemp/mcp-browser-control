@@ -142,6 +142,8 @@ const (
 
 	// CommandPageScreenshot captures a browser tab viewport.
 	CommandPageScreenshot = "page.screenshot"
+	// CommandPagePrintToPDF prints a browser tab to PDF through a managed CDP session.
+	CommandPagePrintToPDF = "page.printToPDF"
 
 	// CommandConsoleStart starts console and page error capture.
 	CommandConsoleStart = "console.start"

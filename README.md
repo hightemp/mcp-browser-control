@@ -19,8 +19,8 @@ The first multi-browser vertical slice is implemented:
 - STDIO and authenticated Streamable HTTP transports are available; deprecated
   legacy SSE requires an explicit opt-in;
 - window, tab, tab-group, session, bounded page inspection, semantic snapshot,
-  locator, DOM interaction, waits, viewport screenshots, and basic console
-  diagnostics work through the extension;
+  locator, DOM interaction, waits, viewport screenshots, managed-CDP PDF
+  artifacts, and basic console diagnostics work through the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
@@ -269,6 +269,7 @@ rejects stale output.
 - `browser_submit`
 - `browser_wait`
 - `browser_screenshot`
+- `browser_print_to_pdf`
 - `browser_start_console_capture`
 - `browser_stop_console_capture`
 - `browser_clear_console_log`
@@ -332,6 +333,14 @@ inline base64 from the result, and stores the bytes as a temporary
 `browser://artifacts/{artifactId}` resource. Pixel content is not redacted, so
 the result includes an explicit sensitive-content warning. Full-page and
 element captures remain planned with the CDP-backed P1 implementation.
+
+`browser_print_to_pdf` uses a managed CDP lease and the optional Debug
+permission. It supports one-based page ranges, portrait/landscape orientation,
+backgrounds, scale, paper dimensions, margins, and CSS page size preference.
+Header/footer HTML is deliberately not exposed. PDF output is limited to
+2,000,000 bytes, validated independently by the extension and server, and
+returned only as a temporary artifact with a sensitive-content warning. The
+tool is available only in the MCP `full` profile and is excluded from batch.
 
 Console capture injects packaged, versioned bridges into the selected document's
 MAIN and ISOLATED worlds; it does not require the optional debugger permission.

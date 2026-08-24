@@ -1019,7 +1019,7 @@ table-driven, transport, middleware и extension contract tests.
 
 - Приоритет: P1 до начала P2
 - Зависимости: T-003, T-080, T-081, T-082
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Рассмотреть угрозы:
 
@@ -1033,6 +1033,17 @@ table-driven, transport, middleware и extension contract tests.
 - oversized payload и event flood.
 
 Результат — threat model и список разрешённых/запрещённых функций.
+
+В `docs/security-review.md` зафиксированы assets, trust boundaries и восемь
+категорий угроз: hostile page/bridge, local website, compromised MCP client,
+credential replay, logs/artifacts, CDP/evaluate, personal data и resource
+exhaustion. Для каждой категории описаны существующие controls, residual risk
+и обязательные gates. Определены разрешённые только при условиях P1/P2
+функции, начальный read-only raw CDP allowlist, запрещённые CDP domains/methods,
+request interception, arbitrary local paths, silent permissions/proxy changes,
+unbounded exports и clipboard read без безопасного user-gesture design.
+Добавлена единая десятипунктовая checklist и решения по T-060–T-075; remote и
+multi-user mode требуют повторного review.
 
 ## 14. Этап 9 — тестирование
 

@@ -439,6 +439,11 @@ acknowledged credential revocation exchange. Browser commands use
 
 Loopback binding remains mandatory as a defense-in-depth boundary.
 
+The threat model and binding decisions for CDP, evaluation, personal data,
+clipboard, file input, performance artifacts, and other sensitive features are
+documented in [docs/security-review.md](docs/security-review.md). Features not
+approved there remain disabled even when a browser permission exists.
+
 ## Development
 
 Build the server:

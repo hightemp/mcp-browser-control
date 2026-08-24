@@ -17,6 +17,7 @@ import { createBrowserHandlers } from "./handlers/browser.js";
 import { createAccessibilityHandlers } from "./handlers/accessibility.js";
 import { createConsoleHandlers } from "./handlers/console.js";
 import { createEmulationHandlers } from "./handlers/emulation.js";
+import { createEvaluationHandlers } from "./handlers/evaluation.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   autoConnect: true,
   featureFlags: Object.freeze({
     pageAutomation: true,
+    javascriptEvaluation: false,
   }),
 });
 const RECONNECT_ALARM = "mcp-browser-control-reconnect";
@@ -58,6 +60,7 @@ const commandRouter = new CommandRouter({
     browser: createBrowserHandlers(),
     console: createConsoleHandlers(chrome, { cdpSessions }),
     emulation: createEmulationHandlers(chrome, { cdpSessions }),
+    evaluation: createEvaluationHandlers(chrome, { cdpSessions }),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
@@ -116,6 +119,9 @@ async function handleRuntimeMessage(message) {
           pageAutomation:
             message.settings?.featureFlags?.pageAutomation ??
             currentSettings.featureFlags.pageAutomation,
+          javascriptEvaluation:
+            message.settings?.featureFlags?.javascriptEvaluation ??
+            currentSettings.featureFlags.javascriptEvaluation,
         },
       };
       await chrome.storage.local.set({ settings });

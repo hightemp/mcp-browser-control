@@ -20,8 +20,9 @@ The first multi-browser vertical slice is implemented:
   legacy SSE requires an explicit opt-in;
 - window, tab, tab-group, session, bounded page inspection, semantic snapshot,
   locator, DOM interaction, waits, viewport screenshots, managed-CDP PDF
-  artifacts, bounded accessibility trees, reversible tab emulation, and
-  bridge/CDP console diagnostics work through the extension;
+  artifacts, bounded accessibility trees, reversible tab emulation,
+  opt-in isolated-world JavaScript evaluation, and bridge/CDP console
+  diagnostics work through the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
@@ -275,6 +276,7 @@ rejects stale output.
 - `browser_set_emulation`
 - `browser_get_emulation_state`
 - `browser_reset_emulation`
+- `browser_evaluate_javascript`
 - `browser_start_console_capture`
 - `browser_stop_console_capture`
 - `browser_clear_console_log`
@@ -364,6 +366,14 @@ known reset state and rolls back on partial failure. Overrides persist across
 navigation until explicit reset or debugger detach; reset remains available
 without target-origin access so cleanup cannot be blocked by navigation. The
 tools are excluded from batch. See [`docs/emulation.md`](docs/emulation.md).
+
+`browser_evaluate_javascript` runs one bounded expression in the root frame's
+isolated world. It requires Observe, Debug, MCP `full`, and the separately
+enabled extension feature flag. Results are restricted to bounded JSON-safe
+values or explicit unsupported/unserializable/exception metadata; CDP object
+handles never leave the extension. Main-world and persistent evaluation are
+not exposed, and the tool is excluded from batch. See
+[`docs/javascript-evaluation.md`](docs/javascript-evaluation.md).
 
 Console capture injects packaged, versioned bridges into the selected document's
 MAIN and ISOLATED worlds; this baseline does not require the optional debugger

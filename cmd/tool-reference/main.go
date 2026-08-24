@@ -102,6 +102,7 @@ var toolCapabilities = map[string]string{
 	"browser_set_emulation":          protocol.CommandEmulationSet,
 	"browser_get_emulation_state":    protocol.CommandEmulationGet,
 	"browser_reset_emulation":        protocol.CommandEmulationReset,
+	"browser_evaluate_javascript":    protocol.CommandRuntimeEvaluateIsolated,
 
 	"browser_start_console_capture": protocol.CommandConsoleStart,
 	"browser_stop_console_capture":  protocol.CommandConsoleStop,
@@ -161,6 +162,11 @@ var exampleOverrides = map[string]map[string]any{
 	"browser_set_emulation": {
 		"viewport": map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 3, "mobile": true},
 		"media":    map[string]any{"colorScheme": "dark"},
+	},
+	"browser_evaluate_javascript": {
+		"expression": "({ title: document.title, links: document.links.length })",
+		"maxDepth":   4,
+		"maxNodes":   100,
 	},
 	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
 	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
@@ -398,7 +404,7 @@ func capabilityDescription(capability string) string {
 	case batchCapability:
 		return "the capability required by each nested typed command"
 	case dynamicCapability:
-		return "the value of `command`; the extension still requires it in its advertised capability set"
+		return "the value of `command`; the extension still requires it in its advertised capability set and dedicated-only capabilities are rejected"
 	case protocol.CommandNetworkRead:
 		return "`network.read` (reserved; not currently advertised by the extension)"
 	default:
@@ -428,6 +434,8 @@ func permissionDescription(capability string) string {
 		return "Debug (`debugger`); cleanup remains available without target-origin access"
 	case strings.HasPrefix(capability, "emulation."):
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access) and Core `webNavigation` for root-document identity"
+	case capability == protocol.CommandRuntimeEvaluateIsolated:
+		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, MCP `full`, and the disabled-by-default JavaScript evaluation feature flag"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`"
 	default:
@@ -491,6 +499,8 @@ func resultDescription(name string) string {
 		return "a bounded normalized full or partial AX tree with frame associations and optional locator/reference links"
 	case "browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation":
 		return "the tab-scoped managed emulation state, applied setting groups, and reset-on-detach guarantee"
+	case "browser_evaluate_javascript":
+		return "a bounded JSON-safe value, unsupported/unserializable marker, or bounded exception from an ephemeral root-frame isolated world"
 	case "browser_wait":
 		return "the satisfied condition, observation mode, elapsed time, and matching state in `data`"
 	case "browser_start_console_capture", "browser_stop_console_capture", "browser_clear_console_log":
@@ -516,7 +526,8 @@ func errorDescription(name, capability string) string {
 		)
 	}
 	if (strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") ||
-		strings.HasPrefix(capability, "accessibility.") || strings.HasPrefix(capability, "emulation.")) &&
+		strings.HasPrefix(capability, "accessibility.") || strings.HasPrefix(capability, "emulation.") ||
+		capability == protocol.CommandRuntimeEvaluateIsolated) &&
 		capability != protocol.CommandEmulationReset {
 		errors = append(errors,
 			"`TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`",
@@ -542,10 +553,12 @@ func errorDescription(name, capability string) string {
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` or artifact storage failure")
 	case "browser_get_accessibility_tree":
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` for a tree above the configured byte limit")
+	case "browser_evaluate_javascript":
+		errors = append(errors, "`PAYLOAD_TOO_LARGE` for a result above the configured byte limit")
 	case "browser_get_network_log":
 		errors = append(errors, "currently always `CAPABILITY_UNAVAILABLE`")
 	case "browser_send_command":
-		errors = append(errors, "`INVALID_COMMAND` for an unknown command")
+		errors = append(errors, "`INVALID_COMMAND` for an unknown or dedicated-only command")
 	case "browser_batch":
 		errors = append(errors,
 			"`INVALID_COMMAND` for a non-batchable nested tool",
@@ -596,7 +609,7 @@ func categoryFor(name string) string {
 	case name == "browser_page_info" || name == "browser_get_html" ||
 		name == "browser_get_html_by_selector" || name == "browser_get_text" ||
 		name == "browser_query" || name == "browser_get_element" || name == "browser_snapshot" ||
-		name == "browser_get_accessibility_tree":
+		name == "browser_get_accessibility_tree" || name == "browser_evaluate_javascript":
 		return "Page Inspection"
 	case isInteractionTool(name) || name == "browser_scroll":
 		return "Page Interaction"

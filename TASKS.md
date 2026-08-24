@@ -960,9 +960,28 @@ tree results; ограничения и release smoke требования оп�
 
 - Приоритет: P1
 - Зависимости: T-003, T-060
-- Статус: `[ ]`
+- Статус: `[x]`
 
 По умолчанию isolated world. Ограничить timeout, depth, serialized size и типы результата. Main world включать отдельным feature flag.
+
+Добавлен full-profile MCP tool `browser_evaluate_javascript` и типизированная
+extension-команда `runtime.evaluateIsolated`. Команда работает только с root
+frame HTTP(S)-документа, требует Observe, явно выданный Debug permission и
+отдельный выключенный по умолчанию пользовательский feature flag. Для каждого
+вызова общий CDP manager выдаёт короткую lease с exact allowlist
+`Page.getFrameTree`, `Page.createIsolatedWorld`, `Runtime.evaluate` и
+`Runtime.releaseObjectGroup`; isolated world создаётся без universal access и
+с ограничивающим CSP, object group освобождается в `finally`, handles наружу не
+возвращаются. Ограничены expression, timeout, depth, node/string/key count и
+полный serialized size; разрешены только JSON-safe значения и фиксированные
+маркеры для undefined/unsupported/unserializable типов, exception metadata
+также ограничены. Origin и root document повторно проверяются до и после CDP,
+extension и Go независимо валидируют результат, server redaction сохранён,
+batch запрещён, а `browser_send_command` не может обойти dedicated tool.
+Main-world и persistent evaluation не реализованы: текущий
+security review требует для них отдельного будущего решения, поэтому этот
+feature flag включает только isolated world. Добавлены Go/extension tests и
+`docs/javascript-evaluation.md`.
 
 ### T-066 — Реализовать raw CDP tool
 

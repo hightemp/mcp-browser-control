@@ -403,6 +403,7 @@ func TestBatchAllowedToolsAreRegisteredAndClassified(t *testing.T) {
 	for _, denied := range []string{
 		"browser_list", "browser_select", "browser_print_to_pdf", "browser_get_accessibility_tree",
 		"browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation",
+		"browser_evaluate_javascript",
 		"browser_send_command", "browser_batch",
 	} {
 		if _, allowed := batchAllowedTools[denied]; allowed {

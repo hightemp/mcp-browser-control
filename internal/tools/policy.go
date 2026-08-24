@@ -93,6 +93,7 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_set_emulation":          toolProfileFull,
 	"browser_get_emulation_state":    toolProfileFull,
 	"browser_reset_emulation":        toolProfileFull,
+	"browser_evaluate_javascript":    toolProfileFull,
 	"browser_send_command":           toolProfileFull,
 }
 

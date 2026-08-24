@@ -17,6 +17,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
       accessibility: { getTree: handler },
       browser: { ping: handler },
       emulation: { set: handler, get: handler, reset: handler },
+      evaluation: { evaluate: handler },
       windows: {
         list: handler,
         get: handler,
@@ -206,6 +207,14 @@ test("router dispatches every allowlisted command to its domain handler", async 
     },
     "emulation.get": {},
     "emulation.reset": {},
+    "runtime.evaluateIsolated": {
+      expression: "document.title",
+      awaitPromise: true,
+      maxDepth: 6,
+      maxNodes: 1_000,
+      maxStringChars: 10_000,
+      maxBytes: 524_288,
+    },
     "console.start": {
       bufferSize: 500,
       captureConsole: true,
@@ -259,6 +268,11 @@ test("router validates target and command params before invoking handlers", asyn
       },
       browser: {
         ping: () => {
+          calls += 1;
+        },
+      },
+      evaluation: {
+        evaluate: () => {
           calls += 1;
         },
       },
@@ -478,6 +492,31 @@ test("router validates target and command params before invoking handlers", asyn
       geolocation: { latitude: 91, longitude: 0, accuracy: 10 },
     }),
     createRequest("emulation.set", { media: {} }),
+    createRequest("runtime.evaluateIsolated", {
+      expression: " ",
+      awaitPromise: true,
+      maxDepth: 6,
+      maxNodes: 1_000,
+      maxStringChars: 10_000,
+      maxBytes: 524_288,
+    }),
+    createRequest("runtime.evaluateIsolated", {
+      expression: "document.title",
+      awaitPromise: true,
+      maxDepth: 11,
+      maxNodes: 1_000,
+      maxStringChars: 10_000,
+      maxBytes: 524_288,
+    }),
+    createRequest("runtime.evaluateIsolated", {
+      expression: "document.title",
+      world: "main",
+      awaitPromise: true,
+      maxDepth: 6,
+      maxNodes: 1_000,
+      maxStringChars: 10_000,
+      maxBytes: 524_288,
+    }),
     createRequest("accessibility.getTree", {
       mode: "full",
       backendNodeId: 7,
@@ -679,6 +718,9 @@ function defaultHandlers() {
       stop: () => ({ active: false }),
       clear: () => ({ cleared: true }),
       read: () => ({ entries: [] }),
+    },
+    evaluation: {
+      evaluate: () => ({ completed: true }),
     },
     page: {
       info: () => ({ url: "" }),

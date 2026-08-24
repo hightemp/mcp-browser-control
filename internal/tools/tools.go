@@ -321,6 +321,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerPrintToPDFTool(mcpServer)
 	s.registerAccessibilityTool(mcpServer)
 	s.registerEmulationTools(mcpServer)
+	s.registerEvaluationTool(mcpServer)
 	s.registerConsoleTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -912,6 +913,13 @@ func (s *Service) browserSendCommandHandler(
 	_ mcp.CallToolRequest,
 	args sendCommandArgs,
 ) (*mcp.CallToolResult, error) {
+	if args.Command == protocol.CommandRuntimeEvaluateIsolated {
+		return errorResult(protocol.NewError(
+			protocol.CodeInvalidCommand,
+			"isolated evaluation requires the dedicated browser_evaluate_javascript tool",
+			false,
+		))
+	}
 	return s.send(
 		ctx,
 		args.BrowserID,

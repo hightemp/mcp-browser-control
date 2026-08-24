@@ -60,6 +60,7 @@ change. The server rejects a command that is not currently advertised.
 | Print to PDF | managed `Page.printToPDF` | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Accessibility tree | managed `Accessibility.getFullAXTree`/`getPartialAXTree` plus bounded frame metadata | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Reversible tab emulation | managed `Emulation.*` plus compatibility `Network.emulateNetworkConditions` | Observe + Debug plus MCP `full` profile; reset needs Debug only | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
+| Isolated JavaScript evaluation | managed `Page.createIsolatedWorld` and bounded `Runtime.evaluate` | Observe + Debug, MCP `full`, and disabled-by-default feature flag | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Personal-data tools beyond sessions/groups | domain-specific optional APIs | Personal data plus MCP `full` profile | Planned | Planned | Not supported until tested |
 
 `browser_get_capabilities` exposes the server's current view. A missing API,

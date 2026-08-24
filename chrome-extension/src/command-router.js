@@ -287,6 +287,11 @@ const COMMANDS = Object.freeze({
     handler: "reset",
     validate: validateEmulationReset,
   }),
+  "runtime.evaluateIsolated": Object.freeze({
+    domain: "evaluation",
+    handler: "evaluate",
+    validate: validateEvaluation,
+  }),
   "console.start": Object.freeze({
     domain: "console",
     handler: "start",
@@ -1405,6 +1410,40 @@ function validateEmulationTarget(target) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
       "Emulation commands accept only the root frame of a tab",
+    );
+  }
+}
+
+function validateEvaluation(params, target) {
+  validateParamsObject(params);
+  validateEvaluationTarget(target);
+  assertAllowedProperties(params, [
+    "expression",
+    "awaitPromise",
+    "maxDepth",
+    "maxNodes",
+    "maxStringChars",
+    "maxBytes",
+  ]);
+  assertBoundedString(params.expression, "params.expression", 32_768);
+  if (typeof params.awaitPromise !== "boolean") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.awaitPromise must be a boolean");
+  }
+  requireIntegerRange(params.maxDepth, "params.maxDepth", 0, 10);
+  requireIntegerRange(params.maxNodes, "params.maxNodes", 1, 5_000);
+  requireIntegerRange(params.maxStringChars, "params.maxStringChars", 1, 100_000);
+  requireIntegerRange(params.maxBytes, "params.maxBytes", 64 * 1_024, 1_000_000);
+}
+
+function validateEvaluationTarget(target) {
+  if (target === undefined || target === null) return;
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.windowId !== undefined || (target.frameId !== undefined && target.frameId !== 0)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "JavaScript evaluation accepts only the root frame of a tab",
     );
   }
 }

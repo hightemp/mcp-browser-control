@@ -124,6 +124,19 @@ test("service worker pairs and reconnects with the stored credential", async () 
   assert.equal(statusResponse.data.status, "disconnected");
   assert.equal(statusResponse.data.settings.autoConnect, false);
   assert.equal(secondSocket.readyState, FakeWebSocket.CLOSED);
+
+  statusResponse = await chromeMock.sendRuntimeMessage({
+    type: "SAVE_SETTINGS",
+    settings: {
+      endpoint: "ws://127.0.0.1:8090/ws",
+      displayName: "Test Chromium",
+      autoConnect: false,
+      featureFlags: { pageAutomation: true, javascriptEvaluation: true },
+    },
+  });
+  assert.equal(statusResponse.success, true);
+  assert.equal(statusResponse.data.settings.featureFlags.javascriptEvaluation, true);
+  assert.equal(chromeMock.storageValues.settings.featureFlags.javascriptEvaluation, true);
 });
 
 const reconnectAlarm = "mcp-browser-control-reconnect";

@@ -1591,6 +1591,100 @@ Example MCP tool payload:
 
 ## Page Inspection
 
+### `browser_evaluate_javascript`
+
+Evaluate one bounded JavaScript expression in an ephemeral isolated world.
+
+- MCP profile: `full`
+- Extension capability: `runtime.evaluateIsolated`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, MCP `full`, and the disabled-by-default JavaScript evaluation feature flag
+- Result: a bounded JSON-safe value, unsupported/unserializable marker, or bounded exception from an ephemeral root-frame isolated world
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` for a result above the configured byte limit
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "awaitPromise": {
+      "default": true,
+      "description": "Await a promise returned by the expression",
+      "type": "boolean"
+    },
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "expression": {
+      "description": "JavaScript expression evaluated only in the root frame isolated world",
+      "maxLength": 32768,
+      "minLength": 1,
+      "type": "string"
+    },
+    "maxBytes": {
+      "default": 524288,
+      "description": "Maximum extension result bytes",
+      "maximum": 1000000,
+      "minimum": 65536,
+      "type": "number"
+    },
+    "maxDepth": {
+      "default": 6,
+      "description": "Maximum JSON result depth",
+      "maximum": 10,
+      "minimum": 0,
+      "type": "number"
+    },
+    "maxNodes": {
+      "default": 1000,
+      "description": "Maximum values in the normalized result",
+      "maximum": 5000,
+      "minimum": 1,
+      "type": "number"
+    },
+    "maxStringChars": {
+      "default": 10000,
+      "description": "Maximum characters in each result string",
+      "maximum": 100000,
+      "minimum": 1,
+      "type": "number"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "default": 5000,
+      "description": "Evaluation and command timeout in milliseconds",
+      "maximum": 10000,
+      "minimum": 100,
+      "type": "number"
+    }
+  },
+  "required": [
+    "expression"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "expression": "({ title: document.title, links: document.links.length })",
+    "maxDepth": 4,
+    "maxNodes": 100
+  },
+  "name": "browser_evaluate_javascript"
+}
+```
+
 ### `browser_get_accessibility_tree`
 
 Get a bounded normalized full or partial accessibility tree.
@@ -7173,10 +7267,10 @@ Example MCP tool payload:
 Send an advanced command supported by the browser extension.
 
 - MCP profile: `full`
-- Extension capability: the value of `command`; the extension still requires it in its advertised capability set
+- Extension capability: the value of `command`; the extension still requires it in its advertised capability set and dedicated-only capabilities are rejected
 - Permissions: depends on `command`; the tool itself also requires the `full` MCP profile
 - Result: the selected extension command's bounded, redacted payload in `data`
-- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `INVALID_COMMAND` for an unknown command
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `INVALID_COMMAND` for an unknown or dedicated-only command
 
 Input schema:
 

@@ -60,9 +60,10 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 	}
 	for _, name := range []string{
 		"browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation",
+		"browser_evaluate_javascript",
 	} {
 		if filtered["standard"][name] || !filtered["full"][name] {
-			t.Fatalf("CDP emulation tool %q must remain full-profile only", name)
+			t.Fatalf("sensitive CDP tool %q must remain full-profile only", name)
 		}
 	}
 	if !filtered["full"]["browser_send_command"] {

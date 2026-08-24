@@ -169,7 +169,7 @@ task can be marked complete:
 | T-064 accessibility | Implemented as a typed full-profile tool with exact full/partial/frame-tree CDP leases, Observe + Debug and root-document gates, independently validated tree/property/reference/byte bounds, protected-value redaction, and no batch/raw path; see [`accessibility-tree.md`](accessibility-tree.md) |
 | T-062 network capture | Conditional approval for metadata and bounded allowlisted bodies; interception remains prohibited |
 | T-063 emulation | Implemented through typed full-profile replace/get/reset tools, exact setter/resetter allowlists, root-document and permission checks, bounded values, serialized per-tab state changes, rollback after partial failure, explicit reset, and detach cleanup; cleanup bypasses target-origin denial and is documented in [`emulation.md`](emulation.md) |
-| T-065 evaluation | Conditional isolated-world-only approval; raw/main-world/persistent execution prohibited |
+| T-065 evaluation | Implemented as a typed full-profile root-frame tool with Observe + Debug, a disabled-by-default user feature flag, restrictive isolated-world CSP, exact Page/Runtime methods, fixed execution bounds, JSON-only output, request object-group release, independent server validation, and a generic-command bypass denial; raw/main-world/persistent execution remains prohibited; see [`javascript-evaluation.md`](javascript-evaluation.md) |
 | T-066 raw CDP | Conditional approval for the initial read-only method list above; disabled by default |
 | T-067 performance | Conditional approval for bounded metrics/traces in artifacts; heap snapshots prohibited |
 | T-070–T-073 personal data | Conditional approval with Personal data profile, pagination/redaction, separated mutation, and confirmation |

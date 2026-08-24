@@ -967,6 +967,7 @@ func newTestService(
 					protocol.CommandEmulationSet,
 					protocol.CommandEmulationGet,
 					protocol.CommandEmulationReset,
+					protocol.CommandRuntimeEvaluateIsolated,
 					protocol.CommandPageInfo,
 					protocol.CommandPageGetText,
 					protocol.CommandPageQuery,

@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; used by typed console, PDF, accessibility, and emulation tools
+Status: implemented infrastructure; used by typed console, PDF, accessibility, emulation, and evaluation tools
 
 Last reviewed: 2026-08-24
 
@@ -177,3 +177,9 @@ Emulation is another long-running root-tab consumer. It owns exact Emulation and
 Network setter/resetter methods, explicitly resets before replacement/release,
 and relies on debugger detach as the final cleanup boundary. See
 [`emulation.md`](emulation.md).
+
+JavaScript evaluation is a short-lived root-tab consumer. It creates a
+restricted isolated world, evaluates through exact `Page`/`Runtime` methods,
+releases its unique object group in `finally`, and releases the lease after one
+request. No remote handle is returned. See
+[`javascript-evaluation.md`](javascript-evaluation.md).

@@ -155,6 +155,9 @@ const (
 	// CommandEmulationReset clears every managed emulation override for a tab.
 	CommandEmulationReset = "emulation.reset"
 
+	// CommandRuntimeEvaluateIsolated evaluates a bounded expression in an ephemeral isolated world.
+	CommandRuntimeEvaluateIsolated = "runtime.evaluateIsolated"
+
 	// CommandConsoleStart starts console and page error capture.
 	CommandConsoleStart = "console.start"
 	// CommandConsoleStop stops console and page error capture.

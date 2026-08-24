@@ -112,6 +112,9 @@ export function detectCapabilities({
         "emulation.get",
         "emulation.reset",
       );
+      if (featureFlags.javascriptEvaluation === true) {
+        capabilities.push("runtime.evaluateIsolated");
+      }
     }
     capabilities.push("console.start", "console.stop", "console.clear", "console.read");
   }

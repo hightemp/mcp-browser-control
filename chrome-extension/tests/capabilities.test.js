@@ -24,7 +24,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
         permissions: ["tabs", "scripting", "debugger", "tabGroups", "sessions"],
         origins: ["https://example.com/*"],
       },
-      featureFlags: { pageAutomation: true },
+      featureFlags: { pageAutomation: true, javascriptEvaluation: true },
     }),
     COMMAND_NAMES,
   );
@@ -135,6 +135,18 @@ test("capability detection removes unavailable or disabled commands", () => {
   assert.equal(withDebugger.includes("emulation.set"), true);
   assert.equal(withDebugger.includes("emulation.get"), true);
   assert.equal(withDebugger.includes("emulation.reset"), true);
+  assert.equal(withDebugger.includes("runtime.evaluateIsolated"), false);
+
+  const withEvaluationOptIn = detectCapabilities({
+    browserVersion: "125",
+    apis: { tabs: true, scripting: true, webNavigation: true, debugger: true },
+    permissions: {
+      permissions: ["tabs", "scripting", "debugger"],
+      origins: ["https://example.com/*"],
+    },
+    featureFlags: { pageAutomation: true, javascriptEvaluation: true },
+  });
+  assert.equal(withEvaluationOptIn.includes("runtime.evaluateIsolated"), true);
 
   const cleanupWithoutSiteAccess = detectCapabilities({
     browserVersion: "125",

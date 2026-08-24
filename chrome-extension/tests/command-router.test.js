@@ -16,6 +16,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
     handlers: {
       accessibility: { getTree: handler },
       browser: { ping: handler },
+      emulation: { set: handler, get: handler, reset: handler },
       windows: {
         list: handler,
         get: handler,
@@ -177,6 +178,34 @@ test("router dispatches every allowlisted command to its domain handler", async 
       maxElementReferences: 50,
       maxBytes: 1_000_000,
     },
+    "emulation.set": {
+      viewport: {
+        width: 390,
+        height: 844,
+        deviceScaleFactor: 3,
+        mobile: true,
+        orientation: "portraitPrimary",
+      },
+      touch: { enabled: true, maxTouchPoints: 5 },
+      network: {
+        offline: false,
+        latencyMs: 80,
+        downloadKbps: 2_000,
+        uploadKbps: 1_000,
+        connectionType: "cellular4g",
+      },
+      userAgent: {
+        value: "ExampleBrowser/1.0",
+        acceptLanguage: "en-US",
+        platform: "Linux armv8l",
+      },
+      locale: "en_US",
+      timezoneId: "America/New_York",
+      geolocation: { latitude: 40.7, longitude: -74, accuracy: 20 },
+      media: { type: "screen", colorScheme: "dark", reducedMotion: "reduce" },
+    },
+    "emulation.get": {},
+    "emulation.reset": {},
     "console.start": {
       bufferSize: 500,
       captureConsole: true,
@@ -435,6 +464,20 @@ test("router validates target and command params before invoking handlers", asyn
       maxElementReferences: 0,
       maxBytes: 100_000,
     }),
+    createRequest("emulation.set", {}),
+    createRequest("emulation.set", {
+      viewport: { width: 390, deviceScaleFactor: 3, mobile: true },
+    }),
+    createRequest("emulation.set", {
+      touch: { enabled: false, maxTouchPoints: 2 },
+    }),
+    createRequest("emulation.set", { network: { latencyMs: -1 } }),
+    createRequest("emulation.set", { userAgent: { value: "Bad\nAgent" } }),
+    createRequest("emulation.set", { locale: "not a locale" }),
+    createRequest("emulation.set", {
+      geolocation: { latitude: 91, longitude: 0, accuracy: 10 },
+    }),
+    createRequest("emulation.set", { media: {} }),
     createRequest("accessibility.getTree", {
       mode: "full",
       backendNodeId: 7,

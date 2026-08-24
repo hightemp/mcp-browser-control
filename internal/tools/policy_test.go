@@ -58,6 +58,13 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 		!filtered["full"]["browser_get_accessibility_tree"] {
 		t.Fatal("CDP accessibility must remain full-profile only")
 	}
+	for _, name := range []string{
+		"browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation",
+	} {
+		if filtered["standard"][name] || !filtered["full"][name] {
+			t.Fatalf("CDP emulation tool %q must remain full-profile only", name)
+		}
+	}
 	if !filtered["full"]["browser_send_command"] {
 		t.Fatal("full profile does not allow browser_send_command")
 	}

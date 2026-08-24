@@ -320,6 +320,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerScreenshotTool(mcpServer)
 	s.registerPrintToPDFTool(mcpServer)
 	s.registerAccessibilityTool(mcpServer)
+	s.registerEmulationTools(mcpServer)
 	s.registerConsoleTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -1007,7 +1008,8 @@ func (s *Service) sendRaw(
 			return browserID, target, nil, time.Since(startedAt), err
 		}
 	}
-	if s.actionPolicy != nil && commandUsesTab(command) && command != protocol.CommandTabsGet {
+	if s.actionPolicy != nil && commandUsesTab(command) &&
+		command != protocol.CommandTabsGet && command != protocol.CommandEmulationReset {
 		if err := s.enforceTargetPolicy(requestCtx, browserID, command, target); err != nil {
 			return browserID, target, nil, time.Since(startedAt), err
 		}

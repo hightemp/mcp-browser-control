@@ -910,9 +910,26 @@ allowlists, фильтрация context, безопасный fallback, target 
 
 - Приоритет: P1
 - Зависимости: T-060
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Viewport/device scale, mobile/touch, offline/network throttling, UA, locale, timezone, geolocation, media/color scheme. Все изменения должны иметь reset tool и очищаться при detach.
+
+Добавлены full-profile tools `browser_set_emulation`,
+`browser_get_emulation_state` и `browser_reset_emulation` с командами
+`emulation.set/get/reset`. Set полностью заменяет tab-scoped конфигурацию и
+поддерживает ограниченные блоки viewport/device scale/mobile, touch, offline и
+network throttling, User-Agent/language/platform, locale, timezone, geolocation
+и фиксированные media preferences. Реализация использует один долгоживущий
+lease общего CDP manager с точным allowlist методов Emulation/Network,
+сериализует изменения для каждой вкладки, сначала приводит все overrides к
+известному состоянию и выполняет best-effort rollback при частичной ошибке.
+Явный reset повторно очищает все группы перед release и остаётся доступен без
+origin preflight, чтобы navigation на другой origin не могла заблокировать
+cleanup. Detach, отзыв Debug permission и disconnect сбрасывают browser-owned
+overrides и удаляют extension state. Go и extension независимо проверяют
+границы и возвращаемую конфигурацию; emulation исключена из batch. Добавлены
+тесты allowlists, преобразования network units/media features, replace/get/reset,
+partial-failure rollback, detach, permission gate и cleanup без site access.
 
 ### T-064 — Реализовать accessibility tree
 

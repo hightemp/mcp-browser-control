@@ -148,6 +148,13 @@ const (
 	// CommandAccessibilityGetTree returns a bounded normalized accessibility tree.
 	CommandAccessibilityGetTree = "accessibility.getTree"
 
+	// CommandEmulationSet replaces the emulation overrides for a tab.
+	CommandEmulationSet = "emulation.set"
+	// CommandEmulationGet returns the managed emulation state for a tab.
+	CommandEmulationGet = "emulation.get"
+	// CommandEmulationReset clears every managed emulation override for a tab.
+	CommandEmulationReset = "emulation.reset"
+
 	// CommandConsoleStart starts console and page error capture.
 	CommandConsoleStart = "console.start"
 	// CommandConsoleStop stops console and page error capture.

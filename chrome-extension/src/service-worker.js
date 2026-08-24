@@ -16,6 +16,7 @@ import { CommandRouter } from "./command-router.js";
 import { createBrowserHandlers } from "./handlers/browser.js";
 import { createAccessibilityHandlers } from "./handlers/accessibility.js";
 import { createConsoleHandlers } from "./handlers/console.js";
+import { createEmulationHandlers } from "./handlers/emulation.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -56,6 +57,7 @@ const commandRouter = new CommandRouter({
     accessibility: createAccessibilityHandlers(chrome, { cdpSessions }),
     browser: createBrowserHandlers(),
     console: createConsoleHandlers(chrome, { cdpSessions }),
+    emulation: createEmulationHandlers(chrome, { cdpSessions }),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),

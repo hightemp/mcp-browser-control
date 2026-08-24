@@ -90,6 +90,9 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_get_network_log":        toolProfileFull,
 	"browser_print_to_pdf":           toolProfileFull,
 	"browser_get_accessibility_tree": toolProfileFull,
+	"browser_set_emulation":          toolProfileFull,
+	"browser_get_emulation_state":    toolProfileFull,
+	"browser_reset_emulation":        toolProfileFull,
 	"browser_send_command":           toolProfileFull,
 }
 

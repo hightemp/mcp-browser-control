@@ -272,6 +272,21 @@ const COMMANDS = Object.freeze({
     handler: "getTree",
     validate: validateAccessibilityTree,
   }),
+  "emulation.set": Object.freeze({
+    domain: "emulation",
+    handler: "set",
+    validate: validateEmulationSet,
+  }),
+  "emulation.get": Object.freeze({
+    domain: "emulation",
+    handler: "get",
+    validate: validateEmulationEmpty,
+  }),
+  "emulation.reset": Object.freeze({
+    domain: "emulation",
+    handler: "reset",
+    validate: validateEmulationReset,
+  }),
   "console.start": Object.freeze({
     domain: "console",
     handler: "start",
@@ -1193,6 +1208,236 @@ function validateAccessibilityTree(params, target) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
       "maxElementReferences must be zero when element references are disabled",
+    );
+  }
+}
+
+function validateEmulationSet(params, target) {
+  validateParamsObject(params);
+  validateEmulationTarget(target);
+  const fields = [
+    "viewport",
+    "touch",
+    "network",
+    "userAgent",
+    "locale",
+    "timezoneId",
+    "geolocation",
+    "media",
+  ];
+  assertAllowedProperties(params, fields);
+  if (!fields.some((field) => params[field] !== undefined)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "At least one emulation setting is required");
+  }
+
+  if (params.viewport !== undefined) {
+    validateParamsObject(params.viewport);
+    assertAllowedProperties(params.viewport, [
+      "width",
+      "height",
+      "deviceScaleFactor",
+      "mobile",
+      "orientation",
+    ]);
+    requireIntegerRange(params.viewport.width, "params.viewport.width", 1, 10_000);
+    requireIntegerRange(params.viewport.height, "params.viewport.height", 1, 10_000);
+    requireNumberRange(
+      params.viewport.deviceScaleFactor,
+      "params.viewport.deviceScaleFactor",
+      0.1,
+      10,
+    );
+    if (typeof params.viewport.mobile !== "boolean") {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, "params.viewport.mobile must be a boolean");
+    }
+    validateEnum(params.viewport.orientation, "params.viewport.orientation", [
+      "portraitPrimary",
+      "portraitSecondary",
+      "landscapePrimary",
+      "landscapeSecondary",
+    ]);
+  }
+
+  if (params.touch !== undefined) {
+    validateParamsObject(params.touch);
+    assertAllowedProperties(params.touch, ["enabled", "maxTouchPoints"]);
+    if (typeof params.touch.enabled !== "boolean") {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, "params.touch.enabled must be a boolean");
+    }
+    validateIntegerRange(params.touch.maxTouchPoints, "params.touch.maxTouchPoints", 1, 10);
+    if (!params.touch.enabled && params.touch.maxTouchPoints !== undefined) {
+      throw protocolError(
+        ErrorCode.INVALID_MESSAGE,
+        "params.touch.maxTouchPoints requires enabled touch",
+      );
+    }
+  }
+
+  if (params.network !== undefined) {
+    validateNonEmptyEmulationObject(params.network, "network", [
+      "offline",
+      "latencyMs",
+      "downloadKbps",
+      "uploadKbps",
+      "connectionType",
+    ]);
+    validateOptionalBoolean(params.network.offline, "params.network.offline");
+    validateNumberRange(params.network.latencyMs, "params.network.latencyMs", 0, 300_000);
+    validateNumberRange(params.network.downloadKbps, "params.network.downloadKbps", 0, 10_000_000);
+    validateNumberRange(params.network.uploadKbps, "params.network.uploadKbps", 0, 10_000_000);
+    validateEnum(params.network.connectionType, "params.network.connectionType", [
+      "none",
+      "cellular2g",
+      "cellular3g",
+      "cellular4g",
+      "bluetooth",
+      "ethernet",
+      "wifi",
+      "wimax",
+      "other",
+    ]);
+  }
+
+  if (params.userAgent !== undefined) {
+    validateParamsObject(params.userAgent);
+    assertAllowedProperties(params.userAgent, ["value", "acceptLanguage", "platform"]);
+    validateSafeEmulationString(params.userAgent.value, "params.userAgent.value", 1, 1_000);
+    validateSafeEmulationString(
+      params.userAgent.acceptLanguage,
+      "params.userAgent.acceptLanguage",
+      0,
+      200,
+    );
+    validateSafeEmulationString(params.userAgent.platform, "params.userAgent.platform", 0, 100);
+  }
+
+  if (params.locale !== undefined) {
+    if (
+      typeof params.locale !== "string" ||
+      params.locale.length > 100 ||
+      params.locale !== params.locale.trim() ||
+      !/^[A-Za-z]{2,8}(?:[_-][A-Za-z0-9]{1,8})*$/.test(params.locale)
+    ) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, "params.locale is invalid");
+    }
+  }
+  if (params.timezoneId !== undefined) {
+    if (
+      typeof params.timezoneId !== "string" ||
+      params.timezoneId.length > 100 ||
+      params.timezoneId !== params.timezoneId.trim() ||
+      !/^[A-Za-z0-9_+./-]+$/.test(params.timezoneId)
+    ) {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, "params.timezoneId is invalid");
+    }
+  }
+
+  if (params.geolocation !== undefined) {
+    validateParamsObject(params.geolocation);
+    assertAllowedProperties(params.geolocation, [
+      "latitude",
+      "longitude",
+      "accuracy",
+      "altitude",
+      "heading",
+      "speed",
+    ]);
+    requireNumberRange(params.geolocation.latitude, "params.geolocation.latitude", -90, 90);
+    requireNumberRange(params.geolocation.longitude, "params.geolocation.longitude", -180, 180);
+    requireNumberRange(params.geolocation.accuracy, "params.geolocation.accuracy", 0, 1_000_000);
+    validateNumberRange(
+      params.geolocation.altitude,
+      "params.geolocation.altitude",
+      -10_000,
+      100_000,
+    );
+    validateNumberRange(params.geolocation.heading, "params.geolocation.heading", 0, 360);
+    validateNumberRange(params.geolocation.speed, "params.geolocation.speed", 0, 1_000_000);
+  }
+
+  if (params.media !== undefined) {
+    validateNonEmptyEmulationObject(params.media, "media", [
+      "type",
+      "colorScheme",
+      "reducedMotion",
+      "forcedColors",
+      "contrast",
+    ]);
+    validateEnum(params.media.type, "params.media.type", ["screen", "print"]);
+    validateEnum(params.media.colorScheme, "params.media.colorScheme", [
+      "light",
+      "dark",
+      "no-preference",
+    ]);
+    validateEnum(params.media.reducedMotion, "params.media.reducedMotion", [
+      "reduce",
+      "no-preference",
+    ]);
+    validateEnum(params.media.forcedColors, "params.media.forcedColors", ["active", "none"]);
+    validateEnum(params.media.contrast, "params.media.contrast", [
+      "more",
+      "less",
+      "custom",
+      "no-preference",
+    ]);
+  }
+}
+
+function validateEmulationEmpty(params, target) {
+  validateEmpty(params);
+  validateEmulationTarget(target);
+}
+
+function validateEmulationReset(params, target) {
+  validateEmpty(params);
+  validateEmulationTarget(target);
+  if (target?.documentId !== undefined) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Emulation reset is tab-scoped");
+  }
+}
+
+function validateEmulationTarget(target) {
+  if (target === undefined || target === null) return;
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.windowId !== undefined || (target.frameId !== undefined && target.frameId !== 0)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Emulation commands accept only the root frame of a tab",
+    );
+  }
+}
+
+function validateNonEmptyEmulationObject(value, name, allowed) {
+  validateParamsObject(value);
+  assertAllowedProperties(value, allowed);
+  if (Object.keys(value).length === 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${name} must not be empty`);
+  }
+}
+
+function validateSafeEmulationString(value, path, minimum, maximum) {
+  if (value === undefined && minimum === 0) return;
+  if (
+    typeof value !== "string" ||
+    value.length < minimum ||
+    value.length > maximum ||
+    value !== value.trim() ||
+    [...value].some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127;
+    })
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} contains invalid characters or length`);
+  }
+}
+
+function requireNumberRange(value, path, minimum, maximum) {
+  if (!Number.isFinite(value) || value < minimum || value > maximum) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      `${path} must be between ${minimum} and ${maximum}`,
     );
   }
 }

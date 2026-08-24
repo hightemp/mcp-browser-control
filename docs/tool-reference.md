@@ -6767,6 +6767,51 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_get_emulation_state`
+
+Get the managed emulation state for one browser tab.
+
+- MCP profile: `full`
+- Extension capability: `emulation.get`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access) and Core `webNavigation` for root-document identity
+- Result: the tab-scoped managed emulation state, applied setting groups, and reset-on-detach guarantee
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {},
+  "name": "browser_get_emulation_state"
+}
+```
+
 ### `browser_get_network_log`
 
 Read captured browser network entries.
@@ -6999,6 +7044,47 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_reset_emulation`
+
+Clear every managed emulation override for one browser tab.
+
+- MCP profile: `full`
+- Extension capability: `emulation.reset`
+- Permissions: Debug (`debugger`); cleanup remains available without target-origin access
+- Result: the tab-scoped managed emulation state, applied setting groups, and reset-on-detach guarantee
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`; `PERMISSION_REQUIRED` when Debug was revoked
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {},
+  "name": "browser_reset_emulation"
+}
+```
+
 ### `browser_screenshot`
 
 Capture the selected tab viewport and store it as a temporary artifact.
@@ -7135,6 +7221,282 @@ Example MCP tool payload:
     "data": {}
   },
   "name": "browser_send_command"
+}
+```
+
+### `browser_set_emulation`
+
+Replace all managed emulation overrides for one browser tab.
+
+- MCP profile: `full`
+- Extension capability: `emulation.set`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access) and Core `webNavigation` for root-document identity
+- Result: the tab-scoped managed emulation state, applied setting groups, and reset-on-detach guarantee
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "geolocation": {
+      "additionalProperties": false,
+      "description": "Geolocation override",
+      "properties": {
+        "accuracy": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "number"
+        },
+        "altitude": {
+          "maximum": 100000,
+          "minimum": -10000,
+          "type": "number"
+        },
+        "heading": {
+          "maximum": 360,
+          "minimum": 0,
+          "type": "number"
+        },
+        "latitude": {
+          "maximum": 90,
+          "minimum": -90,
+          "type": "number"
+        },
+        "longitude": {
+          "maximum": 180,
+          "minimum": -180,
+          "type": "number"
+        },
+        "speed": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude",
+        "accuracy"
+      ],
+      "type": "object"
+    },
+    "locale": {
+      "description": "ICU-style locale such as en_US",
+      "maxLength": 100,
+      "minLength": 2,
+      "type": "string"
+    },
+    "media": {
+      "additionalProperties": false,
+      "description": "CSS media and preference overrides",
+      "minProperties": 1,
+      "properties": {
+        "colorScheme": {
+          "enum": [
+            "light",
+            "dark",
+            "no-preference"
+          ],
+          "type": "string"
+        },
+        "contrast": {
+          "enum": [
+            "more",
+            "less",
+            "custom",
+            "no-preference"
+          ],
+          "type": "string"
+        },
+        "forcedColors": {
+          "enum": [
+            "active",
+            "none"
+          ],
+          "type": "string"
+        },
+        "reducedMotion": {
+          "enum": [
+            "reduce",
+            "no-preference"
+          ],
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "screen",
+            "print"
+          ],
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "network": {
+      "additionalProperties": false,
+      "description": "Offline and network-throttling emulation",
+      "minProperties": 1,
+      "properties": {
+        "connectionType": {
+          "enum": [
+            "none",
+            "cellular2g",
+            "cellular3g",
+            "cellular4g",
+            "bluetooth",
+            "ethernet",
+            "wifi",
+            "wimax",
+            "other"
+          ],
+          "type": "string"
+        },
+        "downloadKbps": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "number"
+        },
+        "latencyMs": {
+          "maximum": 300000,
+          "minimum": 0,
+          "type": "number"
+        },
+        "offline": {
+          "type": "boolean"
+        },
+        "uploadKbps": {
+          "maximum": 10000000,
+          "minimum": 0,
+          "type": "number"
+        }
+      },
+      "type": "object"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "timezoneId": {
+      "description": "IANA timezone such as America/New_York",
+      "maxLength": 100,
+      "minLength": 1,
+      "type": "string"
+    },
+    "touch": {
+      "additionalProperties": false,
+      "description": "Touch-input emulation",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "maxTouchPoints": {
+          "maximum": 10,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "enabled"
+      ],
+      "type": "object"
+    },
+    "userAgent": {
+      "additionalProperties": false,
+      "description": "User-Agent and navigator platform override",
+      "properties": {
+        "acceptLanguage": {
+          "maxLength": 200,
+          "type": "string"
+        },
+        "platform": {
+          "maxLength": 100,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "type": "object"
+    },
+    "viewport": {
+      "additionalProperties": false,
+      "description": "Viewport and mobile device metrics",
+      "properties": {
+        "deviceScaleFactor": {
+          "maximum": 10,
+          "minimum": 0.1,
+          "type": "number"
+        },
+        "height": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "mobile": {
+          "type": "boolean"
+        },
+        "orientation": {
+          "enum": [
+            "portraitPrimary",
+            "portraitSecondary",
+            "landscapePrimary",
+            "landscapeSecondary"
+          ],
+          "type": "string"
+        },
+        "width": {
+          "maximum": 10000,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "deviceScaleFactor",
+        "mobile"
+      ],
+      "type": "object"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "media": {
+      "colorScheme": "dark"
+    },
+    "viewport": {
+      "deviceScaleFactor": 3,
+      "height": 844,
+      "mobile": true,
+      "width": 390
+    }
+  },
+  "name": "browser_set_emulation"
 }
 ```
 

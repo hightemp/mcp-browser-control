@@ -168,8 +168,7 @@ task can be marked complete:
 | T-061 console and page errors | Implemented with a no-Debug bridge baseline plus optional root-frame CDP enrichment; exact Runtime/Log/Network/Page allowlists, execution-context filtering, bounded non-invasive RemoteObject summaries, target identity checks, shared ring-buffer redaction, fail-open attach behavior, and deterministic lease cleanup are documented in [`console-capture.md`](console-capture.md) |
 | T-064 accessibility | Implemented as a typed full-profile tool with exact full/partial/frame-tree CDP leases, Observe + Debug and root-document gates, independently validated tree/property/reference/byte bounds, protected-value redaction, and no batch/raw path; see [`accessibility-tree.md`](accessibility-tree.md) |
 | T-062 network capture | Conditional approval for metadata and bounded allowlisted bodies; interception remains prohibited |
-| T-063 emulation | Conditional approval through typed reversible settings with restore-on-detach |
-| T-064 accessibility | Approved with tree/node bounds and origin checks |
+| T-063 emulation | Implemented through typed full-profile replace/get/reset tools, exact setter/resetter allowlists, root-document and permission checks, bounded values, serialized per-tab state changes, rollback after partial failure, explicit reset, and detach cleanup; cleanup bypasses target-origin denial and is documented in [`emulation.md`](emulation.md) |
 | T-065 evaluation | Conditional isolated-world-only approval; raw/main-world/persistent execution prohibited |
 | T-066 raw CDP | Conditional approval for the initial read-only method list above; disabled by default |
 | T-067 performance | Conditional approval for bounded metrics/traces in artifacts; heap snapshots prohibited |

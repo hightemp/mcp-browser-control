@@ -221,6 +221,45 @@ func TestActionPolicyAllowsCommandAfterSuccessfulPreflight(t *testing.T) {
 	}
 }
 
+func TestActionPolicyNeverBlocksEmulationCleanup(t *testing.T) {
+	t.Parallel()
+
+	service, connection, _ := newTestService(t)
+	service.actionPolicy = mustActionPolicy(
+		t,
+		[]string{"https://allowed.example"},
+		nil,
+		false,
+		nil,
+	)
+	tabID := 44
+	resultChannel := make(chan *mcp.CallToolResult, 1)
+	go func() {
+		result, _ := service.browserResetEmulationHandler(
+			context.Background(),
+			mcp.CallToolRequest{},
+			emulationTargetArgs{BrowserID: "browser-a", TabID: &tabID},
+		)
+		resultChannel <- result
+	}()
+
+	request := receiveToolMessage(t, connection.messages)
+	if request.Command != protocol.CommandEmulationReset {
+		t.Fatalf("command = %q, want cleanup without a tab policy preflight", request.Command)
+	}
+	respondToToolRequest(t, service, connection, request, emulationWireResult{
+		Active: false, TabID: tabID, Applied: []string{}, ResetOnDetach: true, Warnings: []string{},
+	})
+	select {
+	case result := <-resultChannel:
+		if result == nil || result.IsError {
+			t.Fatalf("handler result = %#v", result)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for cleanup result")
+	}
+}
+
 func TestCloseWindowRequiresConfirmationAndAuditsDenial(t *testing.T) {
 	t.Parallel()
 

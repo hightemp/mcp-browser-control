@@ -132,6 +132,18 @@ test("capability detection removes unavailable or disabled commands", () => {
   });
   assert.equal(withDebugger.includes("page.printToPDF"), true);
   assert.equal(withDebugger.includes("accessibility.getTree"), true);
+  assert.equal(withDebugger.includes("emulation.set"), true);
+  assert.equal(withDebugger.includes("emulation.get"), true);
+  assert.equal(withDebugger.includes("emulation.reset"), true);
+
+  const cleanupWithoutSiteAccess = detectCapabilities({
+    browserVersion: "125",
+    apis: { tabs: true, debugger: true },
+    permissions: { permissions: ["tabs", "debugger"], origins: [] },
+  });
+  assert.equal(cleanupWithoutSiteAccess.includes("emulation.reset"), true);
+  assert.equal(cleanupWithoutSiteAccess.includes("emulation.set"), false);
+  assert.equal(cleanupWithoutSiteAccess.includes("emulation.get"), false);
 });
 
 function tabCapabilitiesWithoutStop() {

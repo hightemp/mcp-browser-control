@@ -20,8 +20,8 @@ The first multi-browser vertical slice is implemented:
   legacy SSE requires an explicit opt-in;
 - window, tab, tab-group, session, bounded page inspection, semantic snapshot,
   locator, DOM interaction, waits, viewport screenshots, managed-CDP PDF
-  artifacts, bounded accessibility trees, and bridge/CDP console diagnostics
-  work through the extension;
+  artifacts, bounded accessibility trees, reversible tab emulation, and
+  bridge/CDP console diagnostics work through the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
@@ -272,6 +272,9 @@ rejects stale output.
 - `browser_screenshot`
 - `browser_print_to_pdf`
 - `browser_get_accessibility_tree`
+- `browser_set_emulation`
+- `browser_get_emulation_state`
+- `browser_reset_emulation`
 - `browser_start_console_capture`
 - `browser_stop_console_capture`
 - `browser_clear_console_log`
@@ -352,6 +355,15 @@ depth, node, property, reference, string, scan, frame, and byte limits in the
 extension and validates the result again on the Go server. It requires Observe,
 Debug, and the MCP `full` profile and is excluded from batch. See
 [`docs/accessibility-tree.md`](docs/accessibility-tree.md).
+
+The full-profile emulation tools replace, inspect, and reset one tab's managed
+CDP overrides. Supported groups cover viewport/device scale/mobile mode, touch,
+offline and bounded network throttling, User-Agent/platform/language, locale,
+timezone, geolocation, and fixed CSS media preferences. Every set begins from a
+known reset state and rolls back on partial failure. Overrides persist across
+navigation until explicit reset or debugger detach; reset remains available
+without target-origin access so cleanup cannot be blocked by navigation. The
+tools are excluded from batch. See [`docs/emulation.md`](docs/emulation.md).
 
 Console capture injects packaged, versioned bridges into the selected document's
 MAIN and ISOLATED worlds; this baseline does not require the optional debugger

@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; used by typed console, PDF, and accessibility tools
+Status: implemented infrastructure; used by typed console, PDF, accessibility, and emulation tools
 
 Last reviewed: 2026-08-24
 
@@ -21,6 +21,7 @@ attached tab or closing the target causes `onDetach`. See the official
 tabId
   └─ one root chrome.debugger attachment
        ├─ console consumer lease
+       ├─ emulation consumer lease
        ├─ network consumer lease
        └─ performance consumer lease
             └─ optional flat child sessions (Chrome 125+ only)
@@ -171,3 +172,8 @@ Console capture is the first long-running consumer. A root-frame start may hold
 one lease for exact `Runtime`, `Log`, `Network`, and `Page` methods/events; stop,
 navigation, detach, Debug permission revocation, and server disconnect release
 or invalidate it. See [`console-capture.md`](console-capture.md).
+
+Emulation is another long-running root-tab consumer. It owns exact Emulation and
+Network setter/resetter methods, explicitly resets before replacement/release,
+and relies on debugger detach as the final cleanup boundary. See
+[`emulation.md`](emulation.md).

@@ -99,6 +99,9 @@ var toolCapabilities = map[string]string{
 	"browser_screenshot":             protocol.CommandPageScreenshot,
 	"browser_print_to_pdf":           protocol.CommandPagePrintToPDF,
 	"browser_get_accessibility_tree": protocol.CommandAccessibilityGetTree,
+	"browser_set_emulation":          protocol.CommandEmulationSet,
+	"browser_get_emulation_state":    protocol.CommandEmulationGet,
+	"browser_reset_emulation":        protocol.CommandEmulationReset,
 
 	"browser_start_console_capture": protocol.CommandConsoleStart,
 	"browser_stop_console_capture":  protocol.CommandConsoleStop,
@@ -155,9 +158,13 @@ var exampleOverrides = map[string]map[string]any{
 	"browser_screenshot":             {"format": "png", "capture": "viewport"},
 	"browser_print_to_pdf":           {"pageRanges": "1-3", "printBackground": true},
 	"browser_get_accessibility_tree": {"mode": "full", "roles": []string{"button", "link"}},
-	"browser_start_console_capture":  {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
-	"browser_get_console_log":        {"levels": []string{"error", "warn"}, "limit": 50},
-	"browser_send_command":           {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
+	"browser_set_emulation": {
+		"viewport": map[string]any{"width": 390, "height": 844, "deviceScaleFactor": 3, "mobile": true},
+		"media":    map[string]any{"colorScheme": "dark"},
+	},
+	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
+	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
+	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
 	"browser_batch": {
 		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
 		"stopOnError": true,
@@ -417,6 +424,10 @@ func permissionDescription(capability string) string {
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
 	case capability == protocol.CommandAccessibilityGetTree:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access) and Core `scripting`/`webNavigation` for document-scoped references"
+	case capability == protocol.CommandEmulationReset:
+		return "Debug (`debugger`); cleanup remains available without target-origin access"
+	case strings.HasPrefix(capability, "emulation."):
+		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access) and Core `webNavigation` for root-document identity"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`"
 	default:
@@ -478,6 +489,8 @@ func resultDescription(name string) string {
 		return "PDF metadata and normalized print settings plus `artifactUri`; binary data stays in the artifact store"
 	case "browser_get_accessibility_tree":
 		return "a bounded normalized full or partial AX tree with frame associations and optional locator/reference links"
+	case "browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation":
+		return "the tab-scoped managed emulation state, applied setting groups, and reset-on-detach guarantee"
 	case "browser_wait":
 		return "the satisfied condition, observation mode, elapsed time, and matching state in `data`"
 	case "browser_start_console_capture", "browser_stop_console_capture", "browser_clear_console_log":
@@ -502,12 +515,16 @@ func errorDescription(name, capability string) string {
 			"`TIMEOUT` or `CANCELLED`",
 		)
 	}
-	if strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") ||
-		strings.HasPrefix(capability, "accessibility.") {
+	if (strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") ||
+		strings.HasPrefix(capability, "accessibility.") || strings.HasPrefix(capability, "emulation.")) &&
+		capability != protocol.CommandEmulationReset {
 		errors = append(errors,
 			"`TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`",
 			"`PERMISSION_REQUIRED` or `RESTRICTED_URL`",
 		)
+	}
+	if capability == protocol.CommandEmulationReset {
+		errors = append(errors, "`TAB_NOT_FOUND`", "`PERMISSION_REQUIRED` when Debug was revoked")
 	}
 	if strings.Contains(name, "element") || isInteractionTool(name) {
 		errors = append(errors, "`ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`")

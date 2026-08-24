@@ -24,6 +24,11 @@ export function detectCapabilities({
   }
 
   const grantedPermissions = new Set(permissions.permissions || []);
+  const canResetEmulation =
+    apis.tabs &&
+    grantedPermissions.has("tabs") &&
+    apis.debugger &&
+    grantedPermissions.has("debugger");
   if (apis.tabs && grantedPermissions.has("tabs")) {
     capabilities.push(
       "tabs.list",
@@ -100,9 +105,18 @@ export function detectCapabilities({
     );
     if (apis.captureVisibleTab) capabilities.push("page.screenshot");
     if (apis.debugger && grantedPermissions.has("debugger")) {
-      capabilities.push("page.printToPDF", "accessibility.getTree");
+      capabilities.push(
+        "page.printToPDF",
+        "accessibility.getTree",
+        "emulation.set",
+        "emulation.get",
+        "emulation.reset",
+      );
     }
     capabilities.push("console.start", "console.stop", "console.clear", "console.read");
+  }
+  if (canResetEmulation && !capabilities.includes("emulation.reset")) {
+    capabilities.push("emulation.reset");
   }
   return capabilities;
 }

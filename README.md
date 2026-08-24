@@ -700,10 +700,12 @@ make e2e CHROME_BIN=/path/to/chrome-for-testing
 ```
 
 The E2E target starts two isolated headless profiles, loads the unpacked MV3
-extension, pairs both with an in-process server, exercises selected and parallel
-page commands, and restarts one service worker to verify credential reconnect.
-It uses a generated test-only extension manifest with access only to loopback
-HTTP pages; the production manifest and optional permission flow are unchanged.
+extension, pairs both with an in-process server, exercises the complete MVP tab,
+page-inspection, interaction, wait, and screenshot flow, and restarts one service
+worker to verify credential reconnect. It uses a generated test-only extension
+manifest with access only to loopback HTTP pages and promotes the Debug permission
+for deterministic full-page screenshot coverage. The production manifest and
+optional permission flow are unchanged.
 Branded Chrome 137+ no longer accepts `--load-extension`, so use
 [Chrome for Testing](https://developer.chrome.com/docs/automation-and-testing/download-test-binaries)
 or a Chromium build for this target.

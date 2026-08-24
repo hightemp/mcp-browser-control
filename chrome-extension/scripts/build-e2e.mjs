@@ -11,6 +11,10 @@ await cp(path.join(extensionRoot, "src"), path.join(output, "src"), { recursive:
 
 const manifest = JSON.parse(await readFile(path.join(extensionRoot, "manifest.json"), "utf8"));
 manifest.name = `${manifest.name} E2E`;
+manifest.permissions = [...manifest.permissions, "debugger"];
+manifest.optional_permissions = manifest.optional_permissions.filter(
+  (permission) => permission !== "debugger",
+);
 manifest.host_permissions = ["http://127.0.0.1/*"];
 manifest.optional_host_permissions = [];
 await writeFile(path.join(output, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`);

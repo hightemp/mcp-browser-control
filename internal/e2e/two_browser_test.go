@@ -18,8 +18,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/netguard"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/security/pairing"
@@ -80,15 +82,6 @@ func TestTwoChromiumProfilesRouteAndReconnect(t *testing.T) {
 	)
 	waitForBrowserCount(t, browserRegistry, 2, 10*time.Second)
 
-	pageAURL := testSite.URL + "/a"
-	pageBURL := testSite.URL + "/b"
-	if _, err := chromeA.createTarget(ctx, pageAURL); err != nil {
-		t.Fatalf("open profile A page: %v", err)
-	}
-	if _, err := chromeB.createTarget(ctx, pageBURL); err != nil {
-		t.Fatalf("open profile B page: %v", err)
-	}
-
 	clientA := newE2EMCPClient(t, mcpURL, "e2e-client-a")
 	clientB := newE2EMCPClient(t, mcpURL, "e2e-client-b")
 	browsers := successfulToolCall(t, clientA, "browser_list", nil)
@@ -97,16 +90,60 @@ func TestTwoChromiumProfilesRouteAndReconnect(t *testing.T) {
 	if browserAID == browserBID {
 		t.Fatal("isolated Chromium profiles reported the same browser ID")
 	}
+	assertToolErrorCode(
+		t,
+		clientA,
+		"browser_get_tabs",
+		nil,
+		protocol.CodeAmbiguousBrowser,
+	)
 
 	successfulToolCall(t, clientA, "browser_select", map[string]any{"browserId": browserAID})
 	successfulToolCall(t, clientB, "browser_select", map[string]any{"browserId": browserBID})
-	tabAID := waitForTab(t, clientA, pageAURL)
-	tabBID := waitForTab(t, clientB, pageBURL)
+	createdAURL := testSite.URL + "/a?stage=created"
+	createdBURL := testSite.URL + "/b?stage=created"
+	createdA := successfulToolCall(t, clientA, "browser_create_tab", map[string]any{
+		"url": createdAURL, "active": false,
+	})
+	createdB := successfulToolCall(t, clientB, "browser_create_tab", map[string]any{
+		"url": createdBURL, "active": false,
+	})
+	tabAID := tabIDFromToolPayload(t, createdA)
+	tabBID := tabIDFromToolPayload(t, createdB)
+	if listed := waitForTab(t, clientA, createdAURL); listed != tabAID {
+		t.Fatalf("profile A created tab ID = %d, listed ID = %d", tabAID, listed)
+	}
+	if listed := waitForTab(t, clientB, createdBURL); listed != tabBID {
+		t.Fatalf("profile B created tab ID = %d, listed ID = %d", tabBID, listed)
+	}
+	successfulToolCall(t, clientA, "browser_activate_tab", map[string]any{"tabId": tabAID})
+	successfulToolCall(t, clientB, "browser_activate_tab", map[string]any{"tabId": tabBID})
+
+	pageAURL := testSite.URL + "/a?stage=navigated"
+	pageBURL := testSite.URL + "/b?stage=navigated"
+	successfulToolCall(t, clientA, "browser_navigate_tab", map[string]any{
+		"tabId": tabAID, "url": pageAURL,
+	})
+	successfulToolCall(t, clientB, "browser_navigate_tab", map[string]any{
+		"tabId": tabBID, "url": pageBURL,
+	})
+	if navigated := waitForTab(t, clientA, pageAURL); navigated != tabAID {
+		t.Fatalf("profile A navigated tab ID = %d, listed ID = %d", tabAID, navigated)
+	}
+	if navigated := waitForTab(t, clientB, pageBURL); navigated != tabBID {
+		t.Fatalf("profile B navigated tab ID = %d, listed ID = %d", tabBID, navigated)
+	}
 	successfulToolCall(t, clientA, "browser_select_tab", map[string]any{"tabId": tabAID})
 	successfulToolCall(t, clientB, "browser_select_tab", map[string]any{"tabId": tabBID})
 
 	assertPageText(t, clientA, "PROFILE_A_ONLY", "PROFILE_B_ONLY")
 	assertPageText(t, clientB, "PROFILE_B_ONLY", "PROFILE_A_ONLY")
+	assertPageInspection(t, clientA, "PROFILE_A_ONLY", "PROFILE_B_ONLY")
+	assertPageInspection(t, clientB, "PROFILE_B_ONLY", "PROFILE_A_ONLY")
+	assertPageWait(t, clientA, "PROFILE_A_ONLY")
+	assertPageWait(t, clientB, "PROFILE_B_ONLY")
+	assertFullPageScreenshot(t, clientA, tabAID)
+	assertFullPageScreenshot(t, clientB, tabBID)
 	fillAndApply(t, clientA, "Alice")
 	assertPageText(t, clientA, "A:Alice", "B:Alice")
 	assertPageText(t, clientB, "B:ready", "Alice")
@@ -142,6 +179,12 @@ func TestTwoChromiumProfilesRouteAndReconnect(t *testing.T) {
 		t.Fatal("service worker restart did not create a new connection ID")
 	}
 	assertPageText(t, clientA, "A:Alice", "B:Bob")
+
+	successfulToolCall(t, clientA, "browser_close_tab", map[string]any{"tabId": tabAID})
+	waitForTabAbsent(t, clientA, tabAID)
+	assertPageText(t, clientB, "B:Bob", "A:Alice")
+	successfulToolCall(t, clientB, "browser_close_tab", map[string]any{"tabId": tabBID})
+	waitForTabAbsent(t, clientB, tabBID)
 }
 
 func newE2EServers(
@@ -157,6 +200,14 @@ func newE2EServers(
 	)
 	t.Cleanup(func() { requestRouter.Close() })
 	selections := selection.NewStore()
+	artifactStore, err := artifacts.New(
+		t.TempDir(),
+		time.Hour,
+		artifacts.WithMaxBytes(16<<20),
+	)
+	if err != nil {
+		t.Fatalf("artifacts.New() error = %v", err)
+	}
 	pairingManager, err := pairing.NewManager()
 	if err != nil {
 		t.Fatalf("pairing.NewManager() error = %v", err)
@@ -182,7 +233,12 @@ func newE2EServers(
 		server.WithRecovery(),
 		server.WithToolCapabilities(true),
 	)
-	browsertools.NewService(browserRegistry, requestRouter, selections).Register(mcpServer)
+	browsertools.NewService(
+		browserRegistry,
+		requestRouter,
+		selections,
+		browsertools.WithArtifactStore(artifactStore),
+	).Register(mcpServer)
 	sessionManager, err := mcpsession.NewManager()
 	if err != nil {
 		t.Fatalf("mcpsession.NewManager() error = %v", err)
@@ -383,6 +439,52 @@ func browserIDByName(t *testing.T, payload map[string]any, displayName string) s
 	return ""
 }
 
+func tabIDFromToolPayload(t *testing.T, payload map[string]any) int {
+	t.Helper()
+	data := objectField(t, payload, "data")
+	tab := objectField(t, data, "tab")
+	tabID, ok := tab["id"].(float64)
+	if !ok || tabID < 0 {
+		t.Fatalf("tab ID = %#v", tab["id"])
+	}
+	return int(tabID)
+}
+
+func assertToolErrorCode(
+	t *testing.T,
+	mcpClient *client.Client,
+	name string,
+	arguments map[string]any,
+	want protocol.ErrorCode,
+) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	request := mcp.CallToolRequest{}
+	request.Params.Name = name
+	request.Params.Arguments = arguments
+	result, err := mcpClient.CallTool(ctx, request)
+	if err != nil {
+		t.Fatalf("%s transport error: %v", name, err)
+	}
+	if !result.IsError || len(result.Content) != 1 {
+		t.Fatalf("%s result = %#v, want one structured tool error", name, result)
+	}
+	content, ok := mcp.AsTextContent(result.Content[0])
+	if !ok {
+		t.Fatalf("%s error content type = %T, want text", name, result.Content[0])
+	}
+	var payload struct {
+		Error *protocol.Error `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(content.Text), &payload); err != nil {
+		t.Fatalf("decode %s error: %v", name, err)
+	}
+	if payload.Error == nil || payload.Error.Code != want {
+		t.Fatalf("%s error = %#v, want %s", name, payload.Error, want)
+	}
+}
+
 func waitForTab(t *testing.T, mcpClient *client.Client, targetURL string) int {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
@@ -419,6 +521,75 @@ func fillAndApply(t *testing.T, mcpClient *client.Client, value string) {
 	})
 }
 
+func assertPageInspection(
+	t *testing.T,
+	mcpClient *client.Client,
+	want string,
+	forbidden string,
+) {
+	t.Helper()
+	htmlPayload := successfulToolCall(t, mcpClient, "browser_get_html", nil)
+	html, _ := objectField(t, htmlPayload, "data")["html"].(string)
+	if !strings.Contains(html, want) ||
+		(forbidden != "" && strings.Contains(html, forbidden)) {
+		t.Fatalf("page HTML failed isolation: required=%q forbidden=%q html=%q", want, forbidden, html)
+	}
+
+	snapshotPayload := successfulToolCall(t, mcpClient, "browser_snapshot", map[string]any{
+		"maxDepth": 20,
+		"maxNodes": 100,
+	})
+	snapshot := objectField(t, snapshotPayload, "data")
+	nodeCount, _ := snapshot["nodeCount"].(float64)
+	snapshotJSON, err := json.Marshal(snapshot)
+	if err != nil {
+		t.Fatalf("marshal semantic snapshot: %v", err)
+	}
+	if nodeCount <= 0 || !strings.Contains(string(snapshotJSON), want) ||
+		(forbidden != "" && strings.Contains(string(snapshotJSON), forbidden)) {
+		t.Fatalf(
+			"semantic snapshot failed isolation: required=%q forbidden=%q snapshot=%s",
+			want,
+			forbidden,
+			snapshotJSON,
+		)
+	}
+}
+
+func assertPageWait(t *testing.T, mcpClient *client.Client, expected string) {
+	t.Helper()
+	payload := successfulToolCall(t, mcpClient, "browser_wait", map[string]any{
+		"condition":     "text",
+		"expected":      expected,
+		"matchOperator": "contains",
+		"mode":          "auto",
+		"timeoutMs":     5_000,
+	})
+	data := objectField(t, payload, "data")
+	if matched, _ := data["matched"].(bool); !matched {
+		t.Fatalf("browser_wait data = %#v, want matched", data)
+	}
+}
+
+func assertFullPageScreenshot(t *testing.T, mcpClient *client.Client, tabID int) {
+	t.Helper()
+	payload := successfulToolCall(t, mcpClient, "browser_screenshot", map[string]any{
+		"tabId":   tabID,
+		"capture": "fullPage",
+		"format":  "png",
+	})
+	data := objectField(t, payload, "data")
+	width, _ := data["width"].(float64)
+	height, _ := data["height"].(float64)
+	size, _ := data["size"].(float64)
+	artifactURI, _ := payload["artifactUri"].(string)
+	if data["capture"] != "fullPage" || data["mimeType"] != "image/png" ||
+		width <= 0 || height <= 0 || size <= 0 ||
+		!strings.HasPrefix(artifactURI, "browser://artifacts/") {
+		t.Fatalf("browser_screenshot payload = %#v", payload)
+	}
+}
+
 func assertPageText(
 	t *testing.T,
 	mcpClient *client.Client,
@@ -443,7 +614,7 @@ func assertPageText(
 		time.Sleep(25 * time.Millisecond)
 	}
 
-	pageInfo, pageInfoErr := toolCall(mcpClient, "browser_get_page_info", nil)
+	pageInfo, pageInfoErr := toolCall(mcpClient, "browser_page_info", nil)
 	pageHTML, pageHTMLErr := toolCall(mcpClient, "browser_get_html", nil)
 	t.Fatalf(
 		"page text %q did not converge to required=%q forbidden=%q; lastPayload=%#v lastError=%v pageInfo=%#v pageInfoError=%v pageHTML=%#v pageHTMLError=%v",
@@ -457,6 +628,33 @@ func assertPageText(
 		pageHTML,
 		pageHTMLErr,
 	)
+}
+
+func waitForTabAbsent(t *testing.T, mcpClient *client.Client, tabID int) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	var lastPayload map[string]any
+	var lastErr error
+	for time.Now().Before(deadline) {
+		lastPayload, lastErr = toolCall(mcpClient, "browser_get_tabs", nil)
+		if lastErr == nil {
+			data, _ := lastPayload["data"].(map[string]any)
+			tabs, _ := data["tabs"].([]any)
+			found := false
+			for _, value := range tabs {
+				tab, _ := value.(map[string]any)
+				if listedID, ok := tab["id"].(float64); ok && int(listedID) == tabID {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	t.Fatalf("tab %d remained after close: payload=%#v error=%v", tabID, lastPayload, lastErr)
 }
 
 func assertParallelIsolation(t *testing.T, clientA, clientB *client.Client) {

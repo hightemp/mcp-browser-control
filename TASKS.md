@@ -1398,13 +1398,16 @@ service-worker harness выполняет полный pairing handshake, сох
 Build-tagged Go E2E поднимает настоящий WebSocket и Streamable HTTP MCP server,
 локальный test site и два изолированных headless Chrome for Testing profiles с
 unpacked MV3 extension. Через extension options context выполняются settings и
-pairing, затем две MCP sessions выбирают разные browser/tab, проверяют чтение,
-fill/click и параллельные команды без cross-routing. CDP используется только для
-запуска profiles и остановки service worker; после его повторного запуска тест
-проверяет тот же browserId, новый connectionId, credential reconnect и
-сохранённый выбор MCP session. Test-only manifest выдаёт доступ только к
-loopback HTTP, production optional permissions не изменяются. `make e2e`
-запускается в CI на Chrome for Testing.
+pairing, затем две MCP sessions проверяют ambiguous browser selection, создают,
+активируют, навигируют, выбирают и закрывают разные tabs, читают text/HTML и
+semantic snapshot, выполняют wait, full-page screenshot, fill/click и
+параллельные команды без cross-routing. Внешний E2E harness использует CDP только
+для запуска profiles и остановки service worker; после его повторного запуска
+тест проверяет тот же browserId, новый connectionId, credential reconnect и
+сохранённый выбор MCP session. Test-only manifest выдаёт site access только к
+loopback HTTP и переводит Debug permission в required для детерминированной
+проверки full-page screenshot; production manifest и optional permission flow не
+изменяются. `make e2e` запускается в CI на Chrome for Testing.
 
 ### T-096 — Security tests
 

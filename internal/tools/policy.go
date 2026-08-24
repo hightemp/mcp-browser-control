@@ -113,6 +113,13 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_get_cache_metadata":      toolProfileFull,
 	"browser_get_indexeddb_metadata":  toolProfileFull,
 	"browser_clear_origin_storage":    toolProfileFull,
+	"browser_list_downloads":          toolProfileFull,
+	"browser_get_download":            toolProfileFull,
+	"browser_create_download":         toolProfileFull,
+	"browser_pause_download":          toolProfileFull,
+	"browser_resume_download":         toolProfileFull,
+	"browser_cancel_download":         toolProfileFull,
+	"browser_erase_download_history":  toolProfileFull,
 	"browser_send_command":            toolProfileFull,
 }
 

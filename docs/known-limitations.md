@@ -40,13 +40,17 @@ security review, browser matrix, tests, and user documentation are complete.
 
 ## Personal and Browser-Wide Data
 
-- Download, history, bookmark, and reading-list MCP tools are not implemented
-  yet, even though their permissions are represented by the optional Personal
-  data profile. Cookie and Web Storage tools are implemented for exact HTTP(S)
+- History, bookmark, and reading-list MCP tools are not implemented yet, even
+  though their permissions are represented by the optional Personal data
+  profile. Cookie and Web Storage tools are implemented for exact HTTP(S)
   origins; partition-key fields depend on the browser version. Storage access
   is bounded to Web Storage items, Cache Storage names, IndexedDB names and
   versions, and explicitly confirmed origin clearing—records and blobs are not
   exposed.
+- Download tools expose lifecycle and bounded basename-only metadata. They do
+  not read files or invoke file-deletion APIs, reveal absolute paths, accept arbitrary
+  filenames/directories or request headers/bodies, accept dangerous downloads,
+  or bulk-erase history.
 - Clipboard and file-input automation are not implemented. MCP calls never
   bypass browser user-activation or native file-picker requirements.
 - Proxy and content-settings controls are prohibited. Browsing-data deletion

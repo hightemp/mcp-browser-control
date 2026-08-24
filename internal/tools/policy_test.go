@@ -69,6 +69,9 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 		"browser_list_storage_items", "browser_get_storage_item", "browser_set_storage_item",
 		"browser_remove_storage_item", "browser_get_cache_metadata",
 		"browser_get_indexeddb_metadata", "browser_clear_origin_storage",
+		"browser_list_downloads", "browser_get_download", "browser_create_download",
+		"browser_pause_download", "browser_resume_download", "browser_cancel_download",
+		"browser_erase_download_history",
 	} {
 		if filtered["standard"][name] || !filtered["full"][name] {
 			t.Fatalf("sensitive CDP tool %q must remain full-profile only", name)
@@ -100,6 +103,9 @@ func TestToolProfileName(t *testing.T) {
 		{name: "browser_set_cookie", profile: "full", ok: true},
 		{name: "browser_list_storage_items", profile: "full", ok: true},
 		{name: "browser_clear_origin_storage", profile: "full", ok: true},
+		{name: "browser_list_downloads", profile: "full", ok: true},
+		{name: "browser_create_download", profile: "full", ok: true},
+		{name: "browser_erase_download_history", profile: "full", ok: true},
 		{name: "browser_future_unreviewed"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

@@ -304,6 +304,13 @@ rejects stale output.
 - `browser_get_cache_metadata`
 - `browser_get_indexeddb_metadata`
 - `browser_clear_origin_storage`
+- `browser_list_downloads`
+- `browser_get_download`
+- `browser_create_download`
+- `browser_pause_download`
+- `browser_resume_download`
+- `browser_cancel_download`
+- `browser_erase_download_history`
 - `browser_batch`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
@@ -475,6 +482,16 @@ All storage tools require Personal data, Observe, and MCP `full`, and are
 excluded from generic command and batch paths. See
 [`docs/web-storage.md`](docs/web-storage.md).
 
+Download tools create, list, inspect, pause, resume, cancel, and erase one
+terminal history record through the optional Personal data permission. Results
+contain bounded status metadata, strip URL credentials/query/fragment, and
+replace Chrome's absolute local path with a basename. Creation accepts only one
+policy-allowed HTTP(S) URL and fixes browser filename conflict handling; no
+custom filename, path, headers, method, or body is accepted. History erase
+requires `confirm: true` and never deletes the file. File reading, `removeFile`,
+danger acceptance, bulk erase, generic command, and batch paths are prohibited.
+See [`docs/downloads.md`](docs/downloads.md).
+
 `browser_batch` runs up to 25 typed commands sequentially against one resolved
 browser. It uses a shared 30-second deadline by default (configurable up to 120
 seconds), stops on the first failed step unless `stopOnError` is false, and
@@ -522,7 +539,7 @@ paths, queries, arguments, or result data.
 
 `browser_send_command` is an expert extension-command entry point, but
 the extension still enforces its command allowlist and the server rejects
-dedicated-only evaluation, network, cookie, storage, and raw CDP capabilities. Reviewed raw CDP has its
+dedicated-only evaluation, network, cookie, storage, download, and raw CDP capabilities. Reviewed raw CDP has its
 own typed `browser_send_cdp_command` tool and cannot be used as an arbitrary
 DevTools Protocol escape hatch. Performance metrics and captures likewise have
 dedicated typed tools and cannot be reached through the generic command tool.

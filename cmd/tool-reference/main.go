@@ -128,6 +128,13 @@ var toolCapabilities = map[string]string{
 	"browser_get_cache_metadata":     protocol.CommandStorageCacheMetadata,
 	"browser_get_indexeddb_metadata": protocol.CommandStorageIndexedDBMetadata,
 	"browser_clear_origin_storage":   protocol.CommandStorageClear,
+	"browser_list_downloads":         protocol.CommandDownloadsList,
+	"browser_get_download":           protocol.CommandDownloadsGet,
+	"browser_create_download":        protocol.CommandDownloadsCreate,
+	"browser_pause_download":         protocol.CommandDownloadsPause,
+	"browser_resume_download":        protocol.CommandDownloadsResume,
+	"browser_cancel_download":        protocol.CommandDownloadsCancel,
+	"browser_erase_download_history": protocol.CommandDownloadsErase,
 	"browser_send_command":           dynamicCapability,
 }
 
@@ -209,6 +216,13 @@ var exampleOverrides = map[string]map[string]any{
 	"browser_get_cache_metadata":     {"origin": "https://example.com", "limit": 50},
 	"browser_get_indexeddb_metadata": {"origin": "https://example.com", "limit": 50},
 	"browser_clear_origin_storage":   {"origin": "https://example.com", "types": []string{"localStorage", "cacheStorage"}, "confirm": true},
+	"browser_list_downloads":         {"state": "complete", "limit": 50},
+	"browser_get_download":           {"downloadId": 7},
+	"browser_create_download":        {"url": "https://example.com/archive.zip"},
+	"browser_pause_download":         {"downloadId": 7},
+	"browser_resume_download":        {"downloadId": 7},
+	"browser_cancel_download":        {"downloadId": 7},
+	"browser_erase_download_history": {"downloadId": 7, "confirm": true},
 	"browser_send_command":           {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
 	"browser_batch": {
 		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
@@ -471,6 +485,8 @@ func permissionDescription(capability string) string {
 		return "Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`; unmasked Web Storage reads also require Sensitive data mode"
 	case strings.HasPrefix(capability, "storage."):
 		return "Personal data (`browsingData` profile marker) plus Observe (HTTP/HTTPS site access), Core `tabs`/`scripting`/`webNavigation`, and MCP `full`"
+	case strings.HasPrefix(capability, "downloads."):
+		return "Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed"
 	case capability == protocol.CommandPagePrintToPDF:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
 	case capability == protocol.CommandAccessibilityGetTree:
@@ -590,6 +606,16 @@ func resultDescription(name string) string {
 		return "bounded paginated exact-origin IndexedDB names and versions without stores, records, or blobs"
 	case "browser_clear_origin_storage":
 		return "requested storage types, completed types, bounded deletion counts, and warnings; no stored content is returned"
+	case "browser_list_downloads":
+		return "bounded paginated lifecycle metadata with URL secrets removed and only a basename instead of the absolute local path"
+	case "browser_get_download":
+		return "one bounded download status record with URL secrets removed and only a basename instead of the absolute local path"
+	case "browser_create_download":
+		return "the new persistent download ID without a local path or file content"
+	case "browser_pause_download", "browser_resume_download", "browser_cancel_download":
+		return "the updated bounded download status and lifecycle operation"
+	case "browser_erase_download_history":
+		return "the erased download ID and a warning that the downloaded file was not deleted"
 	case "browser_send_command":
 		return "the selected extension command's bounded, redacted payload in `data`"
 	default:
@@ -672,6 +698,18 @@ func errorDescription(name, capability string) string {
 			"`CONFIRMATION_REQUIRED` unless `confirm` is true",
 			"`PAYLOAD_TOO_LARGE` when an origin inventory exceeds a fixed bound",
 		)
+	case "browser_list_downloads":
+		errors = append(errors, "`PAYLOAD_TOO_LARGE` when bounded history or metadata limits are exceeded")
+	case "browser_get_download", "browser_pause_download", "browser_resume_download", "browser_cancel_download":
+		errors = append(errors, "`DOWNLOAD_NOT_FOUND`", "`RESTRICTED_URL` for a disallowed incognito item")
+	case "browser_create_download":
+		errors = append(errors, "`RESTRICTED_URL` for a disallowed source URL or incognito context")
+	case "browser_erase_download_history":
+		errors = append(errors,
+			"`DOWNLOAD_NOT_FOUND`",
+			"`CONFIRMATION_REQUIRED` unless `confirm` is true",
+			"`RESTRICTED_URL` for a disallowed incognito item",
+		)
 	case "browser_send_command":
 		errors = append(errors, "`INVALID_COMMAND` for an unknown or dedicated-only command")
 	case "browser_batch":
@@ -724,6 +762,8 @@ func categoryFor(name string) string {
 	case strings.Contains(name, "cookie") || strings.Contains(name, "storage") ||
 		name == "browser_get_cache_metadata" || name == "browser_get_indexeddb_metadata":
 		return "Cookies and Personal Data"
+	case strings.Contains(name, "download"):
+		return "Downloads"
 	case name == "browser_page_info" || name == "browser_get_html" ||
 		name == "browser_get_html_by_selector" || name == "browser_get_text" ||
 		name == "browser_query" || name == "browser_get_element" || name == "browser_snapshot" ||
@@ -745,6 +785,7 @@ func categoryOrder(category string) int {
 		"Windows",
 		"Tabs, Groups, and Sessions",
 		"Cookies and Personal Data",
+		"Downloads",
 		"Page Inspection",
 		"Page Interaction",
 		"Batch",

@@ -106,6 +106,17 @@ export function detectCapabilities({
       capabilities.push("storage.listSensitive", "storage.getSensitive");
     }
   }
+  if (apis.downloads && grantedPermissions.has("downloads")) {
+    capabilities.push(
+      "downloads.list",
+      "downloads.get",
+      "downloads.create",
+      "downloads.pause",
+      "downloads.resume",
+      "downloads.cancel",
+      "downloads.erase",
+    );
+  }
   if (
     featureFlags.pageAutomation !== false &&
     apis.scripting &&

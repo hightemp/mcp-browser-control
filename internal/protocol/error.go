@@ -20,6 +20,7 @@ const (
 	CodeTabNotFound                ErrorCode = "TAB_NOT_FOUND"
 	CodeTabGroupNotFound           ErrorCode = "TAB_GROUP_NOT_FOUND"
 	CodeSessionNotFound            ErrorCode = "SESSION_NOT_FOUND"
+	CodeDownloadNotFound           ErrorCode = "DOWNLOAD_NOT_FOUND"
 	CodeFrameNotFound              ErrorCode = "FRAME_NOT_FOUND"
 	CodeStaleTarget                ErrorCode = "STALE_TARGET"
 	CodeElementNotFound            ErrorCode = "ELEMENT_NOT_FOUND"

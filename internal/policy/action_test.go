@@ -99,6 +99,9 @@ func TestActionIncognitoAndAuditRedaction(t *testing.T) {
 	if policy.CheckIncognito("windows.create", "browser-a", false) != nil {
 		t.Fatal("normal context was denied")
 	}
+	if policy.AllowsIncognito() {
+		t.Fatal("policy unexpectedly allows incognito")
+	}
 	policyError := policy.CheckIncognito("windows.create", "browser-a", true)
 	if policyError == nil || policyError.Code != protocol.CodeRestrictedURL {
 		t.Fatalf("CheckIncognito() error = %#v", policyError)
@@ -119,5 +122,9 @@ func TestActionIncognitoAndAuditRedaction(t *testing.T) {
 		if strings.Contains(logText, secret) {
 			t.Fatalf("audit log contains %q: %s", secret, logText)
 		}
+	}
+	allowingPolicy, err := NewAction(nil, nil, true, nil)
+	if err != nil || !allowingPolicy.AllowsIncognito() {
+		t.Fatalf("incognito-enabled policy = (%#v, %v)", allowingPolicy, err)
 	}
 }

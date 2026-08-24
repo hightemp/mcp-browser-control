@@ -78,6 +78,18 @@ func TestActionPolicyRejectsDestinationBeforeBrowserDispatch(t *testing.T) {
 			},
 		},
 		{
+			name: "download URL outside allowlist",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserCreateDownloadHandler(
+					context.Background(), mcp.CallToolRequest{},
+					downloadCreateArgs{
+						downloadBaseArgs: downloadBaseArgs{BrowserID: "browser-a"},
+						URL:              "https://blocked.example/path?token=must-not-be-logged",
+					},
+				)
+			},
+		},
+		{
 			name: "incognito window",
 			call: func() (*mcp.CallToolResult, error) {
 				incognito := true

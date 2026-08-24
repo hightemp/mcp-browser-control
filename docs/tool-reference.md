@@ -2513,6 +2513,365 @@ Example MCP tool payload:
 }
 ```
 
+## Downloads
+
+### `browser_cancel_download`
+
+Cancel one active download.
+
+- MCP profile: `full`
+- Extension capability: `downloads.cancel`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: the updated bounded download status and lifecycle operation
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `DOWNLOAD_NOT_FOUND`; `RESTRICTED_URL` for a disallowed incognito item
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "downloadId": {
+      "description": "Persistent browser download identifier",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "downloadId"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "downloadId": 7
+  },
+  "name": "browser_cancel_download"
+}
+```
+
+### `browser_create_download`
+
+Start one HTTP(S) download with a browser-chosen unique filename and no custom headers.
+
+- MCP profile: `full`
+- Extension capability: `downloads.create`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: the new persistent download ID without a local path or file content
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `RESTRICTED_URL` for a disallowed source URL or incognito context
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "description": "HTTP(S) source URL",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "url": "https://example.com/archive.zip"
+  },
+  "name": "browser_create_download"
+}
+```
+
+### `browser_erase_download_history`
+
+Erase one terminal download history entry without deleting the downloaded file.
+
+- MCP profile: `full`
+- Extension capability: `downloads.erase`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: the erased download ID and a warning that the downloaded file was not deleted
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `DOWNLOAD_NOT_FOUND`; `CONFIRMATION_REQUIRED` unless `confirm` is true; `RESTRICTED_URL` for a disallowed incognito item
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "confirm": {
+      "description": "Must be true because this changes browser history",
+      "type": "boolean"
+    },
+    "downloadId": {
+      "description": "Persistent browser download identifier",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "downloadId",
+    "confirm"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "confirm": true,
+    "downloadId": 7
+  },
+  "name": "browser_erase_download_history"
+}
+```
+
+### `browser_get_download`
+
+Get bounded status metadata for one download without its local path.
+
+- MCP profile: `full`
+- Extension capability: `downloads.get`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: one bounded download status record with URL secrets removed and only a basename instead of the absolute local path
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `DOWNLOAD_NOT_FOUND`; `RESTRICTED_URL` for a disallowed incognito item
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "downloadId": {
+      "description": "Persistent browser download identifier",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "downloadId"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "downloadId": 7
+  },
+  "name": "browser_get_download"
+}
+```
+
+### `browser_list_downloads`
+
+List bounded download status metadata without local paths or file contents.
+
+- MCP profile: `full`
+- Extension capability: `downloads.list`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: bounded paginated lifecycle metadata with URL secrets removed and only a basename instead of the absolute local path
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `PAYLOAD_TOO_LARGE` when bounded history or metadata limits are exceeded
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum downloads to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "paused": {
+      "description": "Filter by paused state",
+      "type": "boolean"
+    },
+    "state": {
+      "description": "Filter by browser download state",
+      "enum": [
+        "in_progress",
+        "interrupted",
+        "complete"
+      ],
+      "type": "string"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "state": "complete"
+  },
+  "name": "browser_list_downloads"
+}
+```
+
+### `browser_pause_download`
+
+Pause one active download.
+
+- MCP profile: `full`
+- Extension capability: `downloads.pause`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: the updated bounded download status and lifecycle operation
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `DOWNLOAD_NOT_FOUND`; `RESTRICTED_URL` for a disallowed incognito item
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "downloadId": {
+      "description": "Persistent browser download identifier",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "downloadId"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "downloadId": 7
+  },
+  "name": "browser_pause_download"
+}
+```
+
+### `browser_resume_download`
+
+Resume one resumable download.
+
+- MCP profile: `full`
+- Extension capability: `downloads.resume`
+- Permissions: Personal data (`downloads`) and MCP `full`; file contents and absolute local paths are never exposed
+- Result: the updated bounded download status and lifecycle operation
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `DOWNLOAD_NOT_FOUND`; `RESTRICTED_URL` for a disallowed incognito item
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "downloadId": {
+      "description": "Persistent browser download identifier",
+      "maximum": 9007199254740991,
+      "minimum": 0,
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "downloadId"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "downloadId": 7
+  },
+  "name": "browser_resume_download"
+}
+```
+
 ## Page Inspection
 
 ### `browser_evaluate_javascript`

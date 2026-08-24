@@ -15,6 +15,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
         tabGrouping: true,
         tabGroups: true,
         sessions: true,
+        downloads: true,
         cookies: true,
         originStorage: true,
         scripting: true,
@@ -29,6 +30,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
           "debugger",
           "tabGroups",
           "sessions",
+          "downloads",
           "cookies",
           "browsingData",
         ],
@@ -223,6 +225,22 @@ test("capability detection removes unavailable or disabled commands", () => {
   });
   assert.equal(maskedStorageOnly.includes("storage.list"), true);
   assert.equal(maskedStorageOnly.includes("storage.listSensitive"), false);
+
+  const downloads = detectCapabilities({
+    browserVersion: "130",
+    apis: { downloads: true },
+    permissions: { permissions: ["downloads"], origins: [] },
+  });
+  assert.equal(downloads.includes("downloads.create"), true);
+  assert.equal(downloads.includes("downloads.erase"), true);
+  assert.equal(
+    detectCapabilities({
+      browserVersion: "130",
+      apis: { downloads: true },
+      permissions: { permissions: [], origins: [] },
+    }).some((name) => name.startsWith("downloads.")),
+    false,
+  );
 });
 
 function tabCapabilitiesWithoutStop() {

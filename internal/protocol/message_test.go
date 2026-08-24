@@ -184,6 +184,7 @@ func TestErrorFrom(t *testing.T) {
 		code ErrorCode
 	}{
 		{name: "protocol", err: NewError(CodeBrowserNotFound, "missing", false), code: CodeBrowserNotFound},
+		{name: "download", err: NewError(CodeDownloadNotFound, "missing", false), code: CodeDownloadNotFound},
 		{name: "deadline", err: context.DeadlineExceeded, code: CodeTimeout},
 		{name: "generic", err: errors.New("secret internal detail"), code: CodeInternal},
 	}

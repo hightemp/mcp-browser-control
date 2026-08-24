@@ -217,4 +217,18 @@ const (
 	CommandStorageIndexedDBMetadata = "storage.indexedDBMetadata"
 	// CommandStorageClear clears explicitly confirmed storage types for one origin.
 	CommandStorageClear = "storage.clear"
+	// CommandDownloadsList lists bounded download metadata.
+	CommandDownloadsList = "downloads.list"
+	// CommandDownloadsGet gets one download status.
+	CommandDownloadsGet = "downloads.get"
+	// CommandDownloadsCreate starts one constrained HTTP(S) download.
+	CommandDownloadsCreate = "downloads.create"
+	// CommandDownloadsPause pauses one active download.
+	CommandDownloadsPause = "downloads.pause"
+	// CommandDownloadsResume resumes one resumable download.
+	CommandDownloadsResume = "downloads.resume"
+	// CommandDownloadsCancel cancels one active download.
+	CommandDownloadsCancel = "downloads.cancel"
+	// CommandDownloadsErase erases one terminal download history entry.
+	CommandDownloadsErase = "downloads.erase"
 )

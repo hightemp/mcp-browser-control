@@ -120,6 +120,12 @@ func (p *Action) CheckIncognito(action, browserID string, incognito bool) *proto
 	)
 }
 
+// AllowsIncognito reports whether browser-wide handlers may include incognito
+// state in their internally constructed extension commands.
+func (p *Action) AllowsIncognito() bool {
+	return p != nil && p.allowIncognito
+}
+
 // AuditDenied records only bounded action metadata and never logs a full URL,
 // query, command arguments, or browser result.
 func (p *Action) AuditDenied(action, browserID, origin, reason string) {

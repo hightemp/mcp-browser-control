@@ -23,6 +23,7 @@ import { createPerformanceHandlers } from "./handlers/performance.js";
 import { createNetworkHandlers } from "./handlers/network.js";
 import { createCookieHandlers } from "./handlers/cookies.js";
 import { createStorageHandlers } from "./handlers/storage.js";
+import { createDownloadHandlers } from "./handlers/downloads.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -73,6 +74,9 @@ const commandRouter = new CommandRouter({
     network: createNetworkHandlers(chrome, { cdpSessions }),
     cookies: createCookieHandlers(chrome, { getSettings }),
     storageData: createStorageHandlers(chrome, { getSettings }),
+    downloads: createDownloadHandlers(chrome, {
+      inIncognitoContext: chrome.extension?.inIncognitoContext === true,
+    }),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
@@ -516,6 +520,14 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
       tabGrouping: Boolean(chrome.tabs?.group && chrome.tabs?.ungroup),
       tabGroups: Boolean(chrome.tabGroups?.update),
       sessions: Boolean(chrome.sessions?.getRecentlyClosed && chrome.sessions?.restore),
+      downloads: Boolean(
+        chrome.downloads?.search &&
+        chrome.downloads?.download &&
+        chrome.downloads?.pause &&
+        chrome.downloads?.resume &&
+        chrome.downloads?.cancel &&
+        chrome.downloads?.erase,
+      ),
       cookies: Boolean(
         chrome.cookies?.getAll &&
         chrome.cookies?.get &&

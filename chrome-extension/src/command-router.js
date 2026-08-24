@@ -222,6 +222,41 @@ const COMMANDS = Object.freeze({
     handler: "getSensitive",
     validate: validateStorageItem,
   }),
+  "downloads.list": Object.freeze({
+    domain: "downloads",
+    handler: "list",
+    validate: validateDownloadList,
+  }),
+  "downloads.get": Object.freeze({
+    domain: "downloads",
+    handler: "get",
+    validate: validateDownloadID,
+  }),
+  "downloads.create": Object.freeze({
+    domain: "downloads",
+    handler: "create",
+    validate: validateDownloadCreate,
+  }),
+  "downloads.pause": Object.freeze({
+    domain: "downloads",
+    handler: "pause",
+    validate: validateDownloadID,
+  }),
+  "downloads.resume": Object.freeze({
+    domain: "downloads",
+    handler: "resume",
+    validate: validateDownloadID,
+  }),
+  "downloads.cancel": Object.freeze({
+    domain: "downloads",
+    handler: "cancel",
+    validate: validateDownloadID,
+  }),
+  "downloads.erase": Object.freeze({
+    domain: "downloads",
+    handler: "erase",
+    validate: validateDownloadErase,
+  }),
   "page.info": Object.freeze({
     domain: "page",
     handler: "info",
@@ -2071,6 +2106,68 @@ function validateStorageCursor(value) {
       Number(value) < 1)
   ) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is invalid");
+  }
+}
+
+function validateDownloadList(params, target) {
+  validateNoTarget(target, "Download commands are browser-scoped");
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["cursor", "limit", "state", "paused", "allowIncognito"]);
+  requireIntegerRange(params.limit, "params.limit", 1, 200);
+  if (
+    params.cursor !== undefined &&
+    (typeof params.cursor !== "string" ||
+      !/^\d+$/.test(params.cursor) ||
+      !Number.isSafeInteger(Number(params.cursor)) ||
+      Number(params.cursor) < 1 ||
+      Number(params.cursor) >= 10_000)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is invalid");
+  }
+  validateEnum(params.state, "params.state", ["in_progress", "interrupted", "complete"]);
+  validateOptionalBoolean(params.paused, "params.paused");
+  requireServerIncognitoFlag(params.allowIncognito);
+}
+
+function validateDownloadID(params, target) {
+  validateNoTarget(target, "Download commands are browser-scoped");
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["downloadId", "allowIncognito"]);
+  requireIntegerRange(params.downloadId, "params.downloadId", 0, Number.MAX_SAFE_INTEGER);
+  requireServerIncognitoFlag(params.allowIncognito);
+}
+
+function validateDownloadCreate(params, target) {
+  validateNoTarget(target, "Download commands are browser-scoped");
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["url", "allowIncognito"]);
+  assertBoundedString(params.url, "params.url", 8_192);
+  requireServerIncognitoFlag(params.allowIncognito);
+}
+
+function validateDownloadErase(params, target) {
+  validateNoTarget(target, "Download commands are browser-scoped");
+  validateParamsObject(params);
+  assertAllowedProperties(params, ["downloadId", "confirm", "allowIncognito"]);
+  requireIntegerRange(params.downloadId, "params.downloadId", 0, Number.MAX_SAFE_INTEGER);
+  if (params.confirm !== true) {
+    throw protocolError(
+      ErrorCode.CONFIRMATION_REQUIRED,
+      "Erasing download history requires confirm: true",
+    );
+  }
+  requireServerIncognitoFlag(params.allowIncognito);
+}
+
+function requireServerIncognitoFlag(value) {
+  if (typeof value !== "boolean") {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.allowIncognito must be a boolean");
+  }
+}
+
+function validateNoTarget(target, message) {
+  if (target !== undefined && target !== null) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, message);
   }
 }
 

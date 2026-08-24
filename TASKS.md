@@ -1091,9 +1091,24 @@ values или metadata names. Добавлены Go/extension tests и `docs/web
 
 - Приоритет: P1
 - Зависимости: T-003, T-047
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Create/list/status/pause/resume/cancel/erase history. Не читать содержимое скачанных файлов. Redact локальные пути в обычном режиме.
+
+Добавлены семь отдельных full-profile MCP tools и extension capabilities для
+bounded list/get, constrained HTTP(S) create, pause/resume/cancel и exact
+single-entry erase history. Personal data permission проверяется до и после
+операции; create проходит server origin policy и независимый extension URL
+allowlist, всегда использует browser-chosen unique filename и не принимает
+path, filename, headers, method или body. Chrome absolute filename сокращается
+до basename до выхода из extension, URL credentials/query/fragment удаляются,
+а Go независимо проверяет redacted wire shape, pagination, строки, timestamps,
+numbers и 1 МБ result bound. Lifecycle имеет строгие state preconditions,
+incognito следует server action policy, erase разрешён только для terminal item
+с `confirm: true` и явно не удаляет файл. File contents, `removeFile`, open/show,
+danger acceptance, bulk erase, generic и batch bypass запрещены. Audit содержит
+только tool/browser/download ID, count, outcome и duration. Добавлены Go и
+extension tests, новый `DOWNLOAD_NOT_FOUND` contract code и `docs/downloads.md`.
 
 ### T-073 — Реализовать history, bookmarks и reading list
 

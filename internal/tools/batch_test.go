@@ -311,6 +311,8 @@ func TestBrowserBatchRejectsUnsafeOrCrossBrowserSteps(t *testing.T) {
 		{name: "cookie mutation", steps: []map[string]any{{"tool": "browser_set_cookie"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "storage read", steps: []map[string]any{{"tool": "browser_list_storage_items"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "storage clear", steps: []map[string]any{{"tool": "browser_clear_origin_storage"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "download create", steps: []map[string]any{{"tool": "browser_create_download"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "download history erase", steps: []map[string]any{{"tool": "browser_erase_download_history"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "recursive", steps: []map[string]any{{"tool": "browser_batch"}}, wantCode: protocol.CodeInvalidCommand},
 		{
 			name: "different browser",
@@ -422,6 +424,9 @@ func TestBatchAllowedToolsAreRegisteredAndClassified(t *testing.T) {
 		"browser_list_storage_items", "browser_get_storage_item", "browser_set_storage_item",
 		"browser_remove_storage_item", "browser_get_cache_metadata",
 		"browser_get_indexeddb_metadata", "browser_clear_origin_storage",
+		"browser_list_downloads", "browser_get_download", "browser_create_download",
+		"browser_pause_download", "browser_resume_download", "browser_cancel_download",
+		"browser_erase_download_history",
 		"browser_send_command", "browser_batch",
 	} {
 		if _, allowed := batchAllowedTools[denied]; allowed {

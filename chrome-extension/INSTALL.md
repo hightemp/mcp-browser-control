@@ -98,6 +98,10 @@ optional access.
     remain masked under the same Sensitive data control. Cache Storage exposes
     names only, IndexedDB exposes names and versions only, and clearing any
     selected storage type requires `confirm: true`.
+16. For download creation, status, pause/resume/cancel, or single-entry history
+    erase, grant **Personal data**. Download results expose only a basename,
+    never an absolute path or file content. History erase requires
+    `confirm: true` and does not delete the file.
 
 A pairing code expires after ten minutes by default and is consumed by one
 successful pairing. Later connections use the browser credential stored in

@@ -47,6 +47,15 @@ test("router dispatches every allowlisted command to its domain handler", async 
         indexedDBMetadata: handler,
         clear: handler,
       },
+      downloads: {
+        list: handler,
+        get: handler,
+        create: handler,
+        pause: handler,
+        resume: handler,
+        cancel: handler,
+        erase: handler,
+      },
       windows: {
         list: handler,
         get: handler,
@@ -170,6 +179,13 @@ test("router dispatches every allowlisted command to its domain handler", async 
       storageType: "sessionStorage",
       key: "token",
     },
+    "downloads.list": { limit: 50, allowIncognito: false },
+    "downloads.get": { downloadId: 7, allowIncognito: false },
+    "downloads.create": { url: "https://example.com/file.zip", allowIncognito: false },
+    "downloads.pause": { downloadId: 7, allowIncognito: false },
+    "downloads.resume": { downloadId: 7, allowIncognito: false },
+    "downloads.cancel": { downloadId: 7, allowIncognito: false },
+    "downloads.erase": { downloadId: 7, confirm: true, allowIncognito: false },
     "page.info": {},
     "page.getHTML": {},
     "page.getHTMLBySelector": { selector: "main" },
@@ -322,6 +338,9 @@ test("router dispatches every allowlisted command to its domain handler", async 
     if (["windows.get", "windows.update", "windows.focus", "windows.close"].includes(command)) {
       request.target = { browserId, windowId: 3 };
     }
+    if (command.startsWith("downloads.")) {
+      delete request.target;
+    }
     const accepted = await router.execute(request, (outcome) => outcomes.push(outcome));
     assert.equal(accepted, true);
     assert.deepEqual(outcomes, [{ success: true, result: { command } }]);
@@ -451,6 +470,29 @@ test("router validates target and command params before invoking handlers", asyn
           calls += 1;
         },
         clear: () => {
+          calls += 1;
+        },
+      },
+      downloads: {
+        list: () => {
+          calls += 1;
+        },
+        get: () => {
+          calls += 1;
+        },
+        create: () => {
+          calls += 1;
+        },
+        pause: () => {
+          calls += 1;
+        },
+        resume: () => {
+          calls += 1;
+        },
+        cancel: () => {
+          calls += 1;
+        },
+        erase: () => {
           calls += 1;
         },
       },
@@ -737,6 +779,12 @@ test("router validates target and command params before invoking handlers", asyn
       origin: "https://example.com",
       types: ["localStorage", "localStorage"],
       confirm: true,
+    }),
+    createRequest("downloads.list", { limit: 0, allowIncognito: false }),
+    createRequest("downloads.get", { downloadId: -1, allowIncognito: false }),
+    createRequest("downloads.create", {
+      url: "https://example.com/file.zip",
+      allowIncognito: "yes",
     }),
     createRequest("runtime.evaluateIsolated", {
       expression: "document.title",

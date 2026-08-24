@@ -304,6 +304,9 @@ func TestBrowserBatchRejectsUnsafeOrCrossBrowserSteps(t *testing.T) {
 		{name: "raw CDP", steps: []map[string]any{{"tool": "browser_send_cdp_command"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "performance metrics", steps: []map[string]any{{"tool": "browser_get_performance_metrics"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "performance capture", steps: []map[string]any{{"tool": "browser_capture_performance"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "network start", steps: []map[string]any{{"tool": "browser_start_network_capture"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "network body", steps: []map[string]any{{"tool": "browser_get_network_body"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "network HAR", steps: []map[string]any{{"tool": "browser_export_network_har"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "recursive", steps: []map[string]any{{"tool": "browser_batch"}}, wantCode: protocol.CodeInvalidCommand},
 		{
 			name: "different browser",
@@ -409,6 +412,8 @@ func TestBatchAllowedToolsAreRegisteredAndClassified(t *testing.T) {
 		"browser_evaluate_javascript",
 		"browser_send_cdp_command",
 		"browser_get_performance_metrics", "browser_capture_performance",
+		"browser_start_network_capture", "browser_stop_network_capture", "browser_clear_network_log",
+		"browser_get_network_body", "browser_export_network_har",
 		"browser_send_command", "browser_batch",
 	} {
 		if _, allowed := batchAllowedTools[denied]; allowed {

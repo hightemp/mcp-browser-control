@@ -334,6 +334,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerRawCDPTool(mcpServer)
 	s.registerPerformanceTools(mcpServer)
 	s.registerConsoleTools(mcpServer)
+	s.registerNetworkTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -488,16 +489,6 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserInputHandler),
-	)
-	mcpServer.AddTool(
-		mcp.NewTool(
-			"browser_get_network_log",
-			mcp.WithDescription("Read captured browser network entries"),
-			optionalBrowserID(),
-			optionalTabID(),
-			optionalTimeout(),
-		),
-		mcp.NewTypedToolHandler(s.browserGetNetworkHandler),
 	)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -904,21 +895,6 @@ func (s *Service) browserInputHandler(
 	)
 }
 
-func (s *Service) browserGetNetworkHandler(
-	ctx context.Context,
-	_ mcp.CallToolRequest,
-	args targetedArgs,
-) (*mcp.CallToolResult, error) {
-	return s.send(
-		ctx,
-		args.BrowserID,
-		protocol.CommandNetworkRead,
-		targetWithTab(args.TabID),
-		map[string]any{},
-		args.TimeoutMS,
-	)
-}
-
 func (s *Service) browserSendCommandHandler(
 	ctx context.Context,
 	_ mcp.CallToolRequest,
@@ -927,7 +903,8 @@ func (s *Service) browserSendCommandHandler(
 	if args.Command == protocol.CommandRuntimeEvaluateIsolated ||
 		args.Command == protocol.CommandCDPSendReadOnly ||
 		args.Command == protocol.CommandPerformanceMetrics ||
-		args.Command == protocol.CommandPerformanceCapture {
+		args.Command == protocol.CommandPerformanceCapture ||
+		isDedicatedNetworkCommand(args.Command) {
 		return errorResult(protocol.NewError(
 			protocol.CodeInvalidCommand,
 			"the command requires its dedicated MCP tool",

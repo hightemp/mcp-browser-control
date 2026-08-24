@@ -20,6 +20,14 @@ test("router dispatches every allowlisted command to its domain handler", async 
       evaluation: { evaluate: handler },
       rawCDP: { sendReadOnly: handler },
       performance: { metrics: handler, capture: handler },
+      network: {
+        start: handler,
+        stop: handler,
+        clear: handler,
+        read: handler,
+        getBody: handler,
+        exportHAR: handler,
+      },
       windows: {
         list: handler,
         get: handler,
@@ -231,6 +239,12 @@ test("router dispatches every allowlisted command to its domain handler", async 
       durationMs: 1_000,
       maxBytes: 1_000_000,
     },
+    "network.start": { maxEntries: 1_000 },
+    "network.stop": {},
+    "network.clear": {},
+    "network.read": { limit: 50, maxBytes: 524_288 },
+    "network.getBody": { entryId: "1", direction: "response", maxBytes: 262_144 },
+    "network.exportHAR": { maxBytes: 2_000_000 },
     "console.start": {
       bufferSize: 500,
       captureConsole: true,
@@ -313,6 +327,26 @@ test("router validates target and command params before invoking handlers", asyn
           calls += 1;
         },
         capture: () => {
+          calls += 1;
+        },
+      },
+      network: {
+        start: () => {
+          calls += 1;
+        },
+        stop: () => {
+          calls += 1;
+        },
+        clear: () => {
+          calls += 1;
+        },
+        read: () => {
+          calls += 1;
+        },
+        getBody: () => {
+          calls += 1;
+        },
+        exportHAR: () => {
           calls += 1;
         },
       },
@@ -553,6 +587,20 @@ test("router validates target and command params before invoking handlers", asyn
       durationMs: 99,
       maxBytes: 1_000_000,
     }),
+    createRequest("network.start", { maxEntries: 0 }),
+    createRequest("network.stop", { unexpected: true }),
+    createRequest("network.read", { limit: 0, maxBytes: 524_288 }),
+    createRequest("network.read", {
+      limit: 50,
+      maxBytes: 524_288,
+      resourceTypes: ["Document", "Document"],
+    }),
+    createRequest("network.getBody", {
+      entryId: "request-id",
+      direction: "response",
+      maxBytes: 262_144,
+    }),
+    createRequest("network.exportHAR", { maxBytes: 1 }),
     createRequest("runtime.evaluateIsolated", {
       expression: "document.title",
       awaitPromise: true,
@@ -792,6 +840,14 @@ function defaultHandlers() {
     performance: {
       metrics: () => ({ metrics: [] }),
       capture: () => ({ dataBase64: "artifact" }),
+    },
+    network: {
+      start: () => ({ active: true }),
+      stop: () => ({ active: false }),
+      clear: () => ({ entries: [] }),
+      read: () => ({ entries: [] }),
+      getBody: () => ({ dataBase64: "artifact" }),
+      exportHAR: () => ({ dataBase64: "artifact" }),
     },
     page: {
       info: () => ({ url: "" }),

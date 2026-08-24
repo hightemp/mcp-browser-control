@@ -56,6 +56,7 @@ change. The server rejects a command that is not currently advertised.
 | Viewport screenshot | `tabs.captureVisibleTab`, target-origin access | Observe plus Core | Capability-gated | Capability-gated | Capability-gated |
 | Console and page-error capture | packaged MAIN/ISOLATED bridges; optional managed `Runtime`/`Log`/`Network` enrichment | Observe plus Core; Debug is optional | Capability-gated | Capability-gated; CDP release smoke required | Bridge baseline only until CDP enrichment is tested |
 | Network idle observation | `webRequest` and target-origin access | Observe | Capability-gated per wait | Capability-gated per wait | Capability-gated |
+| Network capture and artifacts | managed `Network` events plus same-origin textual body getters and body-free HAR export | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | CDP session infrastructure | `debugger`; flat child sessions require browser 125+ | Debug plus MCP `full` profile | Root manager implemented | Root manager implemented; release smoke still required | Not supported until tested |
 | Print to PDF | managed `Page.printToPDF` | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Accessibility tree | managed `Accessibility.getFullAXTree`/`getPartialAXTree` plus bounded frame metadata | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |

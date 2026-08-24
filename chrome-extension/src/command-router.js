@@ -307,6 +307,36 @@ const COMMANDS = Object.freeze({
     handler: "capture",
     validate: validatePerformanceCapture,
   }),
+  "network.start": Object.freeze({
+    domain: "network",
+    handler: "start",
+    validate: validateNetworkStart,
+  }),
+  "network.stop": Object.freeze({
+    domain: "network",
+    handler: "stop",
+    validate: validateNetworkEmpty,
+  }),
+  "network.clear": Object.freeze({
+    domain: "network",
+    handler: "clear",
+    validate: validateNetworkEmpty,
+  }),
+  "network.read": Object.freeze({
+    domain: "network",
+    handler: "read",
+    validate: validateNetworkRead,
+  }),
+  "network.getBody": Object.freeze({
+    domain: "network",
+    handler: "getBody",
+    validate: validateNetworkBody,
+  }),
+  "network.exportHAR": Object.freeze({
+    domain: "network",
+    handler: "exportHAR",
+    validate: validateNetworkHAR,
+  }),
   "console.start": Object.freeze({
     domain: "console",
     handler: "start",
@@ -1577,6 +1607,128 @@ function validatePerformanceTarget(target) {
     throw protocolError(
       ErrorCode.INVALID_MESSAGE,
       "Performance commands accept only the root frame of a tab",
+    );
+  }
+}
+
+const NETWORK_RESOURCE_TYPES = Object.freeze([
+  "Document",
+  "Stylesheet",
+  "Image",
+  "Media",
+  "Font",
+  "Script",
+  "TextTrack",
+  "XHR",
+  "Fetch",
+  "Prefetch",
+  "EventSource",
+  "WebSocket",
+  "Manifest",
+  "SignedExchange",
+  "Ping",
+  "CSPViolationReport",
+  "Preflight",
+  "Other",
+]);
+
+function validateNetworkStart(params, target) {
+  validateParamsObject(params);
+  validateNetworkTarget(target);
+  assertAllowedProperties(params, ["maxEntries"]);
+  requireIntegerRange(params.maxEntries, "params.maxEntries", 1, 5_000);
+}
+
+function validateNetworkEmpty(params, target) {
+  validateEmpty(params);
+  validateNetworkTarget(target);
+}
+
+function validateNetworkRead(params, target) {
+  validateParamsObject(params);
+  validateNetworkTarget(target);
+  assertAllowedProperties(params, [
+    "cursor",
+    "limit",
+    "resourceTypes",
+    "failedOnly",
+    "statusMin",
+    "statusMax",
+    "since",
+    "maxBytes",
+  ]);
+  requireIntegerRange(params.limit, "params.limit", 1, 200);
+  requireIntegerRange(params.maxBytes, "params.maxBytes", 64 * 1_024, 1_000_000);
+  if (
+    params.cursor !== undefined &&
+    (typeof params.cursor !== "string" ||
+      !/^\d+$/.test(params.cursor) ||
+      Number(params.cursor) < 1 ||
+      !Number.isSafeInteger(Number(params.cursor)))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is invalid");
+  }
+  if (
+    params.resourceTypes !== undefined &&
+    (!Array.isArray(params.resourceTypes) ||
+      params.resourceTypes.length > NETWORK_RESOURCE_TYPES.length ||
+      new Set(params.resourceTypes).size !== params.resourceTypes.length ||
+      params.resourceTypes.some((value) => !NETWORK_RESOURCE_TYPES.includes(value)))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.resourceTypes is invalid");
+  }
+  validateOptionalBoolean(params.failedOnly, "params.failedOnly");
+  validateIntegerRange(params.statusMin, "params.statusMin", 100, 599);
+  validateIntegerRange(params.statusMax, "params.statusMax", 100, 599);
+  if (
+    params.statusMin !== undefined &&
+    params.statusMax !== undefined &&
+    params.statusMin > params.statusMax
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "Network status bounds are invalid");
+  }
+  if (
+    params.since !== undefined &&
+    (typeof params.since !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}T/.test(params.since) ||
+      !Number.isFinite(Date.parse(params.since)))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.since must be an RFC 3339 timestamp");
+  }
+}
+
+function validateNetworkBody(params, target) {
+  validateParamsObject(params);
+  validateNetworkTarget(target);
+  assertAllowedProperties(params, ["entryId", "direction", "maxBytes"]);
+  if (
+    typeof params.entryId !== "string" ||
+    !/^\d+$/.test(params.entryId) ||
+    Number(params.entryId) < 1 ||
+    !Number.isSafeInteger(Number(params.entryId))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.entryId is invalid");
+  }
+  validateEnum(params.direction, "params.direction", ["request", "response"]);
+  requireIntegerRange(params.maxBytes, "params.maxBytes", 1_024, 1_000_000);
+}
+
+function validateNetworkHAR(params, target) {
+  validateParamsObject(params);
+  validateNetworkTarget(target);
+  assertAllowedProperties(params, ["maxBytes"]);
+  requireIntegerRange(params.maxBytes, "params.maxBytes", 64 * 1_024, 2_000_000);
+}
+
+function validateNetworkTarget(target) {
+  if (target === undefined || target === null) return;
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.windowId !== undefined || (target.frameId !== undefined && target.frameId !== 0)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Network commands accept only the root frame of a tab",
     );
   }
 }

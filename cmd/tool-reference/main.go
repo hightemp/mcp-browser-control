@@ -111,7 +111,12 @@ var toolCapabilities = map[string]string{
 	"browser_stop_console_capture":  protocol.CommandConsoleStop,
 	"browser_clear_console_log":     protocol.CommandConsoleClear,
 	"browser_get_console_log":       protocol.CommandConsoleRead,
+	"browser_start_network_capture": protocol.CommandNetworkStart,
+	"browser_stop_network_capture":  protocol.CommandNetworkStop,
+	"browser_clear_network_log":     protocol.CommandNetworkClear,
 	"browser_get_network_log":       protocol.CommandNetworkRead,
+	"browser_get_network_body":      protocol.CommandNetworkGetBody,
+	"browser_export_network_har":    protocol.CommandNetworkExportHAR,
 	"browser_send_command":          dynamicCapability,
 }
 
@@ -178,6 +183,10 @@ var exampleOverrides = map[string]map[string]any{
 	"browser_capture_performance":   {"kind": "trace", "durationMs": 1_000, "maxBytes": 1_000_000},
 	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
 	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
+	"browser_start_network_capture": {"maxEntries": 1_000},
+	"browser_get_network_log":       {"limit": 50, "maxBytes": 524_288},
+	"browser_get_network_body":      {"entryId": "1", "direction": "response", "maxBytes": 262_144},
+	"browser_export_network_har":    {"maxBytes": 1_000_000},
 	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
 	"browser_batch": {
 		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
@@ -413,8 +422,6 @@ func capabilityDescription(capability string) string {
 		return "the capability required by each nested typed command"
 	case dynamicCapability:
 		return "the value of `command`; the extension still requires it in its advertised capability set and dedicated-only capabilities are rejected"
-	case protocol.CommandNetworkRead:
-		return "`network.read` (reserved; not currently advertised by the extension)"
 	default:
 		return "`" + capability + "`"
 	}
@@ -432,8 +439,8 @@ func permissionDescription(capability string) string {
 		return "Personal data (`tabGroups`)"
 	case strings.HasPrefix(capability, "sessions."):
 		return "Personal data (`sessions`)"
-	case capability == protocol.CommandNetworkRead:
-		return "Debug (`debugger`); the current extension backend is not implemented"
+	case strings.HasPrefix(capability, "network."):
+		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`"
 	case capability == protocol.CommandPagePrintToPDF:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
 	case capability == protocol.CommandAccessibilityGetTree:
@@ -525,8 +532,14 @@ func resultDescription(name string) string {
 		return "capture state and document identity in `data`"
 	case "browser_get_console_log":
 		return "filtered redacted console/page-error entries and optional `nextCursor`"
+	case "browser_start_network_capture", "browser_stop_network_capture", "browser_clear_network_log":
+		return "the document-scoped capture state, retained/evicted counts, byte usage, and TTL metadata"
 	case "browser_get_network_log":
-		return "network entries when a future extension advertises `network.read`"
+		return "bounded redacted request/response metadata with public entry IDs and an optional pagination cursor"
+	case "browser_get_network_body":
+		return "metadata plus an owner-only artifact URI for one redacted same-origin textual request or response body"
+	case "browser_export_network_har":
+		return "metadata plus an owner-only bounded HAR 1.2-like artifact URI; bodies are excluded"
 	case "browser_send_command":
 		return "the selected extension command's bounded, redacted payload in `data`"
 	default:
@@ -545,7 +558,8 @@ func errorDescription(name, capability string) string {
 	}
 	if (strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") ||
 		strings.HasPrefix(capability, "accessibility.") || strings.HasPrefix(capability, "emulation.") ||
-		strings.HasPrefix(capability, "performance.") || capability == protocol.CommandRuntimeEvaluateIsolated ||
+		strings.HasPrefix(capability, "performance.") || strings.HasPrefix(capability, "network.") ||
+		capability == protocol.CommandRuntimeEvaluateIsolated ||
 		capability == protocol.CommandCDPSendReadOnly) &&
 		capability != protocol.CommandEmulationReset {
 		errors = append(errors,
@@ -584,8 +598,14 @@ func errorDescription(name, capability string) string {
 			"`INVALID_COMMAND` for a prohibited capture kind such as a heap snapshot",
 			"`PAYLOAD_TOO_LARGE` or artifact storage failure",
 		)
-	case "browser_get_network_log":
-		errors = append(errors, "currently always `CAPABILITY_UNAVAILABLE`")
+	case "browser_get_network_body":
+		errors = append(errors,
+			"`CAPABILITY_UNAVAILABLE` when capture is stopped or the body/MIME is unavailable",
+			"`RESTRICTED_URL` for a cross-origin body",
+			"`PAYLOAD_TOO_LARGE` or artifact storage failure",
+		)
+	case "browser_export_network_har":
+		errors = append(errors, "`PAYLOAD_TOO_LARGE` or artifact storage failure")
 	case "browser_send_command":
 		errors = append(errors, "`INVALID_COMMAND` for an unknown or dedicated-only command")
 	case "browser_batch":

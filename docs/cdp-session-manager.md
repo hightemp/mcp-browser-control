@@ -197,3 +197,11 @@ separate exact `Profiler` lifecycles; audits accept only `Audits.issueAdded`.
 Every capture stops its domain state and releases the lease in cleanup, and no
 stream handle or profiler session leaves the handler. See
 [`performance-diagnostics.md`](performance-diagnostics.md).
+
+Network capture is a long-lived root-document consumer that allows only
+`Network.enable`, the two bounded body getters, and the reviewed request,
+response, completion, failure, extra-info, and cache events. It shares the root
+attachment safely with console enrichment, never disables the Network domain
+under another consumer, and releases on stop, navigation, permission removal,
+disconnect, or detach. Opaque request IDs and body commands remain internal.
+See [`network-capture.md`](network-capture.md).

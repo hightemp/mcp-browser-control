@@ -397,11 +397,13 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 	targetCoordinates := &protocol.Coordinates{X: 80, Y: 120}
 
 	tests := []struct {
-		name        string
-		wantCommand string
-		wantTarget  *protocol.Target
-		wantParams  map[string]any
-		call        func(context.Context) (*mcp.CallToolResult, error)
+		name             string
+		wantCommand      string
+		wantTarget       *protocol.Target
+		wantResultTarget *protocol.Target
+		wantParams       map[string]any
+		response         map[string]any
+		call             func(context.Context) (*mcp.CallToolResult, error)
 	}{
 		{
 			name:        "ping",
@@ -716,10 +718,14 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 		{
 			name:        "network",
 			wantCommand: protocol.CommandNetworkRead,
-			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID},
-			wantParams:  map[string]any{},
+			wantTarget:  &protocol.Target{BrowserID: "browser-a", TabID: &tabID, FrameID: networkIntPointer(0)},
+			wantResultTarget: &protocol.Target{
+				BrowserID: "browser-a", TabID: &tabID, FrameID: networkIntPointer(0), DocumentID: "document-1",
+			},
+			wantParams: map[string]any{"limit": float64(defaultNetworkReadLimit), "maxBytes": float64(defaultNetworkReadMaxBytes)},
+			response:   map[string]any{"tabId": tabID, "documentId": "document-1", "entries": []any{}, "warnings": []any{}},
 			call: func(ctx context.Context) (*mcp.CallToolResult, error) {
-				return service.browserGetNetworkHandler(ctx, mcp.CallToolRequest{}, targetedArgs{BrowserID: "browser-a", TabID: &tabID})
+				return service.browserGetNetworkHandler(ctx, mcp.CallToolRequest{}, networkReadArgs{networkTargetArgs: networkTargetArgs{BrowserID: "browser-a", TabID: &tabID}})
 			},
 		},
 		{
@@ -761,10 +767,14 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 				t.Errorf("params = %#v, want %#v", params, test.wantParams)
 			}
 
+			responseData := test.response
+			if responseData == nil {
+				responseData = map[string]any{"ok": true}
+			}
 			response, err := protocol.NewResponse(
 				request.RequestID,
 				"browser-a",
-				map[string]any{"ok": true},
+				responseData,
 				nil,
 			)
 			if err != nil {
@@ -782,7 +792,10 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 					t.Fatalf("handler returned tool error: %s", toolText(t, result))
 				}
 				toolResponse := decodeToolResponse(t, result)
-				wantResultTarget := test.wantTarget
+				wantResultTarget := test.wantResultTarget
+				if wantResultTarget == nil {
+					wantResultTarget = test.wantTarget
+				}
 				if wantResultTarget == nil {
 					wantResultTarget = &protocol.Target{BrowserID: "browser-a"}
 				}
@@ -794,6 +807,10 @@ func TestCommandHandlersBuildExpectedRequests(t *testing.T) {
 			}
 		})
 	}
+}
+
+func networkIntPointer(value int) *int {
+	return &value
 }
 
 func TestCommandHandlerValidation(t *testing.T) {
@@ -946,6 +963,11 @@ func newTestService(
 					protocol.CommandConsoleStop,
 					protocol.CommandConsoleClear,
 					protocol.CommandNetworkRead,
+					protocol.CommandNetworkStart,
+					protocol.CommandNetworkStop,
+					protocol.CommandNetworkClear,
+					protocol.CommandNetworkGetBody,
+					protocol.CommandNetworkExportHAR,
 					protocol.CommandPageClick,
 					protocol.CommandPageFill,
 					protocol.CommandPageHover,

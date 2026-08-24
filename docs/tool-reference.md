@@ -6960,6 +6960,105 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_clear_network_log`
+
+Clear retained network capture metadata.
+
+- MCP profile: `full`
+- Extension capability: `network.clear`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: the document-scoped capture state, retained/evicted counts, byte usage, and TTL metadata
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {},
+  "name": "browser_clear_network_log"
+}
+```
+
+### `browser_export_network_har`
+
+Store bounded redacted HAR-like network metadata as a temporary artifact.
+
+- MCP profile: `full`
+- Extension capability: `network.exportHAR`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: metadata plus an owner-only bounded HAR 1.2-like artifact URI; bodies are excluded
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` or artifact storage failure
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "maxBytes": {
+      "default": 2000000,
+      "description": "Maximum redacted HAR artifact bytes",
+      "maximum": 2000000,
+      "minimum": 65536,
+      "type": "number"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "maxBytes": 1000000
+  },
+  "name": "browser_export_network_har"
+}
+```
+
 ### `browser_get_console_log`
 
 Read filtered console and page error entries from one document.
@@ -7104,15 +7203,15 @@ Example MCP tool payload:
 }
 ```
 
-### `browser_get_network_log`
+### `browser_get_network_body`
 
-Read captured browser network entries.
+Store one redacted same-origin textual network body as a temporary artifact.
 
 - MCP profile: `full`
-- Extension capability: `network.read` (reserved; not currently advertised by the extension)
-- Permissions: Debug (`debugger`); the current extension backend is not implemented
-- Result: network entries when a future extension advertises `network.read`
-- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; currently always `CAPABILITY_UNAVAILABLE`
+- Extension capability: `network.getBody`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: metadata plus an owner-only artifact URI for one redacted same-origin textual request or response body
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `CAPABILITY_UNAVAILABLE` when capture is stopped or the body/MIME is unavailable; `RESTRICTED_URL` for a cross-origin body; `PAYLOAD_TOO_LARGE` or artifact storage failure
 
 Input schema:
 
@@ -7122,6 +7221,149 @@ Input schema:
     "browserId": {
       "description": "Browser instance ID; omit to use the current MCP session selection",
       "type": "string"
+    },
+    "direction": {
+      "description": "Request or response body",
+      "enum": [
+        "request",
+        "response"
+      ],
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "entryId": {
+      "description": "Public entry ID returned by browser_get_network_log",
+      "maxLength": 32,
+      "type": "string"
+    },
+    "maxBytes": {
+      "default": 262144,
+      "description": "Maximum decoded and redacted body bytes",
+      "maximum": 1000000,
+      "minimum": 1024,
+      "type": "number"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "entryId",
+    "direction"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "direction": "response",
+    "entryId": "1",
+    "maxBytes": 262144
+  },
+  "name": "browser_get_network_body"
+}
+```
+
+### `browser_get_network_log`
+
+Read filtered paginated network metadata from one root document.
+
+- MCP profile: `full`
+- Extension capability: `network.read`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: bounded redacted request/response metadata with public entry IDs and an optional pagination cursor
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Cursor returned by a previous network read",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "failedOnly": {
+      "description": "Return only failed requests",
+      "type": "boolean"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum entries to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "maxBytes": {
+      "default": 524288,
+      "description": "Maximum serialized extension result bytes",
+      "maximum": 1000000,
+      "minimum": 65536,
+      "type": "number"
+    },
+    "resourceTypes": {
+      "description": "CDP resource types to include",
+      "items": {
+        "enum": [
+          "Document",
+          "Stylesheet",
+          "Image",
+          "Media",
+          "Font",
+          "Script",
+          "TextTrack",
+          "XHR",
+          "Fetch",
+          "Prefetch",
+          "EventSource",
+          "WebSocket",
+          "Manifest",
+          "SignedExchange",
+          "Ping",
+          "CSPViolationReport",
+          "Preflight",
+          "Other"
+        ],
+        "type": "string"
+      },
+      "maxItems": 18,
+      "type": "array"
+    },
+    "since": {
+      "description": "RFC 3339 request start lower bound",
+      "type": "string"
+    },
+    "statusMax": {
+      "description": "Maximum HTTP response status",
+      "maximum": 599,
+      "minimum": 100,
+      "type": "number"
+    },
+    "statusMin": {
+      "description": "Minimum HTTP response status",
+      "maximum": 599,
+      "minimum": 100,
+      "type": "number"
     },
     "tabId": {
       "description": "Browser tab ID; omit to use the active tab",
@@ -7140,7 +7382,10 @@ Example MCP tool payload:
 
 ```json
 {
-  "arguments": {},
+  "arguments": {
+    "limit": 50,
+    "maxBytes": 524288
+  },
   "name": "browser_get_network_log"
 }
 ```
@@ -7905,6 +8150,60 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_start_network_capture`
+
+Start bounded network metadata capture in one root document.
+
+- MCP profile: `full`
+- Extension capability: `network.start`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: the document-scoped capture state, retained/evicted counts, byte usage, and TTL metadata
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "maxEntries": {
+      "default": 1000,
+      "description": "Maximum retained request entries",
+      "maximum": 5000,
+      "minimum": 1,
+      "type": "number"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "maxEntries": 1000
+  },
+  "name": "browser_start_network_capture"
+}
+```
+
 ### `browser_stop_console_capture`
 
 Stop console capture and retain buffered entries.
@@ -7952,6 +8251,51 @@ Example MCP tool payload:
 {
   "arguments": {},
   "name": "browser_stop_console_capture"
+}
+```
+
+### `browser_stop_network_capture`
+
+Stop network capture and retain bounded metadata.
+
+- MCP profile: `full`
+- Extension capability: `network.stop`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`
+- Result: the document-scoped capture state, retained/evicted counts, byte usage, and TTL metadata
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {},
+  "name": "browser_stop_network_capture"
 }
 ```
 

@@ -62,6 +62,9 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 		"browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation",
 		"browser_evaluate_javascript", "browser_send_cdp_command",
 		"browser_get_performance_metrics", "browser_capture_performance",
+		"browser_start_network_capture", "browser_stop_network_capture",
+		"browser_clear_network_log", "browser_get_network_log",
+		"browser_get_network_body", "browser_export_network_har",
 	} {
 		if filtered["standard"][name] || !filtered["full"][name] {
 			t.Fatalf("sensitive CDP tool %q must remain full-profile only", name)
@@ -86,6 +89,9 @@ func TestToolProfileName(t *testing.T) {
 		{name: "browser_send_cdp_command", profile: "full", ok: true},
 		{name: "browser_get_performance_metrics", profile: "full", ok: true},
 		{name: "browser_capture_performance", profile: "full", ok: true},
+		{name: "browser_start_network_capture", profile: "full", ok: true},
+		{name: "browser_get_network_body", profile: "full", ok: true},
+		{name: "browser_export_network_har", profile: "full", ok: true},
 		{name: "browser_future_unreviewed"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

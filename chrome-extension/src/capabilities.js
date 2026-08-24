@@ -119,6 +119,14 @@ export function detectCapabilities({
         capabilities.push("cdp.sendReadOnly");
       }
       capabilities.push("performance.metrics", "performance.capture");
+      capabilities.push(
+        "network.start",
+        "network.stop",
+        "network.clear",
+        "network.read",
+        "network.getBody",
+        "network.exportHAR",
+      );
     }
     capabilities.push("console.start", "console.stop", "console.clear", "console.read");
   }

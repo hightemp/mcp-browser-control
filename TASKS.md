@@ -894,7 +894,7 @@ allowlists, фильтрация context, безопасный fallback, target 
 
 - Приоритет: P1
 - Зависимости: T-060, T-034
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Заменить заглушку:
 
@@ -905,6 +905,23 @@ allowlists, фильтрация context, безопасный fallback, target 
 - body по requestId;
 - HAR-like export;
 - лимиты, TTL и redaction.
+
+Заглушка заменена шестью full-profile typed tools и отдельным document-scoped
+extension handler. Start/stop/clear/read используют managed Network lease с
+exact allowlist событий request/response/extra-info/loading/cache и команд
+enable/body getters. Ring buffer ограничен 5 000 entries и 2 МБ, одна запись —
+32 КиБ, а extension хранит capture state максимум для 8 вкладок; есть
+cursor/filter, redirect links через public entry IDs, failed/cache,
+headers/timing/status/type/initiator, eviction diagnostics и TTL 10 минут после
+stop. Navigation, detach, отзыв Debug и disconnect освобождают lease; opaque
+CDP request IDs наружу не возвращаются. Request/response body доступны только
+во время active capture, только для same-origin textual MIME allowlist и до
+1 МБ, проходят extension/server redaction и сохраняются owner-only artifact.
+HAR-like 1.2 export ограничен 2 МБ, не включает тела и также возвращается
+artifact. Observe, Debug, root HTTP(S) document, action policy, batch и generic
+command boundaries проверяются fail-closed. Interception/modification,
+cross-origin/binary bodies, cache mutation и raw handles не реализованы.
+Добавлены Go/extension tests и `docs/network-capture.md`.
 
 ### T-063 — Реализовать emulation
 

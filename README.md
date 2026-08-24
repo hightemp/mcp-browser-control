@@ -27,7 +27,7 @@ The first multi-browser vertical slice is implemented:
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-Full-page and element screenshots, trusted CDP input, and full network capture
+Full-page and element screenshots, trusted CDP input, and request interception
 are planned but not complete. Remote mode is not
 implemented; do not expose either server port outside the local machine.
 The internal [CDP Session Manager](docs/cdp-session-manager.md) now provides
@@ -285,6 +285,12 @@ rejects stale output.
 - `browser_stop_console_capture`
 - `browser_clear_console_log`
 - `browser_get_console_log`
+- `browser_start_network_capture`
+- `browser_stop_network_capture`
+- `browser_clear_network_log`
+- `browser_get_network_log`
+- `browser_get_network_body`
+- `browser_export_network_har`
 - `browser_batch`
 
 All target tools accept optional `browserId` and `timeoutMs`. Page tools also
@@ -414,6 +420,26 @@ authorization values, and sensitive URL query parameters. Capture is released
 after navigation, stop, debugger detach, permission revocation, or disconnect.
 See [`docs/console-capture.md`](docs/console-capture.md).
 
+Network diagnostics use a separate document-scoped managed CDP consumer.
+Start, stop, clear, and paginated read tools retain capture state for at most
+eight tabs, 5,000 entries and 2 MB per tab, link redirects with public entry
+IDs, and report request/response headers, timing, status, initiator, cache,
+completion, and failure metadata.
+Sensitive headers, URL credentials/query tokens, and error text are redacted;
+opaque CDP request IDs never leave the extension. Stopped captures expire after
+ten minutes, while navigation removes stale document state immediately.
+
+`browser_get_network_body` stores one same-origin textual request or response
+body as a temporary artifact while capture is active. MIME types use a fixed
+text/JSON/XML/JavaScript/form allowlist, decoded bytes are limited to 1 MB, and
+both extension and server redact the content. `browser_export_network_har`
+stores up to 2 MB of bounded HAR 1.2-like metadata without bodies. Both tools
+return metadata only, require Observe, Debug, and MCP `full`, and warn that the
+artifact is sensitive. Network tools cannot be reached through the generic
+command entry point; body/HAR/stateful capture operations are excluded from
+batch. Interception, request modification, cache mutation, and raw body handles
+remain prohibited. See [`docs/network-capture.md`](docs/network-capture.md).
+
 `browser_batch` runs up to 25 typed commands sequentially against one resolved
 browser. It uses a shared 30-second deadline by default (configurable up to 120
 seconds), stops on the first failed step unless `stopOnError` is false, and
@@ -459,14 +485,9 @@ preflighted against current tab metadata, while navigation and creation check
 their destination URLs before dispatch. Policy denials are audited without URL
 paths, queries, arguments, or result data.
 
-### Registered but not implemented by the current extension
-
-- `browser_get_network_log`
-
-This returns `CAPABILITY_UNAVAILABLE` until its event-driven implementation is
-added. `browser_send_command` is an expert extension-command entry point, but
+`browser_send_command` is an expert extension-command entry point, but
 the extension still enforces its command allowlist and the server rejects
-dedicated-only evaluation and raw CDP capabilities. Reviewed raw CDP has its
+dedicated-only evaluation, network, and raw CDP capabilities. Reviewed raw CDP has its
 own typed `browser_send_cdp_command` tool and cannot be used as an arbitrary
 DevTools Protocol escape hatch. Performance metrics and captures likewise have
 dedicated typed tools and cannot be reached through the generic command tool.

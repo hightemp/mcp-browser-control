@@ -173,6 +173,16 @@ const (
 	// CommandConsoleRead reads captured console and page error entries.
 	CommandConsoleRead = "console.read"
 
+	// CommandNetworkStart starts bounded root-document network capture.
+	CommandNetworkStart = "network.start"
+	// CommandNetworkStop stops network capture while retaining bounded metadata.
+	CommandNetworkStop = "network.stop"
+	// CommandNetworkClear clears retained network metadata.
+	CommandNetworkClear = "network.clear"
 	// CommandNetworkRead reads captured network entries.
 	CommandNetworkRead = "network.read"
+	// CommandNetworkGetBody retrieves one bounded same-origin textual body.
+	CommandNetworkGetBody = "network.getBody"
+	// CommandNetworkExportHAR exports bounded HAR-like metadata.
+	CommandNetworkExportHAR = "network.exportHAR"
 )

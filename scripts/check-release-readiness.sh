@@ -14,6 +14,7 @@ for required_file in \
   chrome-extension/INSTALL.md \
   docs/browser-support.md \
   docs/known-limitations.md \
+  docs/performance-soak.md \
   docs/release-checklist.md \
   docs/releasing.md \
   docs/security-review.md \

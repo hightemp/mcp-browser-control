@@ -708,6 +708,19 @@ Branded Chrome 137+ no longer accepts `--load-extension`, so use
 [Chrome for Testing](https://developer.chrome.com/docs/automation-and-testing/download-test-binaries)
 or a Chromium build for this target.
 
+Verify the routing and `browser_list` latency budgets, then run the short
+reconnect/event soak used by CI:
+
+```bash
+make performance
+make soak-smoke
+```
+
+Release candidates additionally require the configurable eight-hour
+qualification (`make soak`). See
+[docs/performance-soak.md](docs/performance-soak.md) for budgets, report fields,
+and evidence collection.
+
 Run the dependency, license, and repository secret scans after installing
 `govulncheck` and `gitleaks`:
 
@@ -735,7 +748,8 @@ internal/
 ├── tools/                MCP tool definitions and handlers
 ├── transport/websocket/  browser WebSocket transport
 ├── integration/          multi-browser end-to-end component tests
-└── e2e/                  real two-profile Chromium tests (e2e build tag)
+├── e2e/                  real two-profile Chromium tests (e2e build tag)
+└── soak/                 reconnect/event long-run tests (soak build tag)
 protocol/                 versioned schema, fixtures, and compatibility policy
 ```
 

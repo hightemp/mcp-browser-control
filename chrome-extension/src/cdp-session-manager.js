@@ -146,13 +146,22 @@ export class CDPSessionManager {
     return {
       sessionCount: this.sessions.size,
       supportsFlatSessions: this.supportsFlatSessions,
-      sessions: [...this.sessions.values()].map((session) => ({
-        tabId: session.debuggee.tabId,
-        state: session.state,
-        consumerCount: session.consumers.size,
-        childSessionCount: session.childSessions.size,
-        frameCount: session.frameContexts.size,
-      })),
+      sessions: [...this.sessions.values()].map((session) => {
+        const consumers = [...session.consumers.values()];
+        return {
+          tabId: session.debuggee.tabId,
+          state: session.state,
+          consumerCount: consumers.length,
+          childSessionCount: session.childSessions.size,
+          frameCount: session.frameContexts.size,
+          queuedEventCount: consumers.reduce((total, consumer) => total + consumer.queue.length, 0),
+          queuedEventBytes: consumers.reduce((total, consumer) => total + consumer.queueBytes, 0),
+          droppedEventCount: consumers.reduce(
+            (total, consumer) => total + consumer.totalDroppedEvents,
+            0,
+          ),
+        };
+      }),
     };
   }
 
@@ -250,6 +259,7 @@ export class CDPSessionManager {
       queue: [],
       queueBytes: 0,
       droppedEvents: 0,
+      totalDroppedEvents: 0,
       draining: false,
       active: true,
     };
@@ -516,6 +526,7 @@ export class CDPSessionManager {
     const size = jsonByteLength(event);
     if (size > this.limits.maxEventBytes) {
       consumer.droppedEvents += 1;
+      consumer.totalDroppedEvents += 1;
       return;
     }
     while (
@@ -526,6 +537,7 @@ export class CDPSessionManager {
       if (!dropped) break;
       consumer.queueBytes -= dropped.size;
       consumer.droppedEvents += 1;
+      consumer.totalDroppedEvents += 1;
     }
     consumer.queue.push({ event, size });
     consumer.queueBytes += size;

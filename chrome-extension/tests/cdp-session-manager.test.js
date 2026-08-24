@@ -334,6 +334,8 @@ test("event fan-out is bounded and reports dropped events to a slow consumer", a
     received.map((event) => event.params.requestId),
     ["1"],
   );
+  assert.equal(manager.stats().sessions[0].queuedEventCount, 2);
+  assert.equal(manager.stats().sessions[0].droppedEventCount, 1);
 
   releaseFirst();
   await eventually(() => received.length === 3);
@@ -342,6 +344,9 @@ test("event fan-out is bounded and reports dropped events to a slow consumer", a
     ["1", "3", "4"],
   );
   assert.equal(received[1].droppedBefore, 1);
+  assert.equal(manager.stats().sessions[0].queuedEventCount, 0);
+  assert.equal(manager.stats().sessions[0].queuedEventBytes, 0);
+  assert.equal(manager.stats().sessions[0].droppedEventCount, 1);
   await lease.release();
   await manager.dispose();
 });

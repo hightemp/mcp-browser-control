@@ -53,7 +53,17 @@ the static readiness checks. Record the complete successful log.
 - [ ] CycloneDX SBOM, release manifest, release notes, and checksums are present.
 - [ ] No Cyrillic appears outside `AGENTS.md`, `TASKS.md`, and `PRD.md`.
 - [ ] Generated tool documentation matches the registered MCP tools.
+- [ ] Latency NFRs and the short reconnect/event soak pass.
 - [ ] The tracked working tree is clean after all checks.
+
+Before publication, run the eight-hour qualification from the candidate commit
+and retain both `SOAK_REPORT` records as described in
+[`performance-soak.md`](performance-soak.md).
+
+- [ ] The eight-hour reconnect success rate is at least 99.5%.
+- [ ] Transport event loss is zero and every intentional CDP queue drop is
+      accounted for.
+- [ ] Retained heap and goroutine growth stay within the documented budgets.
 
 ## 3. PRD MVP Acceptance
 

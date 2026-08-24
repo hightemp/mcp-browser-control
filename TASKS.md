@@ -1426,9 +1426,19 @@ missing site permission до Chrome API, требуют confirm для identity 
 
 - Приоритет: P1
 - Зависимости: T-091, T-095
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Проверить критерии NFR и 8-часовой reconnect/event soak. Зафиксировать память, goroutines, latency и dropped events.
+
+Добавлены машинно-проверяемые p95 budgets для маршрутизации и `browser_list`,
+benchmarks с allocations и отдельный параллельный soak harness для реального
+WebSocket reconnect/event transport и production CDP event queue расширения.
+`make soak-smoke` выполняется в CI, а `make soak` по умолчанию запускает
+8-часовую release-квалификацию и печатает два JSON `SOAK_REPORT` с reconnect
+rate, heap, goroutines, latency, очередью и полностью учтёнными dropped events.
+Пороги, команды, требования к evidence и измеренный 5-секундный baseline
+зафиксированы в `docs/performance-soak.md`; восьмичасовой лог обязателен в
+release checklist и хранится вне репозитория.
 
 ## 15. Этап 10 — документация, CI и релиз
 

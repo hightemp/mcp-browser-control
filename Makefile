@@ -24,11 +24,14 @@ GITLEAKS ?= gitleaks
 ACTIONLINT ?= actionlint
 CHROME_BIN ?= chromium
 E2E_EXTENSION_DIR := $(CURDIR)/chrome-extension/dist/e2e-extension
+SOAK_DURATION ?= 8h
+SOAK_SMOKE_DURATION ?= 5s
+SOAK_TIMEOUT ?= 9h
 
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build version release release-check release-readiness release-readiness-check tool-reference tool-reference-check run test test-race coverage coverage-check coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e workflow-check security-check check verify clean
+.PHONY: help deps fmt fmt-check build version release release-check release-readiness release-readiness-check tool-reference tool-reference-check run test test-race coverage coverage-check coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e performance soak soak-smoke workflow-check security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -55,6 +58,9 @@ help:
 		'  extension-check Check extension formatting, lint, and tests' \
 		'  extension-build Build the unpacked production extension' \
 		'  e2e             Run two-profile Chrome for Testing E2E' \
+		'  performance     Verify latency NFRs and print Go benchmarks' \
+		'  soak-smoke      Run the reconnect/event soak harness for 5 seconds' \
+		'  soak            Run the reconnect/event soak harness for 8 hours' \
 		'  security-check  Scan vulnerabilities, licenses, and secrets' \
 		'  check           Run non-mutating validation checks' \
 		'  verify          Format, check, measure coverage, and build' \
@@ -91,7 +97,7 @@ release-check: release
 release-readiness-check:
 	sh scripts/check-release-readiness.sh
 
-release-readiness: verify workflow-check security-check e2e release-check
+release-readiness: verify workflow-check security-check e2e performance soak-smoke release-check
 	RELEASE_REQUIRE_ARTIFACTS=1 sh scripts/check-release-readiness.sh
 
 tool-reference:
@@ -152,6 +158,20 @@ extension-check: extension-format-check extension-lint extension-test
 
 e2e: extension-e2e-build
 	CHROME_BIN="$(CHROME_BIN)" MCP_BROWSER_EXTENSION_DIR="$(E2E_EXTENSION_DIR)" $(GO) test -tags=e2e -count=1 -timeout=2m ./internal/e2e
+
+performance:
+	$(GO) test -count=1 -v -run 'NFR$$' ./internal/router ./internal/tools
+	$(GO) test -run '^$$' -bench 'Benchmark(RouterRoundTrip|BrowserList50)$$' -benchmem ./internal/router ./internal/tools
+
+soak:
+	MCP_BROWSER_SOAK_DURATION="$(SOAK_DURATION)" MCP_BROWSER_SOAK_TIMEOUT="$(SOAK_TIMEOUT)" \
+		GO="$(GO)" bash scripts/run-soak.sh
+
+soak-smoke:
+	MCP_BROWSER_SOAK_DURATION="$(SOAK_SMOKE_DURATION)" MCP_BROWSER_SOAK_TIMEOUT="2m" \
+		MCP_BROWSER_SOAK_RECONNECT_INTERVAL="25ms" \
+		MCP_BROWSER_SOAK_EVENT_INTERVAL="50ms" \
+		GO="$(GO)" bash scripts/run-soak.sh
 
 workflow-check:
 	$(ACTIONLINT) .github/workflows/*.yml

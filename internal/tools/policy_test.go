@@ -65,6 +65,7 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 		"browser_start_network_capture", "browser_stop_network_capture",
 		"browser_clear_network_log", "browser_get_network_log",
 		"browser_get_network_body", "browser_export_network_har",
+		"browser_list_cookies", "browser_get_cookie", "browser_set_cookie", "browser_remove_cookie",
 	} {
 		if filtered["standard"][name] || !filtered["full"][name] {
 			t.Fatalf("sensitive CDP tool %q must remain full-profile only", name)
@@ -92,6 +93,8 @@ func TestToolProfileName(t *testing.T) {
 		{name: "browser_start_network_capture", profile: "full", ok: true},
 		{name: "browser_get_network_body", profile: "full", ok: true},
 		{name: "browser_export_network_har", profile: "full", ok: true},
+		{name: "browser_list_cookies", profile: "full", ok: true},
+		{name: "browser_set_cookie", profile: "full", ok: true},
 		{name: "browser_future_unreviewed"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

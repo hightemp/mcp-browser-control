@@ -117,6 +117,10 @@ var toolCapabilities = map[string]string{
 	"browser_get_network_log":       protocol.CommandNetworkRead,
 	"browser_get_network_body":      protocol.CommandNetworkGetBody,
 	"browser_export_network_har":    protocol.CommandNetworkExportHAR,
+	"browser_list_cookies":          protocol.CommandCookiesList,
+	"browser_get_cookie":            protocol.CommandCookiesGet,
+	"browser_set_cookie":            protocol.CommandCookiesSet,
+	"browser_remove_cookie":         protocol.CommandCookiesRemove,
 	"browser_send_command":          dynamicCapability,
 }
 
@@ -187,6 +191,10 @@ var exampleOverrides = map[string]map[string]any{
 	"browser_get_network_log":       {"limit": 50, "maxBytes": 524_288},
 	"browser_get_network_body":      {"entryId": "1", "direction": "response", "maxBytes": 262_144},
 	"browser_export_network_har":    {"maxBytes": 1_000_000},
+	"browser_list_cookies":          {"url": "https://example.com/", "limit": 50},
+	"browser_get_cookie":            {"url": "https://example.com/", "name": "session"},
+	"browser_set_cookie":            {"url": "https://example.com/", "name": "preference", "value": "compact", "sameSite": "lax"},
+	"browser_remove_cookie":         {"url": "https://example.com/", "name": "preference"},
 	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
 	"browser_batch": {
 		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
@@ -441,6 +449,10 @@ func permissionDescription(capability string) string {
 		return "Personal data (`sessions`)"
 	case strings.HasPrefix(capability, "network."):
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`"
+	case capability == protocol.CommandCookiesList || capability == protocol.CommandCookiesGet:
+		return "Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`; unmasked reads also require Sensitive data mode"
+	case capability == protocol.CommandCookiesSet || capability == protocol.CommandCookiesRemove:
+		return "Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`"
 	case capability == protocol.CommandPagePrintToPDF:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
 	case capability == protocol.CommandAccessibilityGetTree:
@@ -540,6 +552,14 @@ func resultDescription(name string) string {
 		return "metadata plus an owner-only artifact URI for one redacted same-origin textual request or response body"
 	case "browser_export_network_har":
 		return "metadata plus an owner-only bounded HAR 1.2-like artifact URI; bodies are excluded"
+	case "browser_list_cookies":
+		return "bounded paginated exact-origin cookie metadata; values are masked unless `includeValues` is explicitly requested and Sensitive data mode is enabled"
+	case "browser_get_cookie":
+		return "zero or one exact-origin cookie; its value is masked unless `includeValue` is explicitly requested and Sensitive data mode is enabled"
+	case "browser_set_cookie":
+		return "the normalized cookie metadata with its value masked; the supplied value is never echoed"
+	case "browser_remove_cookie":
+		return "whether one exact-origin cookie was removed, without cookie content"
 	case "browser_send_command":
 		return "the selected extension command's bounded, redacted payload in `data`"
 	default:
@@ -559,6 +579,7 @@ func errorDescription(name, capability string) string {
 	if (strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") ||
 		strings.HasPrefix(capability, "accessibility.") || strings.HasPrefix(capability, "emulation.") ||
 		strings.HasPrefix(capability, "performance.") || strings.HasPrefix(capability, "network.") ||
+		strings.HasPrefix(capability, "cookies.") ||
 		capability == protocol.CommandRuntimeEvaluateIsolated ||
 		capability == protocol.CommandCDPSendReadOnly) &&
 		capability != protocol.CommandEmulationReset {
@@ -606,6 +627,8 @@ func errorDescription(name, capability string) string {
 		)
 	case "browser_export_network_har":
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` or artifact storage failure")
+	case "browser_list_cookies", "browser_get_cookie":
+		errors = append(errors, "`CAPABILITY_UNAVAILABLE` when an unmasked value is requested while Sensitive data mode is disabled")
 	case "browser_send_command":
 		errors = append(errors, "`INVALID_COMMAND` for an unknown or dedicated-only command")
 	case "browser_batch":
@@ -655,6 +678,8 @@ func categoryFor(name string) string {
 		return "Windows"
 	case strings.Contains(name, "tab") || strings.Contains(name, "recently_closed") || strings.Contains(name, "restore_session"):
 		return "Tabs, Groups, and Sessions"
+	case strings.Contains(name, "cookie"):
+		return "Cookies and Personal Data"
 	case name == "browser_page_info" || name == "browser_get_html" ||
 		name == "browser_get_html_by_selector" || name == "browser_get_text" ||
 		name == "browser_query" || name == "browser_get_element" || name == "browser_snapshot" ||
@@ -675,6 +700,7 @@ func categoryOrder(category string) int {
 		"Browser Discovery and Selection",
 		"Windows",
 		"Tabs, Groups, and Sessions",
+		"Cookies and Personal Data",
 		"Page Inspection",
 		"Page Interaction",
 		"Batch",

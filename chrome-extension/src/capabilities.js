@@ -71,6 +71,19 @@ export function detectCapabilities({
 
   const hasWebsiteAccess = (permissions.origins || []).length > 0;
   if (
+    apis.cookies &&
+    apis.tabs &&
+    apis.webNavigation &&
+    grantedPermissions.has("tabs") &&
+    grantedPermissions.has("cookies") &&
+    hasWebsiteAccess
+  ) {
+    capabilities.push("cookies.list", "cookies.get", "cookies.set", "cookies.remove");
+    if (featureFlags.sensitiveData === true) {
+      capabilities.push("cookies.listSensitive", "cookies.getSensitive");
+    }
+  }
+  if (
     featureFlags.pageAutomation !== false &&
     apis.scripting &&
     apis.webNavigation &&

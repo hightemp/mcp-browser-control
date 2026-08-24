@@ -13,6 +13,7 @@ const elements = {
   pageAutomation: document.querySelector("#page-automation"),
   javascriptEvaluation: document.querySelector("#javascript-evaluation"),
   rawCDP: document.querySelector("#raw-cdp"),
+  sensitiveData: document.querySelector("#sensitive-data"),
   retry: document.querySelector("#retry"),
   refresh: document.querySelector("#refresh"),
   browserRuntime: document.querySelector("#browser-runtime"),
@@ -42,6 +43,7 @@ elements.form.addEventListener("submit", (event) => {
             pageAutomation: elements.pageAutomation.checked,
             javascriptEvaluation: elements.javascriptEvaluation.checked,
             rawCDP: elements.rawCDP.checked,
+            sensitiveData: elements.sensitiveData.checked,
           },
         },
       }),
@@ -93,6 +95,7 @@ async function renderResponse(response) {
   elements.javascriptEvaluation.checked =
     data.settings?.featureFlags?.javascriptEvaluation === true;
   elements.rawCDP.checked = data.settings?.featureFlags?.rawCDP === true;
+  elements.sensitiveData.checked = data.settings?.featureFlags?.sensitiveData === true;
   elements.browserRuntime.textContent =
     [data.browserName, data.browserVersion].filter(Boolean).join(" ") || "Chromium";
   elements.browserId.textContent = data.browserId || "—";

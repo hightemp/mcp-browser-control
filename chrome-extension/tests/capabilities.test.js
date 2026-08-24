@@ -15,16 +15,22 @@ test("capability detection uses browser version, APIs, and permissions", () => {
         tabGrouping: true,
         tabGroups: true,
         sessions: true,
+        cookies: true,
         scripting: true,
         webNavigation: true,
         frameTree: true,
         windows: true,
       },
       permissions: {
-        permissions: ["tabs", "scripting", "debugger", "tabGroups", "sessions"],
+        permissions: ["tabs", "scripting", "debugger", "tabGroups", "sessions", "cookies"],
         origins: ["https://example.com/*"],
       },
-      featureFlags: { pageAutomation: true, javascriptEvaluation: true, rawCDP: true },
+      featureFlags: {
+        pageAutomation: true,
+        javascriptEvaluation: true,
+        rawCDP: true,
+        sensitiveData: true,
+      },
     }),
     COMMAND_NAMES,
   );
@@ -170,6 +176,32 @@ test("capability detection removes unavailable or disabled commands", () => {
   assert.equal(cleanupWithoutSiteAccess.includes("emulation.reset"), true);
   assert.equal(cleanupWithoutSiteAccess.includes("emulation.set"), false);
   assert.equal(cleanupWithoutSiteAccess.includes("emulation.get"), false);
+
+  const maskedCookiesOnly = detectCapabilities({
+    browserVersion: "130",
+    apis: { tabs: true, webNavigation: true, cookies: true },
+    permissions: {
+      permissions: ["tabs", "cookies"],
+      origins: ["https://example.com/*"],
+    },
+    featureFlags: { sensitiveData: false },
+  });
+  assert.equal(maskedCookiesOnly.includes("cookies.list"), true);
+  assert.equal(maskedCookiesOnly.includes("cookies.getSensitive"), false);
+
+  const cookiesWithoutPersonalData = detectCapabilities({
+    browserVersion: "130",
+    apis: { tabs: true, webNavigation: true, cookies: true },
+    permissions: {
+      permissions: ["tabs"],
+      origins: ["https://example.com/*"],
+    },
+    featureFlags: { sensitiveData: true },
+  });
+  assert.equal(
+    cookiesWithoutPersonalData.some((name) => name.startsWith("cookies.")),
+    false,
+  );
 });
 
 function tabCapabilitiesWithoutStop() {

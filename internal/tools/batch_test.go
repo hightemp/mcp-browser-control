@@ -307,6 +307,8 @@ func TestBrowserBatchRejectsUnsafeOrCrossBrowserSteps(t *testing.T) {
 		{name: "network start", steps: []map[string]any{{"tool": "browser_start_network_capture"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "network body", steps: []map[string]any{{"tool": "browser_get_network_body"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "network HAR", steps: []map[string]any{{"tool": "browser_export_network_har"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "cookie read", steps: []map[string]any{{"tool": "browser_list_cookies"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "cookie mutation", steps: []map[string]any{{"tool": "browser_set_cookie"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "recursive", steps: []map[string]any{{"tool": "browser_batch"}}, wantCode: protocol.CodeInvalidCommand},
 		{
 			name: "different browser",
@@ -414,6 +416,7 @@ func TestBatchAllowedToolsAreRegisteredAndClassified(t *testing.T) {
 		"browser_get_performance_metrics", "browser_capture_performance",
 		"browser_start_network_capture", "browser_stop_network_capture", "browser_clear_network_log",
 		"browser_get_network_body", "browser_export_network_har",
+		"browser_list_cookies", "browser_get_cookie", "browser_set_cookie", "browser_remove_cookie",
 		"browser_send_command", "browser_batch",
 	} {
 		if _, allowed := batchAllowedTools[denied]; allowed {

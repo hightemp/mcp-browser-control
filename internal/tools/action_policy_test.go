@@ -53,6 +53,19 @@ func TestActionPolicyRejectsDestinationBeforeBrowserDispatch(t *testing.T) {
 			},
 		},
 		{
+			name: "cookie URL outside allowlist",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserListCookiesHandler(
+					context.Background(),
+					mcp.CallToolRequest{},
+					cookieListArgs{
+						cookieTargetArgs: cookieTargetArgs{BrowserID: "browser-a"},
+						URL:              "https://blocked.example/path?token=must-not-be-logged",
+					},
+				)
+			},
+		},
+		{
 			name: "incognito window",
 			call: func() (*mcp.CallToolResult, error) {
 				incognito := true

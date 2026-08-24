@@ -185,4 +185,17 @@ const (
 	CommandNetworkGetBody = "network.getBody"
 	// CommandNetworkExportHAR exports bounded HAR-like metadata.
 	CommandNetworkExportHAR = "network.exportHAR"
+
+	// CommandCookiesList lists bounded masked cookie metadata.
+	CommandCookiesList = "cookies.list"
+	// CommandCookiesListSensitive lists cookies with explicitly enabled values.
+	CommandCookiesListSensitive = "cookies.listSensitive"
+	// CommandCookiesGet gets one cookie with a masked value.
+	CommandCookiesGet = "cookies.get"
+	// CommandCookiesGetSensitive gets one explicitly enabled cookie value.
+	CommandCookiesGetSensitive = "cookies.getSensitive"
+	// CommandCookiesSet sets one origin-scoped cookie.
+	CommandCookiesSet = "cookies.set"
+	// CommandCookiesRemove removes one origin-scoped cookie.
+	CommandCookiesRemove = "cookies.remove"
 )

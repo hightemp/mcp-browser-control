@@ -1049,9 +1049,21 @@ kind, browser/tab, outcome, size и duration. Добавлены Go/extension te
 
 - Приоритет: P1
 - Зависимости: T-003, T-047, T-081
-- Статус: `[ ]`
+- Статус: `[x]`
 
 List/get/set/remove, domain filters, partition metadata и masking values по умолчанию. Значения доступны только при включённой sensitive-data настройке.
+
+Реализованы четыре отдельные full-profile MCP-команды и шесть extension
+capabilities: обычные list/get всегда маскируют значения, а unmasked-варианты
+объявляются только при включённой пользователем настройке Sensitive data и
+выбираются только явным `includeValue(s)`. Каждый вызов ограничен текущим root
+HTTP(S) origin, documentId и cookie store выбранной вкладки, повторно проверяет
+permissions/target после Chrome API, поддерживает domain/name/path/secure/session
+filters, offset pagination до 200 записей, set/remove и bounded CHIPS metadata.
+Значения, имена, пути, domains, store/document IDs, result count и wire bytes
+имеют независимые лимиты в Go/router/handler. Cookie-команды запрещены через
+generic и batch, action policy проверяет URL/partition origin, audit не содержит
+URL, filters или cookie data. Добавлены Go/extension tests и `docs/cookies.md`.
 
 ### T-071 — Реализовать web storage
 

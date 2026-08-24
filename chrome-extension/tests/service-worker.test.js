@@ -131,7 +131,12 @@ test("service worker pairs and reconnects with the stored credential", async () 
       endpoint: "ws://127.0.0.1:8090/ws",
       displayName: "Test Chromium",
       autoConnect: false,
-      featureFlags: { pageAutomation: true, javascriptEvaluation: true, rawCDP: true },
+      featureFlags: {
+        pageAutomation: true,
+        javascriptEvaluation: true,
+        rawCDP: true,
+        sensitiveData: true,
+      },
     },
   });
   assert.equal(statusResponse.success, true);
@@ -139,6 +144,8 @@ test("service worker pairs and reconnects with the stored credential", async () 
   assert.equal(chromeMock.storageValues.settings.featureFlags.javascriptEvaluation, true);
   assert.equal(statusResponse.data.settings.featureFlags.rawCDP, true);
   assert.equal(chromeMock.storageValues.settings.featureFlags.rawCDP, true);
+  assert.equal(statusResponse.data.settings.featureFlags.sensitiveData, true);
+  assert.equal(chromeMock.storageValues.settings.featureFlags.sensitiveData, true);
 });
 
 const reconnectAlarm = "mcp-browser-control-reconnect";

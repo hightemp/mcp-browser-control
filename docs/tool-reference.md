@@ -1589,6 +1589,408 @@ Example MCP tool payload:
 }
 ```
 
+## Cookies and Personal Data
+
+### `browser_get_cookie`
+
+Get one exact-origin cookie with its value masked by default.
+
+- MCP profile: `full`
+- Extension capability: `cookies.get`
+- Permissions: Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`; unmasked reads also require Sensitive data mode
+- Result: zero or one exact-origin cookie; its value is masked unless `includeValue` is explicitly requested and Sensitive data mode is enabled
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `CAPABILITY_UNAVAILABLE` when an unmasked value is requested while Sensitive data mode is disabled
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "includeValue": {
+      "default": false,
+      "description": "Return the value only when Sensitive data is enabled",
+      "type": "boolean"
+    },
+    "name": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "partitionKey": {
+      "additionalProperties": false,
+      "description": "CHIPS partition key, restricted to the selected root-document origin",
+      "properties": {
+        "hasCrossSiteAncestor": {
+          "type": "boolean"
+        },
+        "topLevelSite": {
+          "maxLength": 8192,
+          "type": "string"
+        }
+      },
+      "required": [
+        "topLevelSite"
+      ],
+      "type": "object"
+    },
+    "storeId": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "name"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "name": "session",
+    "url": "https://example.com/"
+  },
+  "name": "browser_get_cookie"
+}
+```
+
+### `browser_list_cookies`
+
+List bounded exact-origin cookie metadata with values masked by default.
+
+- MCP profile: `full`
+- Extension capability: `cookies.list`
+- Permissions: Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`; unmasked reads also require Sensitive data mode
+- Result: bounded paginated exact-origin cookie metadata; values are masked unless `includeValues` is explicitly requested and Sensitive data mode is enabled
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `CAPABILITY_UNAVAILABLE` when an unmasked value is requested while Sensitive data mode is disabled
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "cursor": {
+      "description": "Positive offset cursor from a previous result",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "domain": {
+      "description": "Cookie domain filter",
+      "maxLength": 253,
+      "type": "string"
+    },
+    "includeValues": {
+      "default": false,
+      "description": "Return values only when Sensitive data is enabled",
+      "type": "boolean"
+    },
+    "limit": {
+      "default": 50,
+      "description": "Maximum cookies to return",
+      "maximum": 200,
+      "minimum": 1,
+      "type": "number"
+    },
+    "name": {
+      "description": "Cookie name filter",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "partitionKey": {
+      "additionalProperties": false,
+      "description": "CHIPS partition key, restricted to the selected root-document origin",
+      "properties": {
+        "hasCrossSiteAncestor": {
+          "type": "boolean"
+        },
+        "topLevelSite": {
+          "maxLength": 8192,
+          "type": "string"
+        }
+      },
+      "required": [
+        "topLevelSite"
+      ],
+      "type": "object"
+    },
+    "path": {
+      "description": "Cookie path filter",
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "secure": {
+      "description": "Filter by Secure attribute",
+      "type": "boolean"
+    },
+    "session": {
+      "description": "Filter session cookies",
+      "type": "boolean"
+    },
+    "storeId": {
+      "description": "Cookie store containing the selected tab",
+      "maxLength": 256,
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "description": "HTTP(S) URL on the selected tab origin",
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "limit": 50,
+    "url": "https://example.com/"
+  },
+  "name": "browser_list_cookies"
+}
+```
+
+### `browser_remove_cookie`
+
+Remove one exact-origin cookie.
+
+- MCP profile: `full`
+- Extension capability: `cookies.remove`
+- Permissions: Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`
+- Result: whether one exact-origin cookie was removed, without cookie content
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "name": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "partitionKey": {
+      "additionalProperties": false,
+      "description": "CHIPS partition key, restricted to the selected root-document origin",
+      "properties": {
+        "hasCrossSiteAncestor": {
+          "type": "boolean"
+        },
+        "topLevelSite": {
+          "maxLength": 8192,
+          "type": "string"
+        }
+      },
+      "required": [
+        "topLevelSite"
+      ],
+      "type": "object"
+    },
+    "storeId": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "maxLength": 8192,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "name"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "name": "preference",
+    "url": "https://example.com/"
+  },
+  "name": "browser_remove_cookie"
+}
+```
+
+### `browser_set_cookie`
+
+Set one exact-origin cookie without echoing its supplied value.
+
+- MCP profile: `full`
+- Extension capability: `cookies.set`
+- Permissions: Personal data (`cookies`) plus Observe (HTTP/HTTPS site access), Core `tabs`/`webNavigation`, and MCP `full`
+- Result: the normalized cookie metadata with its value masked; the supplied value is never echoed
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "domain": {
+      "maxLength": 253,
+      "type": "string"
+    },
+    "expirationDate": {
+      "description": "Unix timestamp in seconds; omit for a session cookie",
+      "minimum": 1,
+      "type": "number"
+    },
+    "httpOnly": {
+      "type": "boolean"
+    },
+    "name": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "partitionKey": {
+      "additionalProperties": false,
+      "description": "CHIPS partition key, restricted to the selected root-document origin",
+      "properties": {
+        "hasCrossSiteAncestor": {
+          "type": "boolean"
+        },
+        "topLevelSite": {
+          "maxLength": 8192,
+          "type": "string"
+        }
+      },
+      "required": [
+        "topLevelSite"
+      ],
+      "type": "object"
+    },
+    "path": {
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "sameSite": {
+      "enum": [
+        "no_restriction",
+        "lax",
+        "strict",
+        "unspecified"
+      ],
+      "type": "string"
+    },
+    "secure": {
+      "type": "boolean"
+    },
+    "storeId": {
+      "maxLength": 256,
+      "type": "string"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    },
+    "url": {
+      "maxLength": 8192,
+      "type": "string"
+    },
+    "value": {
+      "maxLength": 4096,
+      "type": "string"
+    }
+  },
+  "required": [
+    "url",
+    "name",
+    "value"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "name": "preference",
+    "sameSite": "lax",
+    "url": "https://example.com/",
+    "value": "compact"
+  },
+  "name": "browser_set_cookie"
+}
+```
+
 ## Page Inspection
 
 ### `browser_evaluate_javascript`

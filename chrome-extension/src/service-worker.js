@@ -21,6 +21,7 @@ import { createEvaluationHandlers } from "./handlers/evaluation.js";
 import { createRawCDPHandlers } from "./handlers/raw-cdp.js";
 import { createPerformanceHandlers } from "./handlers/performance.js";
 import { createNetworkHandlers } from "./handlers/network.js";
+import { createCookieHandlers } from "./handlers/cookies.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -37,6 +38,7 @@ const DEFAULT_SETTINGS = Object.freeze({
     pageAutomation: true,
     javascriptEvaluation: false,
     rawCDP: false,
+    sensitiveData: false,
   }),
 });
 const RECONNECT_ALARM = "mcp-browser-control-reconnect";
@@ -68,6 +70,7 @@ const commandRouter = new CommandRouter({
     rawCDP: createRawCDPHandlers(chrome, { cdpSessions }),
     performance: createPerformanceHandlers(chrome, { cdpSessions }),
     network: createNetworkHandlers(chrome, { cdpSessions }),
+    cookies: createCookieHandlers(chrome, { getSettings }),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
@@ -130,6 +133,9 @@ async function handleRuntimeMessage(message) {
             message.settings?.featureFlags?.javascriptEvaluation ??
             currentSettings.featureFlags.javascriptEvaluation,
           rawCDP: message.settings?.featureFlags?.rawCDP ?? currentSettings.featureFlags.rawCDP,
+          sensitiveData:
+            message.settings?.featureFlags?.sensitiveData ??
+            currentSettings.featureFlags.sensitiveData,
         },
       };
       await chrome.storage.local.set({ settings });
@@ -508,6 +514,13 @@ function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFla
       tabGrouping: Boolean(chrome.tabs?.group && chrome.tabs?.ungroup),
       tabGroups: Boolean(chrome.tabGroups?.update),
       sessions: Boolean(chrome.sessions?.getRecentlyClosed && chrome.sessions?.restore),
+      cookies: Boolean(
+        chrome.cookies?.getAll &&
+        chrome.cookies?.get &&
+        chrome.cookies?.set &&
+        chrome.cookies?.remove &&
+        chrome.cookies?.getAllCookieStores,
+      ),
       scripting: Boolean(chrome.scripting),
       webNavigation: Boolean(chrome.webNavigation?.getFrame),
       frameTree: Boolean(chrome.webNavigation?.getAllFrames),

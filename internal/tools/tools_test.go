@@ -958,6 +958,12 @@ func newTestService(
 				DisplayName: browserID,
 				Capabilities: []string{
 					protocol.CommandBrowserPing,
+					protocol.CommandCookiesList,
+					protocol.CommandCookiesListSensitive,
+					protocol.CommandCookiesGet,
+					protocol.CommandCookiesGetSensitive,
+					protocol.CommandCookiesSet,
+					protocol.CommandCookiesRemove,
 					protocol.CommandConsoleRead,
 					protocol.CommandConsoleStart,
 					protocol.CommandConsoleStop,

@@ -28,6 +28,14 @@ test("router dispatches every allowlisted command to its domain handler", async 
         getBody: handler,
         exportHAR: handler,
       },
+      cookies: {
+        list: handler,
+        listSensitive: handler,
+        get: handler,
+        getSensitive: handler,
+        set: handler,
+        remove: handler,
+      },
       windows: {
         list: handler,
         get: handler,
@@ -115,6 +123,12 @@ test("router dispatches every allowlisted command to its domain handler", async 
     "tabGroups.update": { groupId: 3, title: "Work", color: "blue" },
     "sessions.recentlyClosed": { maxResults: 10 },
     "sessions.restore": { sessionId: "session-1" },
+    "cookies.list": { url: "https://example.com/", limit: 50 },
+    "cookies.get": { url: "https://example.com/", name: "session" },
+    "cookies.set": { url: "https://example.com/", name: "session", value: "value" },
+    "cookies.remove": { url: "https://example.com/", name: "session" },
+    "cookies.listSensitive": { url: "https://example.com/", limit: 50 },
+    "cookies.getSensitive": { url: "https://example.com/", name: "session" },
     "page.info": {},
     "page.getHTML": {},
     "page.getHTMLBySelector": { selector: "main" },
@@ -347,6 +361,26 @@ test("router validates target and command params before invoking handlers", asyn
           calls += 1;
         },
         exportHAR: () => {
+          calls += 1;
+        },
+      },
+      cookies: {
+        list: () => {
+          calls += 1;
+        },
+        listSensitive: () => {
+          calls += 1;
+        },
+        get: () => {
+          calls += 1;
+        },
+        getSensitive: () => {
+          calls += 1;
+        },
+        set: () => {
+          calls += 1;
+        },
+        remove: () => {
           calls += 1;
         },
       },
@@ -601,6 +635,18 @@ test("router validates target and command params before invoking handlers", asyn
       maxBytes: 262_144,
     }),
     createRequest("network.exportHAR", { maxBytes: 1 }),
+    createRequest("cookies.list", { url: "https://example.com/", limit: 0 }),
+    createRequest("cookies.get", { url: "chrome://settings", name: "session" }),
+    createRequest("cookies.set", {
+      url: "https://example.com/",
+      name: "session",
+      value: "secret",
+      sameSite: "no_restriction",
+    }),
+    createRequest("cookies.remove", {
+      url: "https://example.com/",
+      name: "bad name",
+    }),
     createRequest("runtime.evaluateIsolated", {
       expression: "document.title",
       awaitPromise: true,

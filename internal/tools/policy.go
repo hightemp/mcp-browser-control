@@ -102,6 +102,10 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_send_cdp_command":        toolProfileFull,
 	"browser_get_performance_metrics": toolProfileFull,
 	"browser_capture_performance":     toolProfileFull,
+	"browser_list_cookies":            toolProfileFull,
+	"browser_get_cookie":              toolProfileFull,
+	"browser_set_cookie":              toolProfileFull,
+	"browser_remove_cookie":           toolProfileFull,
 	"browser_send_command":            toolProfileFull,
 }
 

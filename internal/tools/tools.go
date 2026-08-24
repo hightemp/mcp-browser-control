@@ -335,6 +335,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerPerformanceTools(mcpServer)
 	s.registerConsoleTools(mcpServer)
 	s.registerNetworkTools(mcpServer)
+	s.registerCookieTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_get_tabs",
@@ -904,7 +905,8 @@ func (s *Service) browserSendCommandHandler(
 		args.Command == protocol.CommandCDPSendReadOnly ||
 		args.Command == protocol.CommandPerformanceMetrics ||
 		args.Command == protocol.CommandPerformanceCapture ||
-		isDedicatedNetworkCommand(args.Command) {
+		isDedicatedNetworkCommand(args.Command) ||
+		isDedicatedCookieCommand(args.Command) {
 		return errorResult(protocol.NewError(
 			protocol.CodeInvalidCommand,
 			"the command requires its dedicated MCP tool",
@@ -1110,6 +1112,21 @@ func (s *Service) enforceCommandPolicy(command, browserID string, params any) er
 		if destination, ok := values["url"].(string); ok && destination != "" {
 			if err := s.actionPolicy.CheckURL(command, browserID, destination); err != nil {
 				return err
+			}
+		}
+	case protocol.CommandCookiesList, protocol.CommandCookiesListSensitive,
+		protocol.CommandCookiesGet, protocol.CommandCookiesGetSensitive,
+		protocol.CommandCookiesSet, protocol.CommandCookiesRemove:
+		if destination, ok := values["url"].(string); ok && destination != "" {
+			if err := s.actionPolicy.CheckURL(command, browserID, destination); err != nil {
+				return err
+			}
+		}
+		if partition, ok := values["partitionKey"].(map[string]any); ok {
+			if topLevelSite, ok := partition["topLevelSite"].(string); ok && topLevelSite != "" {
+				if err := s.actionPolicy.CheckURL(command, browserID, topLevelSite); err != nil {
+					return err
+				}
 			}
 		}
 	case protocol.CommandWindowsCreate:

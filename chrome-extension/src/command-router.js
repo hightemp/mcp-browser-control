@@ -147,6 +147,36 @@ const COMMANDS = Object.freeze({
     handler: "restore",
     validate: validateSessionRestore,
   }),
+  "cookies.list": Object.freeze({
+    domain: "cookies",
+    handler: "list",
+    validate: validateCookieList,
+  }),
+  "cookies.get": Object.freeze({
+    domain: "cookies",
+    handler: "get",
+    validate: validateCookieIdentity,
+  }),
+  "cookies.set": Object.freeze({
+    domain: "cookies",
+    handler: "set",
+    validate: validateCookieSet,
+  }),
+  "cookies.remove": Object.freeze({
+    domain: "cookies",
+    handler: "remove",
+    validate: validateCookieIdentity,
+  }),
+  "cookies.listSensitive": Object.freeze({
+    domain: "cookies",
+    handler: "listSensitive",
+    validate: validateCookieList,
+  }),
+  "cookies.getSensitive": Object.freeze({
+    domain: "cookies",
+    handler: "getSensitive",
+    validate: validateCookieIdentity,
+  }),
   "page.info": Object.freeze({
     domain: "page",
     handler: "info",
@@ -1731,6 +1761,184 @@ function validateNetworkTarget(target) {
       "Network commands accept only the root frame of a tab",
     );
   }
+}
+
+function validateCookieList(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, [
+    "url",
+    "domain",
+    "name",
+    "path",
+    "secure",
+    "session",
+    "storeId",
+    "partitionKey",
+    "cursor",
+    "limit",
+  ]);
+  validateCookieURL(params.url, "params.url");
+  validateOptionalBoundedString(params.domain, "params.domain", 253);
+  validateOptionalCookieName(params.name, "params.name");
+  validateOptionalCookiePath(params.path, "params.path");
+  validateOptionalBoolean(params.secure, "params.secure");
+  validateOptionalBoolean(params.session, "params.session");
+  validateOptionalBoundedString(params.storeId, "params.storeId", 256);
+  validateCookiePartitionKey(params.partitionKey);
+  if (
+    params.cursor !== undefined &&
+    (typeof params.cursor !== "string" ||
+      !/^\d+$/.test(params.cursor) ||
+      !Number.isSafeInteger(Number(params.cursor)) ||
+      Number(params.cursor) < 1)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.cursor is invalid");
+  }
+  requireIntegerRange(params.limit, "params.limit", 1, 200);
+}
+
+function validateCookieIdentity(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, ["url", "name", "storeId", "partitionKey"]);
+  validateCookieURL(params.url, "params.url");
+  validateCookieName(params.name, "params.name");
+  validateOptionalBoundedString(params.storeId, "params.storeId", 256);
+  validateCookiePartitionKey(params.partitionKey);
+}
+
+function validateCookieSet(params, target) {
+  validateParamsObject(params);
+  validateCookieTarget(target);
+  assertAllowedProperties(params, [
+    "url",
+    "name",
+    "value",
+    "domain",
+    "path",
+    "secure",
+    "httpOnly",
+    "sameSite",
+    "expirationDate",
+    "storeId",
+    "partitionKey",
+  ]);
+  validateCookieURL(params.url, "params.url");
+  validateCookieName(params.name, "params.name");
+  if (
+    typeof params.value !== "string" ||
+    new TextEncoder().encode(params.value).byteLength > 4_096 ||
+    params.value.includes(";") ||
+    hasCookieControl(params.value)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.value is invalid");
+  }
+  validateOptionalBoundedString(params.domain, "params.domain", 253);
+  validateOptionalCookiePath(params.path, "params.path");
+  validateOptionalBoolean(params.secure, "params.secure");
+  validateOptionalBoolean(params.httpOnly, "params.httpOnly");
+  if (
+    params.sameSite !== undefined &&
+    !["no_restriction", "lax", "strict", "unspecified"].includes(params.sameSite)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.sameSite is unsupported");
+  }
+  if (params.sameSite === "no_restriction" && params.secure !== true) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "SameSite=None requires secure=true");
+  }
+  if (
+    params.expirationDate !== undefined &&
+    (!Number.isFinite(params.expirationDate) || params.expirationDate <= 0)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.expirationDate is invalid");
+  }
+  validateOptionalBoundedString(params.storeId, "params.storeId", 256);
+  validateCookiePartitionKey(params.partitionKey);
+}
+
+function validateCookieTarget(target) {
+  if (target === undefined || target === null) return;
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.windowId !== undefined || (target.frameId !== undefined && target.frameId !== 0)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Cookie commands accept only the root frame of a tab",
+    );
+  }
+}
+
+function validateCookieURL(value, path) {
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} is invalid`);
+  }
+  if (
+    typeof value !== "string" ||
+    value.length > 8192 ||
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username ||
+    parsed.password ||
+    parsed.hash
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} must be a safe HTTP(S) URL`);
+  }
+}
+
+function validateCookieName(value, path) {
+  if (
+    typeof value !== "string" ||
+    value.length < 1 ||
+    value.length > 256 ||
+    !/^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/.test(value)
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} is invalid`);
+  }
+}
+
+function validateOptionalCookieName(value, path) {
+  if (value !== undefined) validateCookieName(value, path);
+}
+
+function validateOptionalCookiePath(value, path) {
+  if (
+    value !== undefined &&
+    (typeof value !== "string" ||
+      !value.startsWith("/") ||
+      value.length > 2_048 ||
+      value.includes(";") ||
+      hasCookieControl(value))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} is invalid`);
+  }
+}
+
+function validateOptionalBoundedString(value, path, maximum) {
+  if (
+    value !== undefined &&
+    (typeof value !== "string" || value.length > maximum || hasCookieControl(value))
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} is invalid`);
+  }
+}
+
+function hasCookieControl(value) {
+  return [...value].some((character) => {
+    const code = character.codePointAt(0);
+    return code < 32 || code === 127;
+  });
+}
+
+function validateCookiePartitionKey(value) {
+  if (value === undefined) return;
+  validateParamsObject(value);
+  assertAllowedProperties(value, ["topLevelSite", "hasCrossSiteAncestor"]);
+  validateCookieURL(value.topLevelSite, "params.partitionKey.topLevelSite");
+  validateOptionalBoolean(value.hasCrossSiteAncestor, "params.partitionKey.hasCrossSiteAncestor");
 }
 
 function validateNonEmptyEmulationObject(value, name, allowed) {

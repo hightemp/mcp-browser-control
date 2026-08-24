@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; used by the typed PDF tool
+Status: implemented infrastructure; used by typed PDF and accessibility tools
 
 Last reviewed: 2026-08-24
 

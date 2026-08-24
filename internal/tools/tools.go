@@ -319,6 +319,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerWaitTool(mcpServer)
 	s.registerScreenshotTool(mcpServer)
 	s.registerPrintToPDFTool(mcpServer)
+	s.registerAccessibilityTool(mcpServer)
 	s.registerConsoleTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(

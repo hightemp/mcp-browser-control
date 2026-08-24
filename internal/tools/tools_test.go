@@ -963,6 +963,7 @@ func newTestService(
 					protocol.CommandPageWait,
 					protocol.CommandPageScreenshot,
 					protocol.CommandPagePrintToPDF,
+					protocol.CommandAccessibilityGetTree,
 					protocol.CommandPageInfo,
 					protocol.CommandPageGetText,
 					protocol.CommandPageQuery,

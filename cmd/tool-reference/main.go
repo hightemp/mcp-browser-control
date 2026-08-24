@@ -72,32 +72,33 @@ var toolCapabilities = map[string]string{
 	"browser_get_recently_closed": protocol.CommandSessionsRecentlyClosed,
 	"browser_restore_session":     protocol.CommandSessionsRestore,
 
-	"browser_page_info":            protocol.CommandPageInfo,
-	"browser_get_html":             protocol.CommandPageGetHTML,
-	"browser_get_html_by_selector": protocol.CommandPageGetHTMLBySelector,
-	"browser_get_text":             protocol.CommandPageGetText,
-	"browser_query":                protocol.CommandPageQuery,
-	"browser_get_element":          protocol.CommandPageGetElement,
-	"browser_snapshot":             protocol.CommandPageSnapshot,
-	"browser_click_element":        protocol.CommandPageClick,
-	"browser_double_click":         protocol.CommandPageClick,
-	"browser_context_click":        protocol.CommandPageClick,
-	"browser_input_data":           protocol.CommandPageFill,
-	"browser_hover":                protocol.CommandPageHover,
-	"browser_focus":                protocol.CommandPageFocus,
-	"browser_blur":                 protocol.CommandPageBlur,
-	"browser_type":                 protocol.CommandPageType,
-	"browser_clear":                protocol.CommandPageClear,
-	"browser_press":                protocol.CommandPagePress,
-	"browser_select_option":        protocol.CommandPageSelect,
-	"browser_set_checked":          protocol.CommandPageSetChecked,
-	"browser_scroll":               protocol.CommandPageScroll,
-	"browser_drag_and_drop":        protocol.CommandPageDrag,
-	"browser_dispatch_event":       protocol.CommandPageDispatch,
-	"browser_submit":               protocol.CommandPageSubmit,
-	"browser_wait":                 protocol.CommandPageWait,
-	"browser_screenshot":           protocol.CommandPageScreenshot,
-	"browser_print_to_pdf":         protocol.CommandPagePrintToPDF,
+	"browser_page_info":              protocol.CommandPageInfo,
+	"browser_get_html":               protocol.CommandPageGetHTML,
+	"browser_get_html_by_selector":   protocol.CommandPageGetHTMLBySelector,
+	"browser_get_text":               protocol.CommandPageGetText,
+	"browser_query":                  protocol.CommandPageQuery,
+	"browser_get_element":            protocol.CommandPageGetElement,
+	"browser_snapshot":               protocol.CommandPageSnapshot,
+	"browser_click_element":          protocol.CommandPageClick,
+	"browser_double_click":           protocol.CommandPageClick,
+	"browser_context_click":          protocol.CommandPageClick,
+	"browser_input_data":             protocol.CommandPageFill,
+	"browser_hover":                  protocol.CommandPageHover,
+	"browser_focus":                  protocol.CommandPageFocus,
+	"browser_blur":                   protocol.CommandPageBlur,
+	"browser_type":                   protocol.CommandPageType,
+	"browser_clear":                  protocol.CommandPageClear,
+	"browser_press":                  protocol.CommandPagePress,
+	"browser_select_option":          protocol.CommandPageSelect,
+	"browser_set_checked":            protocol.CommandPageSetChecked,
+	"browser_scroll":                 protocol.CommandPageScroll,
+	"browser_drag_and_drop":          protocol.CommandPageDrag,
+	"browser_dispatch_event":         protocol.CommandPageDispatch,
+	"browser_submit":                 protocol.CommandPageSubmit,
+	"browser_wait":                   protocol.CommandPageWait,
+	"browser_screenshot":             protocol.CommandPageScreenshot,
+	"browser_print_to_pdf":           protocol.CommandPagePrintToPDF,
+	"browser_get_accessibility_tree": protocol.CommandAccessibilityGetTree,
 
 	"browser_start_console_capture": protocol.CommandConsoleStart,
 	"browser_stop_console_capture":  protocol.CommandConsoleStop,
@@ -149,13 +150,14 @@ var exampleOverrides = map[string]map[string]any{
 		"locator":   map[string]any{"css": "#editor"},
 		"eventType": "change",
 	},
-	"browser_submit":                {"locator": map[string]any{"css": "form"}},
-	"browser_wait":                  {"condition": "delay", "delayMs": 250},
-	"browser_screenshot":            {"format": "png", "capture": "viewport"},
-	"browser_print_to_pdf":          {"pageRanges": "1-3", "printBackground": true},
-	"browser_start_console_capture": {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
-	"browser_get_console_log":       {"levels": []string{"error", "warn"}, "limit": 50},
-	"browser_send_command":          {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
+	"browser_submit":                 {"locator": map[string]any{"css": "form"}},
+	"browser_wait":                   {"condition": "delay", "delayMs": 250},
+	"browser_screenshot":             {"format": "png", "capture": "viewport"},
+	"browser_print_to_pdf":           {"pageRanges": "1-3", "printBackground": true},
+	"browser_get_accessibility_tree": {"mode": "full", "roles": []string{"button", "link"}},
+	"browser_start_console_capture":  {"bufferSize": 500, "captureConsole": true, "captureErrors": true},
+	"browser_get_console_log":        {"levels": []string{"error", "warn"}, "limit": 50},
+	"browser_send_command":           {"command": protocol.CommandBrowserPing, "data": map[string]any{}},
 	"browser_batch": {
 		"steps":       []map[string]any{{"tool": "browser_get_tabs", "arguments": map[string]any{}}},
 		"stopOnError": true,
@@ -413,6 +415,8 @@ func permissionDescription(capability string) string {
 		return "Debug (`debugger`); the current extension backend is not implemented"
 	case capability == protocol.CommandPagePrintToPDF:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access)"
+	case capability == protocol.CommandAccessibilityGetTree:
+		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access) and Core `scripting`/`webNavigation` for document-scoped references"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`"
 	default:
@@ -472,6 +476,8 @@ func resultDescription(name string) string {
 		return "image metadata plus `artifactUri` and artifact metadata URI; binary data stays in the artifact store"
 	case "browser_print_to_pdf":
 		return "PDF metadata and normalized print settings plus `artifactUri`; binary data stays in the artifact store"
+	case "browser_get_accessibility_tree":
+		return "a bounded normalized full or partial AX tree with frame associations and optional locator/reference links"
 	case "browser_wait":
 		return "the satisfied condition, observation mode, elapsed time, and matching state in `data`"
 	case "browser_start_console_capture", "browser_stop_console_capture", "browser_clear_console_log":
@@ -496,7 +502,8 @@ func errorDescription(name, capability string) string {
 			"`TIMEOUT` or `CANCELLED`",
 		)
 	}
-	if strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") {
+	if strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console.") ||
+		strings.HasPrefix(capability, "accessibility.") {
 		errors = append(errors,
 			"`TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`",
 			"`PERMISSION_REQUIRED` or `RESTRICTED_URL`",
@@ -516,6 +523,8 @@ func errorDescription(name, capability string) string {
 		errors = append(errors, "`RESTRICTED_URL` for a disallowed URL or browser store")
 	case "browser_screenshot", "browser_print_to_pdf":
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` or artifact storage failure")
+	case "browser_get_accessibility_tree":
+		errors = append(errors, "`PAYLOAD_TOO_LARGE` for a tree above the configured byte limit")
 	case "browser_get_network_log":
 		errors = append(errors, "currently always `CAPABILITY_UNAVAILABLE`")
 	case "browser_send_command":
@@ -569,7 +578,8 @@ func categoryFor(name string) string {
 		return "Tabs, Groups, and Sessions"
 	case name == "browser_page_info" || name == "browser_get_html" ||
 		name == "browser_get_html_by_selector" || name == "browser_get_text" ||
-		name == "browser_query" || name == "browser_get_element" || name == "browser_snapshot":
+		name == "browser_query" || name == "browser_get_element" || name == "browser_snapshot" ||
+		name == "browser_get_accessibility_tree":
 		return "Page Inspection"
 	case isInteractionTool(name) || name == "browser_scroll":
 		return "Page Interaction"

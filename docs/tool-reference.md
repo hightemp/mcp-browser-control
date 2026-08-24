@@ -1591,6 +1591,137 @@ Example MCP tool payload:
 
 ## Page Inspection
 
+### `browser_get_accessibility_tree`
+
+Get a bounded normalized full or partial accessibility tree.
+
+- MCP profile: `full`
+- Extension capability: `accessibility.getTree`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access) and Core `scripting`/`webNavigation` for document-scoped references
+- Result: a bounded normalized full or partial AX tree with frame associations and optional locator/reference links
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` for a tree above the configured byte limit
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "backendNodeId": {
+      "description": "Backend DOM node ID required by partial mode",
+      "minimum": 1,
+      "type": "number"
+    },
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "fetchRelatives": {
+      "description": "Include ancestors, siblings, and children in partial mode",
+      "type": "boolean"
+    },
+    "includeElementReferences": {
+      "description": "Resolve bounded unambiguous root-frame element references",
+      "type": "boolean"
+    },
+    "includeIgnored": {
+      "description": "Include nodes ignored by the accessibility tree",
+      "type": "boolean"
+    },
+    "includeLocators": {
+      "description": "Attach role/name locator hints when available",
+      "type": "boolean"
+    },
+    "maxBytes": {
+      "description": "Maximum normalized extension result bytes",
+      "maximum": 1500000,
+      "minimum": 65536,
+      "type": "number"
+    },
+    "maxDepth": {
+      "description": "Maximum full-tree depth",
+      "maximum": 50,
+      "minimum": 0,
+      "type": "number"
+    },
+    "maxElementReferences": {
+      "description": "Maximum root-frame reference lookups",
+      "maximum": 100,
+      "minimum": 0,
+      "type": "number"
+    },
+    "maxNodes": {
+      "description": "Maximum returned accessibility nodes",
+      "maximum": 5000,
+      "minimum": 1,
+      "type": "number"
+    },
+    "maxProperties": {
+      "description": "Maximum normalized properties per node",
+      "maximum": 50,
+      "minimum": 0,
+      "type": "number"
+    },
+    "maxValueChars": {
+      "description": "Maximum characters per normalized value",
+      "maximum": 2000,
+      "minimum": 1,
+      "type": "number"
+    },
+    "mode": {
+      "description": "Tree retrieval mode",
+      "enum": [
+        "full",
+        "partial"
+      ],
+      "type": "string"
+    },
+    "nameContains": {
+      "description": "Case-insensitive accessible-name substring",
+      "maxLength": 500,
+      "type": "string"
+    },
+    "roles": {
+      "description": "Case-insensitive accessibility roles to include",
+      "items": {
+        "maxLength": 100,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 50,
+      "type": "array"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "description": "Command timeout in milliseconds",
+      "type": "number"
+    }
+  },
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "mode": "full",
+    "roles": [
+      "button",
+      "link"
+    ]
+  },
+  "name": "browser_get_accessibility_tree"
+}
+```
+
 ### `browser_get_element`
 
 Get normalized details for one strictly matched element.

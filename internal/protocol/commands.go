@@ -145,6 +145,9 @@ const (
 	// CommandPagePrintToPDF prints a browser tab to PDF through a managed CDP session.
 	CommandPagePrintToPDF = "page.printToPDF"
 
+	// CommandAccessibilityGetTree returns a bounded normalized accessibility tree.
+	CommandAccessibilityGetTree = "accessibility.getTree"
+
 	// CommandConsoleStart starts console and page error capture.
 	CommandConsoleStart = "console.start"
 	// CommandConsoleStop stops console and page error capture.

@@ -54,6 +54,10 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 	if filtered["standard"]["browser_print_to_pdf"] || !filtered["full"]["browser_print_to_pdf"] {
 		t.Fatal("PDF printing must remain full-profile only")
 	}
+	if filtered["standard"]["browser_get_accessibility_tree"] ||
+		!filtered["full"]["browser_get_accessibility_tree"] {
+		t.Fatal("CDP accessibility must remain full-profile only")
+	}
 	if !filtered["full"]["browser_send_command"] {
 		t.Fatal("full profile does not allow browser_send_command")
 	}

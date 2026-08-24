@@ -100,7 +100,7 @@ export function detectCapabilities({
     );
     if (apis.captureVisibleTab) capabilities.push("page.screenshot");
     if (apis.debugger && grantedPermissions.has("debugger")) {
-      capabilities.push("page.printToPDF");
+      capabilities.push("page.printToPDF", "accessibility.getTree");
     }
     capabilities.push("console.start", "console.stop", "console.clear", "console.read");
   }

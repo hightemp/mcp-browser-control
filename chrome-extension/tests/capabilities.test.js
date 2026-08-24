@@ -131,6 +131,7 @@ test("capability detection removes unavailable or disabled commands", () => {
     },
   });
   assert.equal(withDebugger.includes("page.printToPDF"), true);
+  assert.equal(withDebugger.includes("accessibility.getTree"), true);
 });
 
 function tabCapabilitiesWithoutStop() {

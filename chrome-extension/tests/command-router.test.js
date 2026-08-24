@@ -14,6 +14,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
   };
   const router = createRouter({
     handlers: {
+      accessibility: { getTree: handler },
       browser: { ping: handler },
       windows: {
         list: handler,
@@ -162,6 +163,20 @@ test("router dispatches every allowlisted command to its domain handler", async 
       preferCSSPageSize: false,
       maxBytes: 1_000_000,
     },
+    "accessibility.getTree": {
+      mode: "full",
+      roles: ["button", "link"],
+      nameContains: "",
+      includeIgnored: false,
+      includeLocators: true,
+      includeElementReferences: true,
+      maxDepth: 20,
+      maxNodes: 1_000,
+      maxProperties: 20,
+      maxValueChars: 500,
+      maxElementReferences: 50,
+      maxBytes: 1_000_000,
+    },
     "console.start": {
       bufferSize: 500,
       captureConsole: true,
@@ -208,6 +223,11 @@ test("router validates target and command params before invoking handlers", asyn
   let calls = 0;
   const router = createRouter({
     handlers: {
+      accessibility: {
+        getTree: () => {
+          calls += 1;
+        },
+      },
       browser: {
         ping: () => {
           calls += 1;
@@ -402,6 +422,34 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.screenshot", { format: "jpeg", maxBytes: 2_000_001 }),
     createRequest("page.printToPDF", { pageRanges: "5-2" }),
     createRequest("page.printToPDF", { paperWidth: 2, marginLeft: 1, marginRight: 1 }),
+    createRequest("accessibility.getTree", {
+      mode: "partial",
+      roles: [],
+      nameContains: "",
+      includeIgnored: false,
+      includeLocators: true,
+      includeElementReferences: false,
+      maxNodes: 100,
+      maxProperties: 20,
+      maxValueChars: 500,
+      maxElementReferences: 0,
+      maxBytes: 100_000,
+    }),
+    createRequest("accessibility.getTree", {
+      mode: "full",
+      backendNodeId: 7,
+      roles: [],
+      nameContains: "",
+      includeIgnored: false,
+      includeLocators: true,
+      includeElementReferences: false,
+      maxDepth: 20,
+      maxNodes: 100,
+      maxProperties: 20,
+      maxValueChars: 500,
+      maxElementReferences: 0,
+      maxBytes: 100_000,
+    }),
     createRequest("console.start", {
       captureConsole: false,
       captureErrors: false,

@@ -82,14 +82,15 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_get_console_log":       toolProfileStandard,
 	"browser_batch":                 toolProfileStandard,
 
-	"browser_group_tabs":          toolProfileFull,
-	"browser_ungroup_tabs":        toolProfileFull,
-	"browser_update_tab_group":    toolProfileFull,
-	"browser_get_recently_closed": toolProfileFull,
-	"browser_restore_session":     toolProfileFull,
-	"browser_get_network_log":     toolProfileFull,
-	"browser_print_to_pdf":        toolProfileFull,
-	"browser_send_command":        toolProfileFull,
+	"browser_group_tabs":             toolProfileFull,
+	"browser_ungroup_tabs":           toolProfileFull,
+	"browser_update_tab_group":       toolProfileFull,
+	"browser_get_recently_closed":    toolProfileFull,
+	"browser_restore_session":        toolProfileFull,
+	"browser_get_network_log":        toolProfileFull,
+	"browser_print_to_pdf":           toolProfileFull,
+	"browser_get_accessibility_tree": toolProfileFull,
+	"browser_send_command":           toolProfileFull,
 }
 
 // ToolProfileName returns the least-privileged MCP tool profile that exposes a

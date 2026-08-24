@@ -58,6 +58,7 @@ change. The server rejects a command that is not currently advertised.
 | Network idle observation | `webRequest` and target-origin access | Observe | Capability-gated per wait | Capability-gated per wait | Capability-gated |
 | CDP session infrastructure | `debugger`; flat child sessions require browser 125+ | Debug plus MCP `full` profile | Root manager implemented | Root manager implemented; release smoke still required | Not supported until tested |
 | Print to PDF | managed `Page.printToPDF` | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
+| Accessibility tree | managed `Accessibility.getFullAXTree`/`getPartialAXTree` plus bounded frame metadata | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Personal-data tools beyond sessions/groups | domain-specific optional APIs | Personal data plus MCP `full` profile | Planned | Planned | Not supported until tested |
 
 `browser_get_capabilities` exposes the server's current view. A missing API,

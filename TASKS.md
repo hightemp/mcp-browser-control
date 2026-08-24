@@ -910,9 +910,26 @@ Viewport/device scale, mobile/touch, offline/network throttling, UA, locale, tim
 
 - Приоритет: P1
 - Зависимости: T-060
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Добавить full/partial tree, фильтры, frame association и связь узлов с locator/element reference.
+
+Добавлен full-profile MCP tool `browser_get_accessibility_tree` и типизированная
+extension-команда `accessibility.getTree`. Full mode использует ограниченный
+`Accessibility.getFullAXTree`, partial mode — `getPartialAXTree` по ранее
+полученному `backendNodeId`; `Page.getFrameTree` добавляет ограниченную связь с
+frame. Поддержаны role/name/ignored фильтры, parent linkage, нормализованные
+properties, locator hints и best-effort element references только для
+однозначных role/name совпадений в root frame. Команда требует Observe, явно
+выданный Debug permission и MCP-профиль `full`, повторно проверяет origin и
+root document до/после CDP, не доступна через batch и использует exact method
+allowlist общего CDP manager. Extension и Go независимо проверяют node/depth,
+property/string/reference/frame и byte limits; protected/secret values
+редактируются до передачи и повторно проходят server redaction. Добавлены
+Go/extension tests для full/partial modes, filters, frame association,
+locator/reference links, permission/target gates, invalid bounds и malformed
+tree results; ограничения и release smoke требования описаны в
+`docs/accessibility-tree.md`.
 
 ### T-065 — Реализовать JavaScript evaluation
 

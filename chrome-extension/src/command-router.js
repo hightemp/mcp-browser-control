@@ -267,6 +267,11 @@ const COMMANDS = Object.freeze({
     handler: "printToPDF",
     validate: validatePrintToPDF,
   }),
+  "accessibility.getTree": Object.freeze({
+    domain: "accessibility",
+    handler: "getTree",
+    validate: validateAccessibilityTree,
+  }),
   "console.start": Object.freeze({
     domain: "console",
     handler: "start",
@@ -1120,6 +1125,78 @@ function validatePrintToPDF(params, target) {
   }
 }
 
+function validateAccessibilityTree(params, target) {
+  validateParamsObject(params);
+  validateAccessibilityTarget(target);
+  assertAllowedProperties(params, [
+    "mode",
+    "backendNodeId",
+    "fetchRelatives",
+    "roles",
+    "nameContains",
+    "includeIgnored",
+    "includeLocators",
+    "includeElementReferences",
+    "maxDepth",
+    "maxNodes",
+    "maxProperties",
+    "maxValueChars",
+    "maxElementReferences",
+    "maxBytes",
+  ]);
+  if (!["full", "partial"].includes(params.mode)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.mode must be full or partial");
+  }
+  if (params.mode === "full") {
+    requireIntegerRange(params.maxDepth, "params.maxDepth", 0, 50);
+    if (params.backendNodeId !== undefined || params.fetchRelatives !== undefined) {
+      throw protocolError(
+        ErrorCode.INVALID_MESSAGE,
+        "backendNodeId and fetchRelatives require partial mode",
+      );
+    }
+  } else if (params.mode === "partial") {
+    requireIntegerRange(params.backendNodeId, "params.backendNodeId", 1, Number.MAX_SAFE_INTEGER);
+    if (typeof params.fetchRelatives !== "boolean" || params.maxDepth !== undefined) {
+      throw protocolError(
+        ErrorCode.INVALID_MESSAGE,
+        "partial mode requires fetchRelatives and does not accept maxDepth",
+      );
+    }
+  }
+  if (
+    !Array.isArray(params.roles) ||
+    params.roles.length > 50 ||
+    params.roles.some(
+      (role) =>
+        typeof role !== "string" ||
+        role.length > 100 ||
+        role.trim() === "" ||
+        role !== role.trim().toLocaleLowerCase(),
+    ) ||
+    new Set(params.roles).size !== params.roles.length
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.roles contains invalid values");
+  }
+  assertBoundedString(params.nameContains, "params.nameContains", 500, true);
+  for (const field of ["includeIgnored", "includeLocators", "includeElementReferences"]) {
+    if (typeof params[field] !== "boolean") {
+      throw protocolError(ErrorCode.INVALID_MESSAGE, `params.${field} must be a boolean`);
+    }
+  }
+  requireIntegerRange(params.maxNodes, "params.maxNodes", 1, 5_000);
+  requireIntegerRange(params.maxProperties, "params.maxProperties", 0, 50);
+  requireIntegerRange(params.maxValueChars, "params.maxValueChars", 1, 2_000);
+  requireIntegerRange(params.maxElementReferences, "params.maxElementReferences", 0, 100);
+  requireIntegerRange(params.maxBytes, "params.maxBytes", 64 * 1_024, 1_500_000);
+  if (!params.includeElementReferences && params.maxElementReferences !== 0) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "maxElementReferences must be zero when element references are disabled",
+    );
+  }
+}
+
 function validatePageRanges(pageRanges) {
   if (pageRanges === undefined || pageRanges === "") return;
   if (typeof pageRanges !== "string" || pageRanges.length > 256) {
@@ -1335,6 +1412,19 @@ function validateOptionalTabTarget(target) {
   }
   if (target.frameId !== undefined || target.documentId !== undefined) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "Tab commands require a tab-only target");
+  }
+}
+
+function validateAccessibilityTarget(target) {
+  if (target === undefined || target === null) return;
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.windowId !== undefined || (target.frameId !== undefined && target.frameId !== 0)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Accessibility commands accept only the root frame of a tab",
+    );
   }
 }
 

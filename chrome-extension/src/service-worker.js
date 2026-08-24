@@ -14,6 +14,7 @@ import { detectCapabilities } from "./capabilities.js";
 import { detectBrowserInfo } from "./browser-info.js";
 import { CommandRouter } from "./command-router.js";
 import { createBrowserHandlers } from "./handlers/browser.js";
+import { createAccessibilityHandlers } from "./handlers/accessibility.js";
 import { createConsoleHandlers } from "./handlers/console.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
@@ -52,6 +53,7 @@ const commandRouter = new CommandRouter({
   getBrowserId: getIdentity,
   getCapabilities: getCurrentCapabilities,
   handlers: {
+    accessibility: createAccessibilityHandlers(chrome, { cdpSessions }),
     browser: createBrowserHandlers(),
     console: createConsoleHandlers(chrome),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),

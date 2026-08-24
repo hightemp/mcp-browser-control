@@ -683,6 +683,8 @@ test("router validates target and command params before invoking handlers", asyn
     }),
     createRequest("page.screenshot", { format: "png", quality: 80 }),
     createRequest("page.screenshot", { format: "jpeg", maxBytes: 2_000_001 }),
+    createRequest("page.screenshot", { capture: "element" }),
+    createRequest("page.screenshot", { capture: "fullPage", locator: { css: "main" } }),
     createRequest("page.printToPDF", { pageRanges: "5-2" }),
     createRequest("page.printToPDF", { paperWidth: 2, marginLeft: 1, marginRight: 1 }),
     createRequest("accessibility.getTree", {

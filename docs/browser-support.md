@@ -54,6 +54,7 @@ change. The server rejects a command that is not currently advertised.
 | Recently closed and restore | `sessions` | Personal data (`sessions`) | Capability-gated | Capability-gated | Capability-gated |
 | Page inspection and actions | `scripting`, `webNavigation`, HTTP/HTTPS host access | Observe plus Core | Capability-gated | Capability-gated | Capability-gated |
 | Viewport screenshot | `tabs.captureVisibleTab`, target-origin access | Observe plus Core | Capability-gated | Capability-gated | Capability-gated |
+| Full-page and element screenshot | managed `Page.getLayoutMetrics`/`Page.captureScreenshot`, root-document locator, target-origin access | Observe + Debug | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Console and page-error capture | packaged MAIN/ISOLATED bridges; optional managed `Runtime`/`Log`/`Network` enrichment | Observe plus Core; Debug is optional | Capability-gated | Capability-gated; CDP release smoke required | Bridge baseline only until CDP enrichment is tested |
 | Network idle observation | `webRequest` and target-origin access | Observe | Capability-gated per wait | Capability-gated per wait | Capability-gated |
 | Network capture and artifacts | managed `Network` events plus same-origin textual body getters and body-free HAR export | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |

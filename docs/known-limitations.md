@@ -25,8 +25,9 @@ security review, browser matrix, tests, and user documentation are complete.
 
 - DOM interaction uses the content-script backend. Explicit trusted CDP input
   is not yet implemented.
-- Screenshots capture the viewport only. Full-page and element screenshots are
-  not implemented.
+- Full-page and element screenshots are limited to the root document and
+  require the optional Debug permission. They do not stitch child-frame
+  captures or apply pixel redaction.
 - JavaScript evaluation is isolated-world, JSON-only, bounded, and disabled by
   default. Main-world, persistent, and unrestricted evaluation are prohibited.
 - Raw CDP is disabled by default and limited to the reviewed read-only method

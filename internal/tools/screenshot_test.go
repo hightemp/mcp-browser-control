@@ -37,6 +37,7 @@ func TestScreenshotHandlerStoresValidatedArtifact(t *testing.T) {
 			screenshotArgs{
 				BrowserID: "browser-a",
 				TabID:     &tabID,
+				Capture:   "fullPage",
 				Format:    "png",
 			},
 		)
@@ -49,7 +50,7 @@ func TestScreenshotHandlerStoresValidatedArtifact(t *testing.T) {
 		t.Fatalf("screenshot request = %#v", request)
 	}
 	response, err := protocol.NewResponse(request.RequestID, "browser-a", map[string]any{
-		"capture":    "viewport",
+		"capture":    "fullPage",
 		"format":     "png",
 		"mimeType":   "image/png",
 		"dataBase64": base64.StdEncoding.EncodeToString(pngData),
@@ -104,7 +105,7 @@ func TestDecodeScreenshotResultSupportsPNGAndJPEG(t *testing.T) {
 				`"byteLength":` + strconv.Itoa(len(data)) + `,` +
 				`"width":4,"height":5,"tabId":1,"windowId":2,"warnings":[]}`)
 			result, decoded, err := decodeScreenshotResult(raw, screenshotLimits{
-				format: format, maxWidth: 10, maxHeight: 10, maxBytes: 100_000,
+				capture: "viewport", format: format, maxWidth: 10, maxHeight: 10, maxBytes: 100_000,
 			})
 			if err != nil {
 				t.Fatalf("decodeScreenshotResult() error = %v", err)
@@ -122,15 +123,37 @@ func TestValidateScreenshotArgsRejectsInvalidBounds(t *testing.T) {
 	quality := 80
 	tooLarge := defaultScreenshotMaxBytes + 1
 	tests := []screenshotArgs{
-		{Capture: "fullPage"},
+		{Capture: "unknown"},
+		{Capture: "element"},
+		{Capture: "viewport", Locator: &protocol.Locator{CSS: "#button"}},
 		{Format: "webp"},
 		{Format: "png", Quality: &quality},
 		{MaxBytes: &tooLarge},
 	}
 	for _, args := range tests {
-		if _, _, err := validateScreenshotArgs(args); err == nil {
+		if _, _, err := validateScreenshotArgs(args, nil); err == nil {
 			t.Fatalf("validateScreenshotArgs(%#v) error = nil", args)
 		}
+	}
+}
+
+func TestValidateScreenshotArgsAcceptsElementLocator(t *testing.T) {
+	t.Parallel()
+
+	documentID := "document-1"
+	tabID := 7
+	target := pageTarget(&tabID, nil, documentID)
+	locator := &protocol.Locator{
+		Element: &protocol.ElementReference{ElementID: "element-1", DocumentID: documentID},
+	}
+	params, limits, err := validateScreenshotArgs(screenshotArgs{
+		Capture: "element", Locator: locator, DocumentID: documentID,
+	}, target)
+	if err != nil {
+		t.Fatalf("validateScreenshotArgs() error = %v", err)
+	}
+	if limits.capture != "element" || params["locator"] != locator {
+		t.Fatalf("validated screenshot = (%#v, %#v)", params, limits)
 	}
 }
 

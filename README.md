@@ -19,7 +19,7 @@ The first multi-browser vertical slice is implemented:
 - STDIO and authenticated Streamable HTTP transports are available; deprecated
   legacy SSE requires an explicit opt-in;
 - window, tab, tab-group, session, bounded page inspection, semantic snapshot,
-  locator, DOM interaction, waits, viewport screenshots, managed-CDP PDF
+  locator, DOM interaction, waits, viewport/full-page/element screenshots, managed-CDP PDF
   artifacts, bounded accessibility trees, reversible tab emulation,
   opt-in isolated-world JavaScript evaluation, a reviewed opt-in read-only CDP
   subset, bounded performance metrics/capture artifacts, and bridge/CDP console
@@ -27,8 +27,7 @@ The first multi-browser vertical slice is implemented:
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-Full-page and element screenshots, trusted CDP input, and request interception
-are planned but not complete. Remote mode is not
+Trusted CDP input and request interception are planned but not complete. Remote mode is not
 implemented; do not expose either server port outside the local machine.
 Review the complete [known limitations](docs/known-limitations.md) before a
 production rollout.
@@ -360,16 +359,19 @@ after tracked requests finish. Wait results report match metadata but never
 echo field values; value waits on sensitive fields and predicates on
 sensitive-looking attribute names are rejected.
 
-`browser_screenshot` captures the viewport of the addressed tab as PNG or
-JPEG. JPEG quality is configurable from 0 to 100. The command serializes
-captures per window, temporarily activates an inactive target when necessary,
-and restores the previously active tab. Encoded images are limited to
+`browser_screenshot` captures the viewport, full page, or one located element
+of the addressed root tab as PNG or JPEG. JPEG quality is configurable from 0
+to 100. Viewport mode serializes captures per window, temporarily activates an
+inactive target when necessary, and restores the previously active tab.
+Full-page and element modes require Debug and use a managed exact-method CDP
+lease with `captureBeyondViewport`; they never scroll or resize the page and
+recheck tab/document identity after capture. Encoded images are limited to
 2,000,000 bytes and 16,384 pixels per dimension by default; callers can request
-stricter limits. The server validates the image type and dimensions, removes
-inline base64 from the result, and stores the bytes as a temporary
+stricter limits. The extension and server independently validate type, size,
+and dimensions. Inline base64 is removed and stored as a temporary
 `browser://artifacts/{artifactId}` resource. Pixel content is not redacted, so
-the result includes an explicit sensitive-content warning. Full-page and
-element captures remain planned with the CDP-backed P1 implementation.
+the result includes an explicit sensitive-content warning. See
+[`docs/screenshots.md`](docs/screenshots.md).
 
 `browser_print_to_pdf` uses a managed CDP lease and the optional Debug
 permission. It supports one-based page ranges, portrait/landscape orientation,

@@ -37,6 +37,7 @@ const PROFILE_DEFINITIONS = Object.freeze([
     dependencies: Object.freeze([]),
     tools: Object.freeze([
       "PDF",
+      "full-page and element screenshots",
       "accessibility",
       "console enrichment",
       "emulation",

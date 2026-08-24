@@ -1243,14 +1243,24 @@ function validateScreenshot(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
     "capture",
+    "locator",
     "format",
     "quality",
     "maxWidth",
     "maxHeight",
     "maxBytes",
   ]);
-  validateOptionalTabTarget(target);
-  validateEnum(params.capture, "params.capture", ["viewport"]);
+  validateAccessibilityTarget(target);
+  validateEnum(params.capture, "params.capture", ["viewport", "fullPage", "element"]);
+  const capture = params.capture || "viewport";
+  if (capture === "element") {
+    validateLocator(params.locator, target);
+  } else if (params.locator !== undefined) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.locator is only valid for element capture",
+    );
+  }
   validateEnum(params.format, "params.format", ["png", "jpeg"]);
   validateIntegerRange(params.quality, "params.quality", 0, 100);
   if (params.quality !== undefined && params.format !== "jpeg") {

@@ -129,7 +129,8 @@ an enforced allowlist for both `tools/list` and direct calls:
 - `minimal` exposes browser discovery/selection, browser labels, ping, and
   read-only window/tab metadata;
 - `standard` adds normal tab, window, page, screenshot, wait, and console
-  automation;
+  automation; full-page and element screenshot modes additionally require the
+  browser's optional Debug permission;
 - `full` also exposes tab-group/session tools, network diagnostics, and the
   expert `browser_send_command` entry point.
 

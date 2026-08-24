@@ -8952,13 +8952,13 @@ Example MCP tool payload:
 
 ### `browser_screenshot`
 
-Capture the selected tab viewport and store it as a temporary artifact.
+Capture a tab viewport, full page, or located element and store it as a temporary artifact.
 
 - MCP profile: `standard`
 - Extension capability: `page.screenshot`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; `fullPage` and `element` modes also require Debug (`debugger`)
 - Result: image metadata plus `artifactUri` and artifact metadata URI; binary data stays in the artifact store
-- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` or artifact storage failure
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` or artifact storage failure; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION` for element capture
 
 Input schema:
 
@@ -8970,10 +8970,16 @@ Input schema:
       "type": "string"
     },
     "capture": {
-      "description": "Capture area",
+      "description": "Capture area; fullPage and element require the Debug permission",
       "enum": [
-        "viewport"
+        "viewport",
+        "fullPage",
+        "element"
       ],
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
       "type": "string"
     },
     "format": {
@@ -8983,6 +8989,166 @@ Input schema:
         "jpeg"
       ],
       "type": "string"
+    },
+    "locator": {
+      "additionalProperties": false,
+      "dependentRequired": {
+        "name": [
+          "role"
+        ]
+      },
+      "description": "Element locator; exactly one primary strategy is required",
+      "oneOf": [
+        {
+          "required": [
+            "css"
+          ]
+        },
+        {
+          "required": [
+            "xpath"
+          ]
+        },
+        {
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "required": [
+            "role"
+          ]
+        },
+        {
+          "required": [
+            "label"
+          ]
+        },
+        {
+          "required": [
+            "placeholder"
+          ]
+        },
+        {
+          "required": [
+            "alt"
+          ]
+        },
+        {
+          "required": [
+            "title"
+          ]
+        },
+        {
+          "required": [
+            "testId"
+          ]
+        },
+        {
+          "required": [
+            "coordinates"
+          ]
+        },
+        {
+          "required": [
+            "element"
+          ]
+        }
+      ],
+      "properties": {
+        "alt": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "coordinates": {
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "maximum": 1000000,
+              "minimum": 0,
+              "type": "number"
+            },
+            "y": {
+              "maximum": 1000000,
+              "minimum": 0,
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "type": "object"
+        },
+        "css": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "element": {
+          "additionalProperties": false,
+          "properties": {
+            "documentId": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "elementId": {
+              "minLength": 1,
+              "type": "string"
+            }
+          },
+          "required": [
+            "elementId",
+            "documentId"
+          ],
+          "type": "object"
+        },
+        "includeShadowDOM": {
+          "default": false,
+          "type": "boolean"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "nth": {
+          "maximum": 10000,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "placeholder": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "role": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "strict": {
+          "default": true,
+          "type": "boolean"
+        },
+        "testId": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "xpath": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "type": "object"
     },
     "maxBytes": {
       "description": "Reject larger encoded images",

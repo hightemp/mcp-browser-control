@@ -758,6 +758,216 @@ test("page JPEG screenshot applies quality and rejects bounded payloads", async 
   assert.deepEqual(captureOptions, { format: "jpeg", quality: 72 });
 });
 
+test("page full-page screenshot uses a state-preserving managed CDP capture", async () => {
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const commands = [];
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
+      update: async () => assert.fail("CDP capture must not activate or mutate a tab"),
+      captureVisibleTab: async () => assert.fail("full-page capture must not use the viewport API"),
+    },
+    permissions: { contains: async () => true },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "document-1" }),
+    },
+  };
+  const layout = {
+    cssContentSize: { x: 0, y: 0, width: 1_200, height: 2_400 },
+    cssLayoutViewport: { pageX: 12, pageY: 34, clientWidth: 800, clientHeight: 600 },
+  };
+  const cdpSessions = {
+    withSession: async (target, options, operation) => {
+      assert.deepEqual(target, { tabId: 7 });
+      assert.deepEqual(options.domains, ["Page"]);
+      assert.deepEqual(options.commands, ["Page.getLayoutMetrics", "Page.captureScreenshot"]);
+      return operation({
+        sendCommand: async (method, params) => {
+          commands.push([method, params]);
+          return method === "Page.captureScreenshot" ? { data: pngBase64 } : layout;
+        },
+      });
+    },
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const result = await page.screenshot(
+    {
+      requestId: "full-page",
+      command: "page.screenshot",
+      target: { tabId: 7, documentId: "document-1" },
+      params: {
+        capture: "fullPage",
+        format: "png",
+        maxWidth: 2_000,
+        maxHeight: 3_000,
+        maxBytes: 10_000,
+      },
+    },
+    new AbortController().signal,
+  );
+
+  assert.equal(result.capture, "fullPage");
+  assert.deepEqual(result.warnings, []);
+  assert.deepEqual(commands, [
+    ["Page.getLayoutMetrics", {}],
+    [
+      "Page.captureScreenshot",
+      {
+        format: "png",
+        fromSurface: true,
+        captureBeyondViewport: true,
+        clip: { x: 0, y: 0, width: 1_200, height: 2_400, scale: 1 },
+      },
+    ],
+    ["Page.getLayoutMetrics", {}],
+  ]);
+});
+
+test("page element screenshot resolves the root-document locator into a page clip", async () => {
+  const pngBase64 =
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+  const commands = [];
+  const messages = [];
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
+      sendMessage: async (_tabId, message, options) => {
+        messages.push([message, options]);
+        if (message.type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: "1.5" };
+        }
+        return {
+          success: true,
+          result: { element: { boundingBox: { x: 5, y: 6, width: 7, height: 8 } } },
+        };
+      },
+    },
+    scripting: {
+      executeScript: async () => assert.fail("the ready bridge must not be reinjected"),
+    },
+    permissions: { contains: async () => true },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "document-1" }),
+    },
+  };
+  const layout = {
+    cssContentSize: { x: 0, y: 0, width: 1_000, height: 1_000 },
+    cssLayoutViewport: { pageX: 10, pageY: 20, clientWidth: 100, clientHeight: 100 },
+  };
+  const cdpSessions = {
+    withSession: async (_target, _options, operation) =>
+      operation({
+        sendCommand: async (method, params) => {
+          commands.push([method, params]);
+          return method === "Page.captureScreenshot" ? { data: pngBase64 } : layout;
+        },
+      }),
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const result = await page.screenshot(
+    {
+      requestId: "element",
+      command: "page.screenshot",
+      target: { tabId: 7, documentId: "document-1" },
+      params: {
+        capture: "element",
+        locator: { css: "#chart" },
+        format: "png",
+        maxWidth: 100,
+        maxHeight: 100,
+        maxBytes: 10_000,
+      },
+    },
+    new AbortController().signal,
+  );
+
+  assert.equal(result.capture, "element");
+  assert.equal(messages[1][0].command, "page.getElement");
+  assert.deepEqual(messages[1][0].params, { locator: { css: "#chart" }, maxHTMLChars: 1 });
+  assert.deepEqual(messages[1][1], { frameId: 0, documentId: "document-1" });
+  assert.deepEqual(commands[2], [
+    "Page.captureScreenshot",
+    {
+      format: "png",
+      fromSurface: true,
+      captureBeyondViewport: true,
+      clip: { x: 15, y: 26, width: 7, height: 8, scale: 1 },
+    },
+  ]);
+});
+
+test("page CDP screenshot fails closed on Debug permission and preflight dimensions", async () => {
+  let permissionGranted = false;
+  let sessionCalls = 0;
+  let captureCalls = 0;
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
+    },
+    permissions: {
+      contains: async (request) =>
+        request.permissions?.includes("debugger") ? permissionGranted : true,
+    },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "document-1" }),
+    },
+  };
+  const cdpSessions = {
+    withSession: async (_target, _options, operation) => {
+      sessionCalls += 1;
+      return operation({
+        sendCommand: async (method) => {
+          if (method === "Page.captureScreenshot") captureCalls += 1;
+          return {
+            cssContentSize: { x: 0, y: 0, width: 101, height: 50 },
+            cssLayoutViewport: { pageX: 0, pageY: 0, clientWidth: 100, clientHeight: 50 },
+          };
+        },
+      });
+    },
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const request = {
+    requestId: "bounded-full-page",
+    command: "page.screenshot",
+    target: { tabId: 7, documentId: "document-1" },
+    params: {
+      capture: "fullPage",
+      format: "png",
+      maxWidth: 100,
+      maxHeight: 100,
+      maxBytes: 10_000,
+    },
+  };
+
+  await assert.rejects(
+    page.screenshot(request, new AbortController().signal),
+    (error) => error.code === ErrorCode.PERMISSION_REQUIRED,
+  );
+  assert.equal(sessionCalls, 0);
+
+  permissionGranted = true;
+  await assert.rejects(
+    page.screenshot(request, new AbortController().signal),
+    (error) => error.code === ErrorCode.PAYLOAD_TOO_LARGE,
+  );
+  assert.equal(sessionCalls, 1);
+  assert.equal(captureCalls, 0);
+});
+
 test("page PDF printing uses a managed exact-method CDP lease", async () => {
   const pdfBase64 = btoa("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n");
   const calls = [];

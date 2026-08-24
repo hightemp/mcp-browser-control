@@ -24,15 +24,17 @@ const (
 )
 
 type screenshotArgs struct {
-	BrowserID string `json:"browserId,omitempty"`
-	TabID     *int   `json:"tabId,omitempty"`
-	Capture   string `json:"capture,omitempty"`
-	Format    string `json:"format,omitempty"`
-	Quality   *int   `json:"quality,omitempty"`
-	MaxWidth  *int   `json:"maxWidth,omitempty"`
-	MaxHeight *int   `json:"maxHeight,omitempty"`
-	MaxBytes  *int   `json:"maxBytes,omitempty"`
-	TimeoutMS *int   `json:"timeoutMs,omitempty"`
+	BrowserID  string            `json:"browserId,omitempty"`
+	TabID      *int              `json:"tabId,omitempty"`
+	DocumentID string            `json:"documentId,omitempty"`
+	Capture    string            `json:"capture,omitempty"`
+	Locator    *protocol.Locator `json:"locator,omitempty"`
+	Format     string            `json:"format,omitempty"`
+	Quality    *int              `json:"quality,omitempty"`
+	MaxWidth   *int              `json:"maxWidth,omitempty"`
+	MaxHeight  *int              `json:"maxHeight,omitempty"`
+	MaxBytes   *int              `json:"maxBytes,omitempty"`
+	TimeoutMS  *int              `json:"timeoutMs,omitempty"`
 }
 
 type screenshotWireResult struct {
@@ -52,10 +54,12 @@ func (s *Service) registerScreenshotTool(mcpServer *server.MCPServer) {
 	mcpServer.AddTool(
 		mcp.NewTool(
 			"browser_screenshot",
-			mcp.WithDescription("Capture the selected tab viewport and store it as a temporary artifact"),
+			mcp.WithDescription("Capture a tab viewport, full page, or located element and store it as a temporary artifact"),
 			optionalBrowserID(),
 			optionalTabID(),
-			mcp.WithString("capture", mcp.Description("Capture area"), mcp.Enum("viewport")),
+			optionalDocumentID(),
+			mcp.WithString("capture", mcp.Description("Capture area; fullPage and element require the Debug permission"), mcp.Enum("viewport", "fullPage", "element")),
+			optionalLocator(),
 			mcp.WithString("format", mcp.Description("Image format"), mcp.Enum("png", "jpeg")),
 			mcp.WithNumber("quality", mcp.Description("JPEG quality from 0 to 100"), mcp.Min(0), mcp.Max(100)),
 			mcp.WithNumber("maxWidth", mcp.Description("Reject wider images"), mcp.Min(1), mcp.Max(maxScreenshotDimension)),
@@ -72,7 +76,8 @@ func (s *Service) browserScreenshotHandler(
 	_ mcp.CallToolRequest,
 	args screenshotArgs,
 ) (*mcp.CallToolResult, error) {
-	params, limits, err := validateScreenshotArgs(args)
+	target := pageTarget(args.TabID, nil, args.DocumentID)
+	params, limits, err := validateScreenshotArgs(args, target)
 	if err != nil {
 		return errorResult(err)
 	}
@@ -93,7 +98,7 @@ func (s *Service) browserScreenshotHandler(
 		operationCtx,
 		args.BrowserID,
 		protocol.CommandPageScreenshot,
-		targetWithTab(args.TabID),
+		target,
 		params,
 		nil,
 	)
@@ -145,19 +150,30 @@ func (s *Service) browserScreenshotHandler(
 }
 
 type screenshotLimits struct {
+	capture   string
 	format    string
 	maxWidth  int
 	maxHeight int
 	maxBytes  int
 }
 
-func validateScreenshotArgs(args screenshotArgs) (map[string]any, screenshotLimits, error) {
+func validateScreenshotArgs(
+	args screenshotArgs,
+	target *protocol.Target,
+) (map[string]any, screenshotLimits, error) {
 	capture := strings.TrimSpace(args.Capture)
 	if capture == "" {
 		capture = "viewport"
 	}
-	if capture != "viewport" {
-		return nil, screenshotLimits{}, invalidScreenshot("capture must be viewport")
+	if capture != "viewport" && capture != "fullPage" && capture != "element" {
+		return nil, screenshotLimits{}, invalidScreenshot("capture must be viewport, fullPage, or element")
+	}
+	if capture == "element" {
+		if err := args.Locator.Validate(target); err != nil {
+			return nil, screenshotLimits{}, err
+		}
+	} else if args.Locator != nil {
+		return nil, screenshotLimits{}, invalidScreenshot("locator is only valid for element capture")
 	}
 	format := strings.ToLower(strings.TrimSpace(args.Format))
 	if format == "" {
@@ -171,6 +187,7 @@ func validateScreenshotArgs(args screenshotArgs) (map[string]any, screenshotLimi
 	}
 
 	limits := screenshotLimits{
+		capture:   capture,
 		format:    format,
 		maxWidth:  maxScreenshotDimension,
 		maxHeight: maxScreenshotDimension,
@@ -202,6 +219,9 @@ func validateScreenshotArgs(args screenshotArgs) (map[string]any, screenshotLimi
 		"maxHeight": limits.maxHeight,
 		"maxBytes":  limits.maxBytes,
 	}
+	if args.Locator != nil {
+		params["locator"] = args.Locator
+	}
 	putOptional(params, "quality", args.Quality)
 	return params, limits, nil
 }
@@ -214,7 +234,7 @@ func decodeScreenshotResult(
 	if err := json.Unmarshal(raw, &result); err != nil {
 		return result, nil, invalidScreenshotResult()
 	}
-	if result.Capture != "viewport" || result.Format != limits.format ||
+	if result.Capture != limits.capture || result.Format != limits.format ||
 		result.MIMEType != screenshotMIMEType(limits.format) || result.DataBase64 == "" {
 		return result, nil, invalidScreenshotResult()
 	}

@@ -140,7 +140,7 @@ const (
 	// CommandPageWait waits for a bounded page or browser condition.
 	CommandPageWait = "page.wait"
 
-	// CommandPageScreenshot captures a browser tab viewport.
+	// CommandPageScreenshot captures a browser tab viewport, full page, or element.
 	CommandPageScreenshot = "page.screenshot"
 	// CommandPagePrintToPDF prints a browser tab to PDF through a managed CDP session.
 	CommandPagePrintToPDF = "page.printToPDF"

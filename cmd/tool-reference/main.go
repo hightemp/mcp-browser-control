@@ -501,6 +501,8 @@ func permissionDescription(capability string) string {
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, MCP `full`, and the disabled-by-default raw CDP feature flag"
 	case capability == protocol.CommandPerformanceMetrics || capability == protocol.CommandPerformanceCapture:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`"
+	case capability == protocol.CommandPageScreenshot:
+		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; `fullPage` and `element` modes also require Debug (`debugger`)"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`"
 	default:
@@ -662,6 +664,9 @@ func errorDescription(name, capability string) string {
 		errors = append(errors, "`RESTRICTED_URL` for a disallowed URL or browser store")
 	case "browser_screenshot", "browser_print_to_pdf":
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` or artifact storage failure")
+		if name == "browser_screenshot" {
+			errors = append(errors, "`ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION` for element capture")
+		}
 	case "browser_get_accessibility_tree":
 		errors = append(errors, "`PAYLOAD_TOO_LARGE` for a tree above the configured byte limit")
 	case "browser_evaluate_javascript":

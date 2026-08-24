@@ -748,7 +748,7 @@ interval, timeout и cancellation cleanup.
 
 - Приоритет: P0
 - Зависимости: T-034, T-051
-- Статус: `[~]`
+- Статус: `[x]`
 
 Viewport screenshot обязателен для MVP. Full page и element screenshot — P1.
 
@@ -761,18 +761,22 @@ Viewport screenshot обязателен для MVP. Full page и element screen
 - max dimensions/size;
 - восстановление scroll/viewport после full-page capture.
 
-Реализован обязательный для MVP viewport capture через
-`chrome.tabs.captureVisibleTab`: типизированный `browser_screenshot` поддерживает
-PNG/JPEG, JPEG quality, явный browser/tab target и ограничиваемые width, height
-и encoded size. Для неактивной целевой вкладки расширение сериализует захваты
-по окну, временно активирует её и восстанавливает предыдущую вкладку. Сервер
-повторно проверяет MIME type, base64, сигнатуру и реальные размеры изображения,
-после чего удаляет inline payload из ответа и сохраняет бинарные данные в
-временный `browser://artifacts/{artifactId}`. Добавлены тесты PNG/JPEG,
-маршрутизации, лимитов, корректной вкладки и восстановления active tab.
-Full-page и element capture, включая восстановление scroll/viewport, остаются
-P1 и будут реализованы после CDP Session Manager (T-060), поэтому задача имеет
-статус частично выполненной.
+Типизированный `browser_screenshot` поддерживает viewport, full-page и element
+capture в PNG/JPEG с JPEG quality, явным browser/tab/document target и
+ограничиваемыми width, height и encoded size. Viewport capture использует
+`chrome.tabs.captureVisibleTab`, сериализует захваты по окну, временно активирует
+целевую вкладку и восстанавливает предыдущую. Full-page и element capture
+используют точный managed-CDP lease с `Page.getLayoutMetrics` и
+`Page.captureScreenshot(captureBeyondViewport)`, поэтому не меняют scroll,
+viewport или active tab; element bounds разрешаются root-document locator
+engine и переводятся в page coordinates непосредственно перед capture.
+Расширение перепроверяет origin, window и document identity, делает preflight
+лимитов и сообщает, если страница сама изменила viewport во время операции.
+Сервер повторно проверяет capture mode, MIME type, base64, сигнатуру, реальные
+размеры и encoded size, удаляет inline payload и сохраняет бинарные данные во
+временный `browser://artifacts/{artifactId}`. Тесты покрывают оба формата, три
+режима, locator clip, точный CDP allowlist, отсутствие scroll/viewport mutation,
+восстановление active tab, permission denial и preflight limits.
 
 ### T-059 — Реализовать print to PDF
 

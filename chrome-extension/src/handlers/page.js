@@ -6,6 +6,7 @@ const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } = {}) {
   const bridge = new ContentScriptBridge(chromeAPI);
   const captureQueues = new Map();
+  let screenshotSequence = 0;
   let printSequence = 0;
 
   function execute(request, signal) {
@@ -151,6 +152,9 @@ export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } =
     if (!Number.isInteger(tab.windowId) || tab.windowId < 0) {
       throw protocolError(ErrorCode.INTERNAL_ERROR, "The target tab has no browser window");
     }
+    if ((request.params.capture || "viewport") !== "viewport") {
+      return executeCDPScreenshot(request, tab, signal);
+    }
     return withCaptureLock(captureQueues, tab.windowId, async () => {
       throwIfCancelled(signal);
       let originalTab;
@@ -240,6 +244,121 @@ export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } =
         }
       }
     });
+  }
+
+  async function executeCDPScreenshot(request, tab, signal) {
+    if (!cdpSessions) {
+      throw protocolError(ErrorCode.CAPABILITY_UNAVAILABLE, "Managed CDP sessions are unavailable");
+    }
+    const debuggerGranted = await chromeAPI.permissions.contains({ permissions: ["debugger"] });
+    if (!debuggerGranted) {
+      throw protocolError(
+        ErrorCode.PERMISSION_REQUIRED,
+        "Debug permission is required. Grant it from the extension settings page.",
+      );
+    }
+    throwIfCancelled(signal);
+
+    screenshotSequence += 1;
+    const consumerId = `screenshot:${String(request.requestId || screenshotSequence).slice(0, 115)}`;
+    return cdpSessions.withSession(
+      { tabId: tab.id },
+      {
+        consumerId,
+        domains: ["Page"],
+        commands: ["Page.getLayoutMetrics", "Page.captureScreenshot"],
+        signal,
+      },
+      async (lease) => {
+        const currentTab = await resolveStableScreenshotTab(tab);
+        const documentId = await currentDocument(request, currentTab.id, 0);
+        throwIfCancelled(signal);
+
+        const before = normalizeScreenshotLayout(
+          await lease.sendCommand("Page.getLayoutMetrics", {}, { signal }),
+        );
+        let captureLayout = before;
+        let clip = captureLayout.content;
+        if (request.params.capture === "element") {
+          const elementResult = await bridge.execute({
+            tabId: currentTab.id,
+            frameId: 0,
+            documentId,
+            operationId: `screenshot-element:${String(request.requestId || screenshotSequence).slice(0, 100)}`,
+            command: "page.getElement",
+            params: { locator: request.params.locator, maxHTMLChars: 1 },
+            signal,
+          });
+          const currentDocumentId = await currentDocument(request, currentTab.id, 0);
+          assertFreshDocument(documentId, currentDocumentId);
+          captureLayout = normalizeScreenshotLayout(
+            await lease.sendCommand("Page.getLayoutMetrics", {}, { signal }),
+          );
+          clip = elementScreenshotClip(elementResult?.element?.boundingBox, captureLayout);
+        }
+        assertScreenshotClipLimits(clip, request.params);
+        throwIfCancelled(signal);
+
+        const format = request.params.format || "png";
+        const captureParams = {
+          format,
+          fromSurface: true,
+          captureBeyondViewport: true,
+          clip: { ...clip, scale: 1 },
+        };
+        if (format === "jpeg") captureParams.quality = request.params.quality ?? 90;
+        const captured = await lease.sendCommand("Page.captureScreenshot", captureParams, {
+          signal,
+        });
+        throwIfCancelled(signal);
+        const image = decodeScreenshotBase64(
+          captured?.data,
+          format,
+          request.params.maxBytes ?? 2_000_000,
+        );
+        assertScreenshotDimensions(image, request.params);
+
+        const after = normalizeScreenshotLayout(
+          await lease.sendCommand("Page.getLayoutMetrics", {}, { signal }),
+        );
+        const finalTab = await resolveStableScreenshotTab(tab);
+        const finalDocumentId = await currentDocument(request, finalTab.id, 0);
+        assertFreshDocument(documentId, finalDocumentId);
+        throwIfCancelled(signal);
+
+        const warnings = [];
+        if (!sameScreenshotViewport(before.viewport, after.viewport)) {
+          warnings.push(
+            "The page viewport changed during capture; the extension did not mutate scroll or viewport state",
+          );
+        }
+        return {
+          capture: request.params.capture,
+          format,
+          mimeType: image.mimeType,
+          dataBase64: image.dataBase64,
+          byteLength: image.byteLength,
+          width: image.width,
+          height: image.height,
+          tabId: tab.id,
+          windowId: tab.windowId,
+          warnings,
+        };
+      },
+    );
+  }
+
+  async function resolveStableScreenshotTab(originalTab) {
+    const currentTab = await resolveTab(originalTab.id);
+    if (currentTab.windowId !== originalTab.windowId) {
+      throw protocolError(
+        ErrorCode.STALE_TARGET,
+        "The target tab moved to another window before capture completed",
+        true,
+      );
+    }
+    await assertPageAccess(currentTab);
+    return currentTab;
   }
 
   async function executePrintToPDF(request, tab, signal) {
@@ -415,8 +534,13 @@ function decodeScreenshotDataURL(dataURL, format, maxBytes) {
   if (typeof dataURL !== "string" || !dataURL.startsWith(prefix)) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned an invalid screenshot");
   }
-  const dataBase64 = dataURL.slice(prefix.length);
+  return decodeScreenshotBase64(dataURL.slice(prefix.length), format, maxBytes);
+}
+
+function decodeScreenshotBase64(dataBase64, format, maxBytes) {
+  const mimeType = format === "jpeg" ? "image/jpeg" : "image/png";
   if (
+    typeof dataBase64 !== "string" ||
     dataBase64.length === 0 ||
     dataBase64.length % 4 !== 0 ||
     !/^[A-Za-z0-9+/]*={0,2}$/.test(dataBase64)
@@ -443,6 +567,90 @@ function decodeScreenshotDataURL(dataURL, format, maxBytes) {
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   const { width, height } = format === "jpeg" ? jpegDimensions(bytes) : pngDimensions(bytes);
   return { mimeType, dataBase64, byteLength, width, height };
+}
+
+function normalizeScreenshotLayout(result) {
+  return {
+    content: normalizeScreenshotRect(result?.cssContentSize, "content bounds"),
+    viewport: normalizeScreenshotViewport(result?.cssLayoutViewport),
+  };
+}
+
+function normalizeScreenshotRect(rect, label) {
+  if (
+    !rect ||
+    ![rect.x, rect.y, rect.width, rect.height].every(Number.isFinite) ||
+    rect.width <= 0 ||
+    rect.height <= 0
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `The browser returned invalid ${label}`);
+  }
+  return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+}
+
+function normalizeScreenshotViewport(viewport) {
+  if (
+    !viewport ||
+    ![viewport.pageX, viewport.pageY, viewport.clientWidth, viewport.clientHeight].every(
+      Number.isFinite,
+    ) ||
+    viewport.clientWidth <= 0 ||
+    viewport.clientHeight <= 0
+  ) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "The browser returned invalid viewport bounds");
+  }
+  return {
+    pageX: viewport.pageX,
+    pageY: viewport.pageY,
+    clientWidth: viewport.clientWidth,
+    clientHeight: viewport.clientHeight,
+  };
+}
+
+function elementScreenshotClip(boundingBox, layout) {
+  const box = normalizeScreenshotRect(boundingBox, "element bounds");
+  const left = Math.max(layout.content.x, layout.viewport.pageX + box.x);
+  const top = Math.max(layout.content.y, layout.viewport.pageY + box.y);
+  const right = Math.min(
+    layout.content.x + layout.content.width,
+    layout.viewport.pageX + box.x + box.width,
+  );
+  const bottom = Math.min(
+    layout.content.y + layout.content.height,
+    layout.viewport.pageY + box.y + box.height,
+  );
+  if (right <= left || bottom <= top) {
+    throw protocolError(ErrorCode.ELEMENT_NOT_FOUND, "The located element has no capturable area");
+  }
+  return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+function assertScreenshotClipLimits(clip, params) {
+  const maxWidth = params.maxWidth ?? 16_384;
+  const maxHeight = params.maxHeight ?? 16_384;
+  if (Math.ceil(clip.width) > maxWidth || Math.ceil(clip.height) > maxHeight) {
+    throw protocolError(
+      ErrorCode.PAYLOAD_TOO_LARGE,
+      `Screenshot dimensions ${Math.ceil(clip.width)}x${Math.ceil(clip.height)} exceed the requested limits`,
+    );
+  }
+}
+
+function assertScreenshotDimensions(image, params) {
+  const maxWidth = params.maxWidth ?? 16_384;
+  const maxHeight = params.maxHeight ?? 16_384;
+  if (image.width > maxWidth || image.height > maxHeight) {
+    throw protocolError(
+      ErrorCode.PAYLOAD_TOO_LARGE,
+      `Screenshot dimensions ${image.width}x${image.height} exceed the requested limits`,
+    );
+  }
+}
+
+function sameScreenshotViewport(left, right) {
+  return ["pageX", "pageY", "clientWidth", "clientHeight"].every(
+    (field) => left[field] === right[field],
+  );
 }
 
 function decodePDFResult(result, maxBytes, tabId) {

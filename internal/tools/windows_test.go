@@ -124,7 +124,7 @@ func TestWindowCommandHandlersBuildExpectedRequests(t *testing.T) {
 				return service.browserCloseWindowHandler(
 					ctx,
 					mcp.CallToolRequest{},
-					windowTargetArgs{BrowserID: "browser-a", WindowID: windowID},
+					windowCloseArgs{BrowserID: "browser-a", WindowID: windowID, Confirm: true},
 				)
 			},
 		},

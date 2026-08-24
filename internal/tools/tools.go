@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/policy"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/redaction"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
@@ -32,6 +33,7 @@ type Service struct {
 	router       *router.Router
 	selections   *selection.Store
 	artifacts    *artifacts.Store
+	actionPolicy *policy.Action
 	resultLimits redaction.Limits
 }
 
@@ -51,6 +53,14 @@ func WithMaxResultBytes(maxBytes int64) ServiceOption {
 		if maxBytes > 0 && maxBytes <= 64<<20 {
 			service.resultLimits = redaction.DefaultLimits(int(maxBytes))
 		}
+	}
+}
+
+// WithActionPolicy enables server-side URL and incognito checks before
+// commands are sent to a browser extension.
+func WithActionPolicy(actionPolicy *policy.Action) ServiceOption {
+	return func(service *Service) {
+		service.actionPolicy = actionPolicy
 	}
 }
 
@@ -975,6 +985,9 @@ func (s *Service) sendRaw(
 	if err != nil {
 		return "", target, nil, time.Since(startedAt), err
 	}
+	if err := s.enforceCommandPolicy(command, browserID, params); err != nil {
+		return browserID, target, nil, time.Since(startedAt), err
+	}
 	if commandUsesTab(command) {
 		target, err = s.resolveTarget(ctx, browserID, target)
 		if err != nil {
@@ -986,6 +999,16 @@ func (s *Service) sendRaw(
 		return browserID, target, nil, time.Since(startedAt), err
 	}
 	defer cancel()
+	if s.actionPolicy != nil && command == protocol.CommandTabsCreate {
+		if err := s.enforceTabCreationPolicy(requestCtx, browserID, params); err != nil {
+			return browserID, target, nil, time.Since(startedAt), err
+		}
+	}
+	if s.actionPolicy != nil && commandUsesTab(command) && command != protocol.CommandTabsGet {
+		if err := s.enforceTargetPolicy(requestCtx, browserID, command, target); err != nil {
+			return browserID, target, nil, time.Since(startedAt), err
+		}
+	}
 
 	result, err := s.router.Send(requestCtx, browserID, command, target, params)
 	if err != nil {
@@ -995,6 +1018,148 @@ func (s *Service) sendRaw(
 		result = json.RawMessage("null")
 	}
 	return browserID, target, result, time.Since(startedAt), nil
+}
+
+func (s *Service) enforceTabCreationPolicy(
+	ctx context.Context,
+	browserID string,
+	params any,
+) error {
+	values, _ := params.(map[string]any)
+	windowID, explicitWindow := values["windowId"].(int)
+	if explicitWindow {
+		result, err := s.router.Send(
+			ctx,
+			browserID,
+			protocol.CommandWindowsGet,
+			targetWithWindow(windowID),
+			map[string]any{},
+		)
+		if err != nil {
+			return err
+		}
+		var payload struct {
+			Window struct {
+				Incognito *bool `json:"incognito"`
+			} `json:"window"`
+		}
+		if err := json.Unmarshal(result, &payload); err != nil || payload.Window.Incognito == nil {
+			return invalidPolicyMetadata("window")
+		}
+		if err := s.actionPolicy.CheckIncognito(
+			protocol.CommandTabsCreate,
+			browserID,
+			*payload.Window.Incognito,
+		); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	result, err := s.router.Send(
+		ctx,
+		browserID,
+		protocol.CommandWindowsList,
+		nil,
+		map[string]any{},
+	)
+	if err != nil {
+		return err
+	}
+	var payload struct {
+		Windows []struct {
+			Focused   bool  `json:"focused"`
+			Incognito *bool `json:"incognito"`
+		} `json:"windows"`
+	}
+	if err := json.Unmarshal(result, &payload); err != nil {
+		return invalidPolicyMetadata("window list")
+	}
+	for _, window := range payload.Windows {
+		if window.Focused {
+			if window.Incognito == nil {
+				return invalidPolicyMetadata("focused window")
+			}
+			if err := s.actionPolicy.CheckIncognito(
+				protocol.CommandTabsCreate,
+				browserID,
+				*window.Incognito,
+			); err != nil {
+				return err
+			}
+			return nil
+		}
+	}
+	return invalidPolicyMetadata("focused window")
+}
+
+func (s *Service) enforceCommandPolicy(command, browserID string, params any) error {
+	if s.actionPolicy == nil {
+		return nil
+	}
+	values, ok := params.(map[string]any)
+	if !ok {
+		return nil
+	}
+	switch command {
+	case protocol.CommandTabsCreate, protocol.CommandTabsNavigate:
+		if destination, ok := values["url"].(string); ok && destination != "" {
+			if err := s.actionPolicy.CheckURL(command, browserID, destination); err != nil {
+				return err
+			}
+		}
+	case protocol.CommandWindowsCreate:
+		if incognito, ok := values["incognito"].(bool); ok {
+			if err := s.actionPolicy.CheckIncognito(command, browserID, incognito); err != nil {
+				return err
+			}
+		}
+		if destinations, ok := values["urls"].([]string); ok {
+			for _, destination := range destinations {
+				if err := s.actionPolicy.CheckURL(command, browserID, destination); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (s *Service) enforceTargetPolicy(
+	ctx context.Context,
+	browserID string,
+	command string,
+	target *protocol.Target,
+) error {
+	result, err := s.router.Send(ctx, browserID, protocol.CommandTabsGet, target, map[string]any{})
+	if err != nil {
+		return err
+	}
+	var payload struct {
+		Tab struct {
+			URL       string `json:"url"`
+			Incognito *bool  `json:"incognito"`
+		} `json:"tab"`
+	}
+	if err := json.Unmarshal(result, &payload); err != nil ||
+		payload.Tab.URL == "" || payload.Tab.Incognito == nil {
+		return invalidPolicyMetadata("tab")
+	}
+	if err := s.actionPolicy.CheckIncognito(command, browserID, *payload.Tab.Incognito); err != nil {
+		return err
+	}
+	if err := s.actionPolicy.CheckURL(command, browserID, payload.Tab.URL); err != nil {
+		return err
+	}
+	return nil
+}
+
+func invalidPolicyMetadata(kind string) *protocol.Error {
+	return protocol.NewError(
+		protocol.CodeInvalidMessage,
+		"the browser returned invalid "+kind+" metadata for action policy",
+		false,
+	)
 }
 
 func (s *Service) resolveTarget(

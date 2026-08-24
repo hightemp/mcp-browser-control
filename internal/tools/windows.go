@@ -20,6 +20,13 @@ type windowTargetArgs struct {
 	TimeoutMS *int   `json:"timeoutMs,omitempty"`
 }
 
+type windowCloseArgs struct {
+	BrowserID string `json:"browserId,omitempty"`
+	WindowID  int    `json:"windowId"`
+	Confirm   bool   `json:"confirm"`
+	TimeoutMS *int   `json:"timeoutMs,omitempty"`
+}
+
 type windowCreateArgs struct {
 	BrowserID string   `json:"browserId,omitempty"`
 	URLs      []string `json:"urls,omitempty"`
@@ -97,6 +104,11 @@ func (s *Service) registerWindowTools(mcpServer *server.MCPServer) {
 			mcp.WithDescription("Close one browser window and all of its tabs"),
 			optionalBrowserID(),
 			requiredWindowID(),
+			mcp.WithBoolean(
+				"confirm",
+				mcp.Required(),
+				mcp.Description("Explicitly confirm closing the window and all of its tabs"),
+			),
 			optionalTimeout(),
 		),
 		mcp.NewTypedToolHandler(s.browserCloseWindowHandler),
@@ -194,8 +206,23 @@ func (s *Service) browserFocusWindowHandler(
 func (s *Service) browserCloseWindowHandler(
 	ctx context.Context,
 	_ mcp.CallToolRequest,
-	args windowTargetArgs,
+	args windowCloseArgs,
 ) (*mcp.CallToolResult, error) {
+	if !args.Confirm {
+		if s.actionPolicy != nil {
+			s.actionPolicy.AuditDenied(
+				protocol.CommandWindowsClose,
+				args.BrowserID,
+				"",
+				"confirmation_required",
+			)
+		}
+		return errorResult(protocol.NewError(
+			protocol.CodeConfirmationRequired,
+			"closing a window and all of its tabs requires confirm: true",
+			false,
+		))
+	}
 	return s.send(
 		ctx,
 		args.BrowserID,

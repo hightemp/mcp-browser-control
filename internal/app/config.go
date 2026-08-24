@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/policy"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 )
 
@@ -47,6 +48,9 @@ type Config struct {
 	PairingMaxAttempts         int
 	PairingAttemptWindow       time.Duration
 	OriginAllowlist            []string
+	PageOriginAllowlist        []string
+	PageOriginDenylist         []string
+	AllowIncognito             bool
 	PermissionProfile          string
 	ToolProfile                string
 	ArtifactDirectory          string
@@ -83,6 +87,9 @@ type fileConfig struct {
 	PairingMaxAttempts         *int      `json:"pairingMaxAttempts"`
 	PairingAttemptWindow       *string   `json:"pairingAttemptWindow"`
 	OriginAllowlist            *[]string `json:"originAllowlist"`
+	PageOriginAllowlist        *[]string `json:"pageOriginAllowlist"`
+	PageOriginDenylist         *[]string `json:"pageOriginDenylist"`
+	AllowIncognito             *bool     `json:"allowIncognito"`
 	PermissionProfile          *string   `json:"permissionProfile"`
 	ToolProfile                *string   `json:"toolProfile"`
 	ArtifactDirectory          *string   `json:"artifactDirectory"`
@@ -245,6 +252,16 @@ func (c Config) Validate() error {
 			return err
 		}
 	}
+	for name, origins := range map[string][]string{
+		"page_origin_allowlist": c.PageOriginAllowlist,
+		"page_origin_denylist":  c.PageOriginDenylist,
+	} {
+		for _, origin := range origins {
+			if _, err := policy.NormalizeOrigin(origin); err != nil {
+				return fmt.Errorf("%s: %w", name, err)
+			}
+		}
+	}
 	return nil
 }
 
@@ -277,6 +294,9 @@ func applyFlags(config *Config, args []string, stderr io.Writer) error {
 	flags.IntVar(&config.PairingMaxAttempts, "pairing_max_attempts", config.PairingMaxAttempts, "Invalid pairing attempts per window")
 	flags.DurationVar(&config.PairingAttemptWindow, "pairing_window", config.PairingAttemptWindow, "Pairing attempt rate-limit window")
 	flags.Var(newStringListValue(&config.OriginAllowlist), "origin_allowlist", "Comma-separated exact allowed origins")
+	flags.Var(newStringListValue(&config.PageOriginAllowlist), "page_origin_allowlist", "Comma-separated exact allowed page origins")
+	flags.Var(newStringListValue(&config.PageOriginDenylist), "page_origin_denylist", "Comma-separated exact denied page origins")
+	flags.BoolVar(&config.AllowIncognito, "allow_incognito", config.AllowIncognito, "Allow incognito browser contexts")
 	flags.StringVar(&config.PermissionProfile, "permission_profile", config.PermissionProfile, "Permission profile: minimal, standard, or full")
 	flags.StringVar(&config.ToolProfile, "tool_profile", config.ToolProfile, "Tool profile: minimal, standard, or full")
 	flags.StringVar(&config.ArtifactDirectory, "artifact_dir", config.ArtifactDirectory, "Artifact storage directory")
@@ -338,8 +358,17 @@ func (f fileConfig) apply(config *Config) error {
 	if f.LegacySSEEnabled != nil {
 		config.LegacySSEEnabled = *f.LegacySSEEnabled
 	}
+	if f.AllowIncognito != nil {
+		config.AllowIncognito = *f.AllowIncognito
+	}
 	if f.OriginAllowlist != nil {
 		config.OriginAllowlist = normalizeStringList(*f.OriginAllowlist)
+	}
+	if f.PageOriginAllowlist != nil {
+		config.PageOriginAllowlist = normalizeStringList(*f.PageOriginAllowlist)
+	}
+	if f.PageOriginDenylist != nil {
+		config.PageOriginDenylist = normalizeStringList(*f.PageOriginDenylist)
 	}
 	for name, input := range map[string]struct {
 		value *string
@@ -381,6 +410,12 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 	assignEnvString(lookupEnv, "LOG_LEVEL", &config.LogLevel)
 	if value, ok := lookupEnv(environmentPrefix + "ORIGIN_ALLOWLIST"); ok {
 		config.OriginAllowlist = normalizeStringList(strings.Split(value, ","))
+	}
+	if value, ok := lookupEnv(environmentPrefix + "PAGE_ORIGIN_ALLOWLIST"); ok {
+		config.PageOriginAllowlist = normalizeStringList(strings.Split(value, ","))
+	}
+	if value, ok := lookupEnv(environmentPrefix + "PAGE_ORIGIN_DENYLIST"); ok {
+		config.PageOriginDenylist = normalizeStringList(strings.Split(value, ","))
 	}
 	for name, destination := range map[string]*time.Duration{
 		"COMMAND_TIMEOUT":      &config.CommandTimeout,
@@ -438,6 +473,13 @@ func applyEnvironment(config *Config, lookupEnv func(string) (string, bool)) err
 			return fmt.Errorf("parse %sENABLE_LEGACY_SSE: %w", environmentPrefix, err)
 		}
 		config.LegacySSEEnabled = parsed
+	}
+	if value, ok := lookupEnv(environmentPrefix + "ALLOW_INCOGNITO"); ok {
+		parsed, err := strconv.ParseBool(value)
+		if err != nil {
+			return fmt.Errorf("parse %sALLOW_INCOGNITO: %w", environmentPrefix, err)
+		}
+		config.AllowIncognito = parsed
 	}
 	return nil
 }

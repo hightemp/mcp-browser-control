@@ -992,7 +992,7 @@ DOM snapshot, console entries/events, screenshots и artifact quota имеют �
 
 - Приоритет: P0
 - Зависимости: T-015, T-023
-- Статус: `[~]`
+- Статус: `[x]`
 
 - origin allowlist/denylist;
 - restricted schemes;
@@ -1001,6 +1001,19 @@ DOM snapshot, console entries/events, screenshots и artifact quota имеют �
 - `confirm: true` для destructive operations;
 - запрет silent permission escalation;
 - audit denied actions.
+
+Добавлена server-side action policy с точными HTTP(S) allowlist/denylist
+origin, безусловным запретом restricted schemes и Chrome/Edge extension stores,
+а также preflight текущего URL и incognito state через `tabs.get` перед
+адресованной командой. Destination URL проверяется до create/navigate, denylist
+имеет приоритет, incognito по умолчанию запрещён и отклоняется до расходования
+pairing code. `toolProfile` стал fail-closed allowlist для `tools/list` и прямых
+вызовов; unknown tools не наследуют доступ. Закрытие окна требует
+`confirm: true`. Optional permissions по-прежнему запрашиваются только явным
+кликом в options UI, что закреплено security test. Все отказы журналируют
+только action/tool, browserId, безопасный origin и reason без args, URL query и
+result data. Политика настраивается через JSON, environment и flags; добавлены
+table-driven, transport, middleware и extension contract tests.
 
 ### T-083 — Провести security review P2 функций
 

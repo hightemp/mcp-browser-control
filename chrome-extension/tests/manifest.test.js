@@ -60,6 +60,21 @@ test("extension source is English-only and does not import remote code", async (
   }
 });
 
+test("runtime command paths cannot silently request optional permissions", async () => {
+  const sourceFiles = await listFiles(new URL("src/", extensionRoot));
+  for (const file of sourceFiles.filter(
+    (candidate) =>
+      candidate.pathname.endsWith(".js") && !candidate.pathname.endsWith("/options.js"),
+  )) {
+    const source = await readFile(file, "utf8");
+    assert.doesNotMatch(source, /chrome\.permissions(?:\.|\[)request\b/u, file.pathname);
+  }
+
+  const optionsSource = await readFile(new URL("src/options.js", extensionRoot), "utf8");
+  assert.match(optionsSource, /toggle\.addEventListener\("click"/u);
+  assert.match(optionsSource, /changePermissions\("request"/u);
+});
+
 async function listFiles(directory) {
   const files = [];
   for (const entry of await readdir(directory, { withFileTypes: true })) {

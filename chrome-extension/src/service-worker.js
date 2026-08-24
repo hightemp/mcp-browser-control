@@ -295,7 +295,7 @@ async function sendHello(currentSocket) {
       },
       capabilities: capabilitiesFor(permissions, settings.featureFlags),
       permissions: [...(permissions.permissions || []), ...(permissions.origins || [])],
-      incognito: false,
+      incognito: Boolean(chrome.extension?.inIncognitoContext),
     },
   });
   currentSocket.send(JSON.stringify(hello));

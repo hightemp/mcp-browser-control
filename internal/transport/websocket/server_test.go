@@ -402,6 +402,7 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 		WithMessageRateLimit(10, 20),
 		WithMaxMessageBytes(1024),
 		WithOriginAllowlist([]string{"chrome-extension://allowed"}),
+		WithIncognitoAllowed(true),
 	)
 	if transport.handshakeTimeout != 250*time.Millisecond {
 		t.Errorf("handshakeTimeout = %v", transport.handshakeTimeout)
@@ -420,6 +421,9 @@ func TestServerOptionsAndRequestGuards(t *testing.T) {
 	}
 	if transport.maxMessageBytes != 1024 {
 		t.Errorf("maxMessageBytes = %d", transport.maxMessageBytes)
+	}
+	if !transport.allowIncognito {
+		t.Error("allowIncognito = false, want true")
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/not-ws", nil)

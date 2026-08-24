@@ -100,6 +100,9 @@ func TestConfigRejectsInvalidSources(t *testing.T) {
 		{name: "invalid artifact quota", environment: map[string]string{environmentPrefix + "ARTIFACT_MAX_BYTES": "0"}, wantError: "artifact_max_bytes"},
 		{name: "invalid result limit", environment: map[string]string{environmentPrefix + "MCP_MAX_RESULT_BYTES": "0"}, wantError: "payload limits"},
 		{name: "unsafe origin", environment: map[string]string{environmentPrefix + "ORIGIN_ALLOWLIST": "https://example.com"}, wantError: "allowed origin"},
+		{name: "page origin with path", environment: map[string]string{environmentPrefix + "PAGE_ORIGIN_ALLOWLIST": "https://example.com/path"}, wantError: "page_origin_allowlist"},
+		{name: "restricted page origin scheme", environment: map[string]string{environmentPrefix + "PAGE_ORIGIN_DENYLIST": "chrome://settings"}, wantError: "page_origin_denylist"},
+		{name: "invalid incognito flag", environment: map[string]string{environmentPrefix + "ALLOW_INCOGNITO": "sometimes"}, wantError: "ALLOW_INCOGNITO"},
 		{name: "ping not below read timeout", environment: map[string]string{environmentPrefix + "WS_READ_TIMEOUT": "10s", environmentPrefix + "WS_PING_INTERVAL": "10s"}, wantError: "shorter"},
 		{name: "HTTP without token file", environment: map[string]string{environmentPrefix + "MCP_TOKEN_FILE": ""}, wantError: "mcp_token_file"},
 		{name: "legacy SSE without opt in", environment: map[string]string{environmentPrefix + "TRANSPORT": "sse"}, wantError: "enable_legacy_sse"},
@@ -126,6 +129,44 @@ func TestConfigRejectsInvalidSources(t *testing.T) {
 				t.Fatalf("error = %v, want substring %q", err, test.wantError)
 			}
 		})
+	}
+}
+
+func TestConfigActionPolicySources(t *testing.T) {
+	t.Parallel()
+
+	path := filepath.Join(t.TempDir(), "server.json")
+	payload := []byte(`{
+  "pageOriginAllowlist": ["https://file.example"],
+  "pageOriginDenylist": ["https://denied.example"],
+  "allowIncognito": true
+}`)
+	if err := os.WriteFile(path, payload, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	environment := map[string]string{
+		environmentPrefix + "PAGE_ORIGIN_DENYLIST": "https://environment.example",
+		environmentPrefix + "ALLOW_INCOGNITO":      "false",
+	}
+	config, err := parseConfigWithEnvironment(
+		[]string{
+			"-config", path,
+			"-page_origin_allowlist", "https://flag.example,https://flag.example",
+			"-allow_incognito=true",
+		},
+		io.Discard,
+		func(name string) (string, bool) {
+			value, ok := environment[name]
+			return value, ok
+		},
+	)
+	if err != nil {
+		t.Fatalf("parseConfigWithEnvironment() error = %v", err)
+	}
+	if !reflect.DeepEqual(config.PageOriginAllowlist, []string{"https://flag.example"}) ||
+		!reflect.DeepEqual(config.PageOriginDenylist, []string{"https://environment.example"}) ||
+		!config.AllowIncognito {
+		t.Fatalf("action policy config = %#v", config)
 	}
 }
 

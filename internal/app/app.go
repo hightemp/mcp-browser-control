@@ -15,6 +15,7 @@ import (
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/mcpsession"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/netguard"
+	"github.com/hightemp/go_mcp_browser_ext_tool/internal/policy"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/ratelimit"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/registry"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/router"
@@ -70,6 +71,15 @@ func run(
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	actionPolicy, err := policy.NewAction(
+		config.PageOriginAllowlist,
+		config.PageOriginDenylist,
+		config.AllowIncognito,
+		log.New(logger.Writer(), "[Policy] ", log.LstdFlags),
+	)
+	if err != nil {
+		return fmt.Errorf("initialize action policy: %w", err)
+	}
 	artifactStore, err := artifacts.New(
 		config.ArtifactDirectory,
 		config.ArtifactTTL,
@@ -126,6 +136,11 @@ func run(
 		server.WithHooks(hooks),
 		server.WithRecovery(),
 		server.WithToolCapabilities(true),
+		server.WithToolFilter(browsertools.ToolProfileFilter(config.ToolProfile)),
+		server.WithToolHandlerMiddleware(browsertools.ToolProfileMiddleware(
+			config.ToolProfile,
+			log.New(logger.Writer(), "[Policy] ", log.LstdFlags),
+		)),
 	)
 	browsertools.NewService(
 		browserRegistry,
@@ -133,6 +148,7 @@ func run(
 		selections,
 		browsertools.WithArtifactStore(artifactStore),
 		browsertools.WithMaxResultBytes(config.MCPMaxResultBytes),
+		browsertools.WithActionPolicy(actionPolicy),
 	).Register(mcpServer)
 	artifactStore.RegisterResources(mcpServer)
 
@@ -152,6 +168,7 @@ func run(
 			config.WebSocketMessageBurst,
 		),
 		websockettransport.WithOriginAllowlist(config.OriginAllowlist),
+		websockettransport.WithIncognitoAllowed(config.AllowIncognito),
 	)
 	websocketMux := http.NewServeMux()
 	websocketMux.Handle(websockettransport.DefaultPath, websocketHandler)

@@ -348,6 +348,24 @@ Grouping and ungrouping use the Core tabs API. Updating a group and reading or
 restoring recently closed sessions require the optional Personal data profile;
 unsupported Chromium APIs are omitted from the browser's capabilities.
 
+`browser_close_window` requires `confirm: true`. This prevents an implicit
+multi-tab close; an omitted or false confirmation is rejected before any
+browser command is sent.
+
+The server applies `toolProfile` as a fail-closed allowlist. `minimal` exposes
+discovery, selection, browser labels, ping, and read-only window/tab metadata;
+`standard` adds normal browser and page automation; and `full` adds
+personal-data/debug tools and the expert raw entry point. Filtering applies to
+both discovery and direct calls.
+
+Browser action policy is configured separately with exact
+`pageOriginAllowlist` and `pageOriginDenylist` values. Deny entries win,
+restricted browser schemes and browser extension stores are always blocked,
+and incognito is disabled unless `allowIncognito` is set. Targeted actions are
+preflighted against current tab metadata, while navigation and creation check
+their destination URLs before dispatch. Policy denials are audited without URL
+paths, queries, arguments, or result data.
+
 ### Registered but not implemented by the current extension
 
 - `browser_get_network_log`

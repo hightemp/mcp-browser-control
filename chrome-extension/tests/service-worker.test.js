@@ -93,6 +93,7 @@ test("service worker pairs and reconnects with the stored credential", async () 
   assert.equal(firstHello.params.pairingCode, "1234-5678");
   assert.equal(firstHello.params.credential, undefined);
   assert.equal(firstHello.params.displayName, "Test Chromium");
+  assert.equal(firstHello.params.incognito, true);
 
   firstSocket.receive(welcome("connection-1", "stored-credential"));
   await waitFor(() => chromeMock.storageValues.credential === "stored-credential");
@@ -193,6 +194,9 @@ function createChromeMock(initialStorage) {
           return { version: "0.1.0-test" };
         },
         async sendMessage() {},
+      },
+      extension: {
+        inIncognitoContext: true,
       },
       storage: {
         local: {

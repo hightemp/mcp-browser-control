@@ -54,6 +54,97 @@ func TestServerRejectsForbiddenOriginDuringUpgrade(t *testing.T) {
 	}
 }
 
+func TestServerRejectsIncognitoBeforeConsumingPairingCode(t *testing.T) {
+	t.Parallel()
+
+	browserRegistry := registry.New()
+	requestRouter := router.New(
+		browserRegistry,
+		router.WithLogger(log.New(io.Discard, "", 0)),
+	)
+	pairingManager, err := pairing.NewManager()
+	if err != nil {
+		t.Fatalf("pairing.NewManager() error = %v", err)
+	}
+	transport := NewServer(
+		browserRegistry,
+		requestRouter,
+		WithLogger(log.New(io.Discard, "", 0)),
+		WithAuthenticator(pairingManager),
+		WithPingInterval(time.Hour),
+	)
+	httpServer := httptest.NewServer(transport)
+	t.Cleanup(httpServer.Close)
+	endpoint := "ws" + strings.TrimPrefix(httpServer.URL, "http") + DefaultPath
+	pairingCode, _, err := pairingManager.CurrentCode()
+	if err != nil {
+		t.Fatalf("CurrentCode() error = %v", err)
+	}
+
+	incognitoSocket, _, err := gorilla.DefaultDialer.Dial(
+		endpoint,
+		http.Header{"Origin": []string{"chrome-extension://security-test"}},
+	)
+	if err != nil {
+		t.Fatalf("Dial(incognito) error = %v", err)
+	}
+	t.Cleanup(func() { _ = incognitoSocket.Close() })
+	incognitoID := uuid.NewString()
+	incognitoHello := protocol.NewMessage(protocol.TypeHello)
+	incognitoHello.BrowserID = incognitoID
+	incognitoHello.Params, err = json.Marshal(protocol.HelloParams{
+		ExtensionVersion: "0.1.0-test",
+		PairingCode:      pairingCode,
+		Incognito:        true,
+	})
+	if err != nil {
+		t.Fatalf("marshal incognito hello: %v", err)
+	}
+	if err := incognitoSocket.WriteJSON(incognitoHello); err != nil {
+		t.Fatalf("write incognito hello: %v", err)
+	}
+	var rejection protocol.Message
+	if err := incognitoSocket.ReadJSON(&rejection); err != nil {
+		t.Fatalf("read incognito rejection: %v", err)
+	}
+	if rejection.Type != protocol.TypeAuthError || rejection.Error == nil ||
+		rejection.Error.Code != protocol.CodeRestrictedURL {
+		t.Fatalf("incognito rejection = %#v", rejection)
+	}
+	if browserRegistry.Count() != 0 {
+		t.Fatal("incognito browser was registered")
+	}
+
+	normalSocket, _, err := gorilla.DefaultDialer.Dial(
+		endpoint,
+		http.Header{"Origin": []string{"chrome-extension://security-test"}},
+	)
+	if err != nil {
+		t.Fatalf("Dial(normal) error = %v", err)
+	}
+	t.Cleanup(func() { _ = normalSocket.Close() })
+	normalID := uuid.NewString()
+	normalHello := protocol.NewMessage(protocol.TypeHello)
+	normalHello.BrowserID = normalID
+	normalHello.Params, err = json.Marshal(protocol.HelloParams{
+		ExtensionVersion: "0.1.0-test",
+		PairingCode:      pairingCode,
+	})
+	if err != nil {
+		t.Fatalf("marshal normal hello: %v", err)
+	}
+	if err := normalSocket.WriteJSON(normalHello); err != nil {
+		t.Fatalf("write normal hello: %v", err)
+	}
+	var welcome protocol.Message
+	if err := normalSocket.ReadJSON(&welcome); err != nil {
+		t.Fatalf("read normal welcome: %v", err)
+	}
+	if welcome.Type != protocol.TypeWelcome || welcome.BrowserID != normalID {
+		t.Fatalf("normal welcome = %#v", welcome)
+	}
+}
+
 func TestServerClosesConnectionForOversizedBrowserMessage(t *testing.T) {
 	t.Parallel()
 

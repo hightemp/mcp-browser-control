@@ -86,6 +86,15 @@ func WithOriginAllowlist(origins []string) Option {
 	}
 }
 
+// WithIncognitoAllowed permits extension contexts that identify themselves as
+// incognito. They are rejected by default before authentication or registry
+// insertion.
+func WithIncognitoAllowed(allowed bool) Option {
+	return func(server *Server) {
+		server.allowIncognito = allowed
+	}
+}
+
 // WithReadTimeout changes the maximum interval without browser activity.
 func WithReadTimeout(timeout time.Duration) Option {
 	return func(server *Server) {
@@ -149,6 +158,7 @@ type Server struct {
 	messageRate      int
 	messageBurst     int
 	originAllowlist  []string
+	allowIncognito   bool
 	upgrader         gorilla.Upgrader
 
 	connectionsMu sync.Mutex
@@ -250,6 +260,23 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 	if hello.ExtensionVersion == "" {
 		s.logger.Printf("invalid browser hello: extensionVersion is required")
+		return
+	}
+	if hello.Incognito && !s.allowIncognito {
+		s.logger.Printf(
+			"policy denied: browserId=%s action=browser.connect reason=incognito_disabled",
+			helloMessage.BrowserID,
+		)
+		message := protocol.NewMessage(protocol.TypeAuthError)
+		message.BrowserID = helloMessage.BrowserID
+		message.Error = protocol.NewError(
+			protocol.CodeRestrictedURL,
+			"incognito browser contexts are disabled by server action policy",
+			false,
+		)
+		if sendErr := connection.Send(request.Context(), message); sendErr != nil {
+			s.logger.Printf("failed to send incognito policy error: %v", sendErr)
+		}
 		return
 	}
 	issuedCredential, err := s.authenticator.Authorize(

@@ -426,14 +426,37 @@ func assertPageText(
 	forbidden string,
 ) {
 	t.Helper()
-	payload := successfulToolCall(t, mcpClient, "browser_get_text", nil)
-	text, _ := objectField(t, payload, "data")["text"].(string)
-	if !strings.Contains(text, want) {
-		t.Fatalf("page text %q does not contain %q", text, want)
+	deadline := time.Now().Add(5 * time.Second)
+	var lastPayload map[string]any
+	var lastErr error
+	var text string
+	for time.Now().Before(deadline) {
+		lastPayload, lastErr = toolCall(mcpClient, "browser_get_text", nil)
+		if lastErr == nil {
+			data, _ := lastPayload["data"].(map[string]any)
+			text, _ = data["text"].(string)
+			if strings.Contains(text, want) &&
+				(forbidden == "" || !strings.Contains(text, forbidden)) {
+				return
+			}
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
-	if forbidden != "" && strings.Contains(text, forbidden) {
-		t.Fatalf("page text %q unexpectedly contains %q", text, forbidden)
-	}
+
+	pageInfo, pageInfoErr := toolCall(mcpClient, "browser_get_page_info", nil)
+	pageHTML, pageHTMLErr := toolCall(mcpClient, "browser_get_html", nil)
+	t.Fatalf(
+		"page text %q did not converge to required=%q forbidden=%q; lastPayload=%#v lastError=%v pageInfo=%#v pageInfoError=%v pageHTML=%#v pageHTMLError=%v",
+		text,
+		want,
+		forbidden,
+		lastPayload,
+		lastErr,
+		pageInfo,
+		pageInfoErr,
+		pageHTML,
+		pageHTMLErr,
+	)
 }
 
 func assertParallelIsolation(t *testing.T, clientA, clientB *client.Client) {

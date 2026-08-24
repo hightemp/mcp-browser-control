@@ -30,6 +30,9 @@ security review, browser matrix, tests, and user documentation are complete.
 - Full-page and element screenshots are limited to the root document and
   require the optional Debug permission. They do not stitch child-frame
   captures or apply pixel redaction.
+- Viewport screenshots require the user to invoke the extension action once on
+  the target tab and origin. Chrome's temporary `activeTab` grant is used
+  instead of the broader `<all_urls>` permission.
 - JavaScript evaluation is isolated-world, JSON-only, bounded, and disabled by
   default. Main-world, persistent, and unrestricted evaluation are prohibited.
 - Raw CDP is disabled by default and limited to the reviewed read-only method

@@ -10,7 +10,14 @@ const manifest = JSON.parse(await readFile(manifestURL, "utf8"));
 const packageJSON = JSON.parse(await readFile(new URL("package.json", extensionRoot), "utf8"));
 const packageLock = JSON.parse(await readFile(new URL("package-lock.json", extensionRoot), "utf8"));
 
-const requiredPermissions = ["alarms", "scripting", "storage", "tabs", "webNavigation"];
+const requiredPermissions = [
+  "activeTab",
+  "alarms",
+  "scripting",
+  "storage",
+  "tabs",
+  "webNavigation",
+];
 const optionalPermissions = [
   "bookmarks",
   "browsingData",

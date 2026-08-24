@@ -142,8 +142,22 @@ func TestTwoChromiumProfilesRouteAndReconnect(t *testing.T) {
 	assertPageInspection(t, clientB, "PROFILE_B_ONLY", "PROFILE_A_ONLY")
 	assertPageWait(t, clientA, "PROFILE_A_ONLY")
 	assertPageWait(t, clientB, "PROFILE_B_ONLY")
-	assertFullPageScreenshot(t, clientA, tabAID)
-	assertFullPageScreenshot(t, clientB, tabBID)
+	assertToolErrorCode(t, clientA, "browser_screenshot", map[string]any{
+		"tabId": tabAID, "capture": "viewport", "format": "png",
+	}, protocol.CodePermissionRequired)
+	assertToolErrorCode(t, clientB, "browser_screenshot", map[string]any{
+		"tabId": tabBID, "capture": "viewport", "format": "png",
+	}, protocol.CodePermissionRequired)
+	if err := chromeA.triggerExtensionAction(ctx, extensionIDA, pageAURL); err != nil {
+		t.Fatalf("grant profile A active-tab access: %v", err)
+	}
+	if err := chromeB.triggerExtensionAction(ctx, extensionIDB, pageBURL); err != nil {
+		t.Fatalf("grant profile B active-tab access: %v", err)
+	}
+	assertScreenshot(t, clientA, tabAID, "viewport")
+	assertScreenshot(t, clientB, tabBID, "viewport")
+	assertScreenshot(t, clientA, tabAID, "fullPage")
+	assertScreenshot(t, clientB, tabBID, "fullPage")
 	fillAndApply(t, clientA, "Alice")
 	assertPageText(t, clientA, "A:Alice", "B:Alice")
 	assertPageText(t, clientB, "B:ready", "Alice")
@@ -571,11 +585,11 @@ func assertPageWait(t *testing.T, mcpClient *client.Client, expected string) {
 	}
 }
 
-func assertFullPageScreenshot(t *testing.T, mcpClient *client.Client, tabID int) {
+func assertScreenshot(t *testing.T, mcpClient *client.Client, tabID int, capture string) {
 	t.Helper()
 	payload := successfulToolCall(t, mcpClient, "browser_screenshot", map[string]any{
 		"tabId":   tabID,
-		"capture": "fullPage",
+		"capture": capture,
 		"format":  "png",
 	})
 	data := objectField(t, payload, "data")
@@ -583,7 +597,7 @@ func assertFullPageScreenshot(t *testing.T, mcpClient *client.Client, tabID int)
 	height, _ := data["height"].(float64)
 	size, _ := data["size"].(float64)
 	artifactURI, _ := payload["artifactUri"].(string)
-	if data["capture"] != "fullPage" || data["mimeType"] != "image/png" ||
+	if data["capture"] != capture || data["mimeType"] != "image/png" ||
 		width <= 0 || height <= 0 || size <= 0 ||
 		!strings.HasPrefix(artifactURI, "browser://artifacts/") {
 		t.Fatalf("browser_screenshot payload = %#v", payload)

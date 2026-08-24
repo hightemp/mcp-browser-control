@@ -180,7 +180,9 @@ export function detectCapabilities({
       "page.submit",
       "page.wait",
     );
-    if (apis.captureVisibleTab) capabilities.push("page.screenshot");
+    if (apis.captureVisibleTab && grantedPermissions.has("activeTab")) {
+      capabilities.push("page.screenshot");
+    }
     if (apis.debugger && grantedPermissions.has("debugger")) {
       capabilities.push(
         "page.printToPDF",

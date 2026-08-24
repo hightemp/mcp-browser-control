@@ -28,6 +28,7 @@ test("capability detection uses browser version, APIs, and permissions", () => {
       },
       permissions: {
         permissions: [
+          "activeTab",
           "tabs",
           "scripting",
           "debugger",
@@ -144,6 +145,22 @@ test("capability detection removes unavailable or disabled commands", () => {
   assert.equal(withoutFrameTree.includes("page.info"), false);
   assert.equal(withoutFrameTree.includes("page.screenshot"), false);
   assert.equal(withoutFrameTree.includes("page.printToPDF"), false);
+
+  const withoutActiveTab = detectCapabilities({
+    browserVersion: "116",
+    apis: {
+      tabs: true,
+      scripting: true,
+      webNavigation: true,
+      frameTree: true,
+      captureVisibleTab: true,
+    },
+    permissions: {
+      permissions: ["tabs", "scripting"],
+      origins: ["https://example.com/*"],
+    },
+  });
+  assert.equal(withoutActiveTab.includes("page.screenshot"), false);
 
   const withDebugger = detectCapabilities({
     browserVersion: "125",

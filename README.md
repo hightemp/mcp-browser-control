@@ -378,8 +378,12 @@ sensitive-looking attribute names are rejected.
 
 `browser_screenshot` captures the viewport, full page, or one located element
 of the addressed root tab as PNG or JPEG. JPEG quality is configurable from 0
-to 100. Viewport mode serializes captures per window, temporarily activates an
-inactive target when necessary, and restores the previously active tab.
+to 100. Before viewport capture on a tab or newly navigated origin, open that
+tab and click the extension action once to grant Chrome's temporary `activeTab`
+access. This required Core permission has no install warning and avoids the
+broader `<all_urls>` permission. Viewport mode serializes captures per window,
+temporarily activates an inactive target when necessary, and restores the
+previously active tab.
 Full-page and element modes require Debug and use a managed exact-method CDP
 lease with `captureBeyondViewport`; they never scroll or resize the page and
 recheck tab/document identity after capture. Encoded images are limited to

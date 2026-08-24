@@ -1091,6 +1091,39 @@ test("page viewport screenshot captures and restores the addressed tab", async (
   assert.equal(activeTabId, 9);
 });
 
+test("page viewport screenshot explains the required active-tab gesture", async () => {
+  const chromeAPI = {
+    tabs: {
+      get: async () => ({
+        id: 7,
+        windowId: 3,
+        active: true,
+        url: "https://example.com/page",
+      }),
+      query: async () => [{ id: 7, windowId: 3, active: true }],
+      captureVisibleTab: async () => {
+        throw new Error("Either the '<all_urls>' or 'activeTab' permission is required.");
+      },
+    },
+    permissions: { contains: async () => true },
+  };
+  const page = createPageHandlers(chromeAPI);
+
+  await assert.rejects(
+    page.screenshot(
+      {
+        command: "page.screenshot",
+        target: { tabId: 7 },
+        params: { capture: "viewport", format: "png" },
+      },
+      new AbortController().signal,
+    ),
+    (error) =>
+      error.code === ErrorCode.PERMISSION_REQUIRED &&
+      error.message.includes("click the extension action"),
+  );
+});
+
 test("page JPEG screenshot applies quality and rejects bounded payloads", async () => {
   const jpegBytes = Uint8Array.from([
     0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x03, 0x03, 0x01, 0x11, 0x00, 0x02,

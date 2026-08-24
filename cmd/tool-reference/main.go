@@ -536,7 +536,7 @@ func permissionDescription(capability string) string {
 	case capability == protocol.CommandPerformanceMetrics || capability == protocol.CommandPerformanceCapture:
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`"
 	case capability == protocol.CommandPageScreenshot:
-		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; `fullPage` and `element` modes also require Debug (`debugger`)"
+		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; `viewport` requires temporary Core `activeTab` access from invoking the extension action, while `fullPage` and `element` require Debug (`debugger`)"
 	case trustedInputCapability(capability):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):

@@ -58,7 +58,7 @@ requested only after a user clicks the corresponding button in settings.
 
 | Profile           | Access                                                                                                                   | When to enable it                                                                                                                 |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Core**          | Alarms, scripting, storage, tabs, and navigation metadata                                                                | Installed automatically for connection, window, and tab management                                                                |
+| **Core**          | Active-tab gesture, alarms, scripting, storage, tabs, and navigation metadata                                            | Installed automatically for connection, window/tab management, and user-invoked viewport screenshots                              |
 | **Observe**       | HTTP/HTTPS site access and `webRequest` metadata                                                                         | Page inspection, actions, waits, screenshots, and base console capture                                                            |
 | **Debug**         | Chrome debugger backend                                                                                                  | PDF, accessibility, emulation, network capture, opt-in isolated evaluation, reviewed raw CDP, and bounded performance diagnostics |
 | **Personal data** | Cookies, origin storage, downloads, sessions, tab groups, bookmarks, history, reading list, clipboard, and browsing data | Personal-data tools including history, bookmarks, and Reading List; grant only while explicitly needed                            |
@@ -82,27 +82,30 @@ optional access.
 8. Wait for the popup status to become **Connected**.
 9. Grant the **Observe** profile before using page inspection or interaction
    tools.
-10. For isolated JavaScript evaluation only, grant **Debug** and enable the
+10. For a viewport screenshot, open the target tab and click the extension
+    action once. Chrome grants temporary `activeTab` access for that tab and
+    origin; navigating to another origin requires another click.
+11. For isolated JavaScript evaluation only, grant **Debug** and enable the
     separate advanced evaluation checkbox in settings. It is off by default.
-11. For the reviewed read-only CDP tool only, grant **Debug** and enable the
+12. For the reviewed read-only CDP tool only, grant **Debug** and enable the
     separate advanced raw CDP checkbox. It is also off by default.
-12. For performance metrics or bounded trace, coverage, CPU-profile, and audit
+13. For performance metrics or bounded trace, coverage, CPU-profile, and audit
     artifacts, grant **Debug**. Treat every generated artifact as sensitive.
-13. For request/response metadata, same-origin textual bodies, or HAR export,
+14. For request/response metadata, same-origin textual bodies, or HAR export,
     grant **Debug** and keep **Observe** access for the target site. Body and
     HAR artifacts remain sensitive even after redaction.
-14. For exact-origin cookie tools, grant **Personal data**. Values stay masked
+15. For exact-origin cookie tools, grant **Personal data**. Values stay masked
     unless you also enable the separate Sensitive data checkbox and explicitly
     request values on a read call. Disable that checkbox after use.
-15. For exact-origin Web Storage tools, grant **Personal data**. Stored values
+16. For exact-origin Web Storage tools, grant **Personal data**. Stored values
     remain masked under the same Sensitive data control. Cache Storage exposes
     names only, IndexedDB exposes names and versions only, and clearing any
     selected storage type requires `confirm: true`.
-16. For download creation, status, pause/resume/cancel, or single-entry history
+17. For download creation, status, pause/resume/cancel, or single-entry history
     erase, grant **Personal data**. Download results expose only a basename,
     never an absolute path or file content. History erase requires
     `confirm: true` and does not delete the file.
-17. For history, bookmarks, or Reading List, grant **Personal data** and use an
+18. For history, bookmarks, or Reading List, grant **Personal data** and use an
     MCP server configured with the `full` tool profile. History deletion and
     recursive bookmark-folder removal require explicit confirmation. Reading
     List appears only when the browser exposes the Chrome 120+ API.

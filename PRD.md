@@ -438,7 +438,7 @@ Manifest V3 расширение включает:
 
 | Профиль | Состав | Установка | Связанные tools | Предупреждение и redaction |
 | --- | --- | --- | --- | --- |
-| **Core** | `alarms`, `scripting`, `storage`, `tabs`, `webNavigation`; `chrome.windows` не требует отдельного permission | install-time | pairing/status, browser, windows, tabs, connection lifecycle | Браузер может показать предупреждение о доступе к вкладкам/истории навигации. В логах редактируются URL query/fragment, заголовки вкладок и введённые значения. |
+| **Core** | `activeTab`, `alarms`, `scripting`, `storage`, `tabs`, `webNavigation`; `chrome.windows` не требует отдельного permission | install-time | pairing/status, browser, windows, tabs, connection lifecycle и viewport screenshot после явного вызова extension action на target tab | `activeTab` не добавляет install warning и выдаёт временный доступ только после пользовательского жеста; браузер может показать предупреждение о tabs/navigation history. В логах редактируются URL query/fragment, заголовки вкладок и введённые значения. |
 | **Observe** | host access `http://*/*`, `https://*/*` | optional | page inspection/actions, `tabs.stop`, console/page errors и ограниченный network metadata capture | Системный prompt сообщает о чтении и изменении данных на посещаемых сайтах. DOM, form values, console arguments и URL secrets не журналируются без redaction. |
 | **Debug** | `debugger` | optional | CDP-backed console/network bodies, accessibility, emulation, performance и allowlisted evaluation | Системный prompt сообщает о доступе к debugger backend. Headers, cookies, authorization data, bodies и evaluation results считаются чувствительными и редактируются или выносятся в ограниченные artifacts. |
 | **Personal data** | `bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`, `tabGroups`; для origin-scoped cookies/storage также требуется Observe | optional | cookies/storage, downloads, recently closed sessions, tab-group presentation, bookmarks/history, clipboard и browsing-data operations | UI перечисляет категории персональных данных и предупреждение Chrome «View and manage your tab groups» до prompt. Cookie values, history queries, bookmark titles/URLs, download paths и clipboard contents не попадают в обычные логи. Массовое удаление дополнительно требует `confirm: true`. |
@@ -695,4 +695,6 @@ Firefox, multi-user host, unrestricted debugging, новых sensitive-data до
 - Manifest V3: <https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3>
 - Extension service worker и WebSocket: <https://developer.chrome.com/docs/extensions/how-to/web-platform/websockets>
 - Permissions: <https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions>
+- `activeTab`: <https://developer.chrome.com/docs/extensions/develop/concepts/activeTab>
+- `tabs.captureVisibleTab`: <https://developer.chrome.com/docs/extensions/reference/api/tabs#method-captureVisibleTab>
 - `chrome.debugger`: <https://developer.chrome.com/docs/extensions/reference/api/debugger>

@@ -9,7 +9,7 @@ import {
   permissionRequestFor,
 } from "../src/permission-profiles.js";
 
-const corePermissions = ["alarms", "scripting", "storage", "tabs", "webNavigation"];
+const corePermissions = ["activeTab", "alarms", "scripting", "storage", "tabs", "webNavigation"];
 
 test("permission profiles expose the fixed Core, Observe, Debug, and Personal matrix", () => {
   assert.deepEqual(

@@ -104,7 +104,14 @@ Chrome, Edge и другие Chromium-продукты независимо от
 - какие tools становятся доступны;
 - какие данные необходимо редактировать.
 
-Матрица профилей зафиксирована в разделе 10 PRD: install-time Core, optional Observe (`http://*/*`, `https://*/*`), Debug (`debugger`) и Personal data (`bookmarks`, `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`, `history`, `sessions`, `tabGroups`). Для каждого профиля указаны системные предупреждения, связанные tool domains, redaction и зависимость Personal data от Observe для origin-scoped данных. Permission events применяются без reload/reconnect.
+Матрица профилей зафиксирована в разделе 10 PRD: install-time Core с
+`activeTab` для временного user-invoked viewport capture, optional Observe
+(`http://*/*`, `https://*/*`), Debug (`debugger`) и Personal data (`bookmarks`,
+`browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`,
+`history`, `sessions`, `tabGroups`). Для каждого профиля указаны системные
+предупреждения, связанные tool domains, redaction и зависимость Personal data
+от Observe для origin-scoped данных. Permission events применяются без
+reload/reconnect.
 
 ## 6. Этап 1 — структура проекта и контракт
 
@@ -482,8 +489,10 @@ chrome-extension/
 - есть lint, unit test и build commands.
 
 Создано Manifest V3 расширение с service worker, popup и options UI. Постоянные
-permissions ограничены базовыми API управления вкладками и выполнения scripts;
-доступ к сайтам и чувствительным API запрашивается только через optional
+permissions ограничены базовыми API управления вкладками и выполнения scripts,
+а `activeTab` даёт временный доступ только после явного вызова extension action
+и не добавляет install warning. Доступ к сайтам и чувствительным API
+запрашивается только через optional
 permissions. Весь runtime-код поставляется внутри расширения. Отдельный
 manifest contract test проверяет версию manifest, точный набор обязательных и
 optional permissions, локальные entrypoints, отсутствие remote imports и
@@ -770,9 +779,11 @@ Viewport screenshot обязателен для MVP. Full page и element screen
 Типизированный `browser_screenshot` поддерживает viewport, full-page и element
 capture в PNG/JPEG с JPEG quality, явным browser/tab/document target и
 ограничиваемыми width, height и encoded size. Viewport capture использует
-`chrome.tabs.captureVisibleTab`, сериализует захваты по окну, временно активирует
-целевую вкладку и восстанавливает предыдущую. Full-page и element capture
-используют точный managed-CDP lease с `Page.getLayoutMetrics` и
+`chrome.tabs.captureVisibleTab` только после user-invoked временного `activeTab`
+grant на target tab/origin, сериализует захваты по окну, временно активирует
+целевую вкладку и восстанавливает предыдущую. До жеста возвращается actionable
+`PERMISSION_REQUIRED`; MCP не запрашивает разрешение автоматически. Full-page и
+element capture используют точный managed-CDP lease с `Page.getLayoutMetrics` и
 `Page.captureScreenshot(captureBeyondViewport)`, поэтому не меняют scroll,
 viewport или active tab; element bounds разрешаются root-document locator
 engine и переводятся в page coordinates непосредственно перед capture.
@@ -1400,9 +1411,12 @@ Build-tagged Go E2E поднимает настоящий WebSocket и Streamabl
 unpacked MV3 extension. Через extension options context выполняются settings и
 pairing, затем две MCP sessions проверяют ambiguous browser selection, создают,
 активируют, навигируют, выбирают и закрывают разные tabs, читают text/HTML и
-semantic snapshot, выполняют wait, full-page screenshot, fill/click и
-параллельные команды без cross-routing. Внешний E2E harness использует CDP только
-для запуска profiles и остановки service worker; после его повторного запуска
+semantic snapshot, выполняют wait, viewport/full-page screenshot, fill/click и
+параллельные команды без cross-routing. Viewport screenshot сначала даёт
+`PERMISSION_REQUIRED`, затем внешний E2E harness через `Extensions.triggerAction`
+эмулирует явный action gesture и проверяет оба screenshot artifacts. CDP также
+используется для запуска profiles и остановки service worker; после его
+повторного запуска
 тест проверяет тот же browserId, новый connectionId, credential reconnect и
 сохранённый выбор MCP session. Test-only manifest выдаёт site access только к
 loopback HTTP и переводит Debug permission в required для детерминированной

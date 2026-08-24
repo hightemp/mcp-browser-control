@@ -17,7 +17,7 @@ test("badge presentation distinguishes connection states", () => {
 });
 
 test("permission profile summary reflects enabled optional profiles", () => {
-  const core = ["alarms", "scripting", "storage", "tabs", "webNavigation"];
+  const core = ["activeTab", "alarms", "scripting", "storage", "tabs", "webNavigation"];
   assert.deepEqual(permissionProfilesFor({ permissions: core }), ["Core"]);
   assert.deepEqual(
     permissionProfilesFor({

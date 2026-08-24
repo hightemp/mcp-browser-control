@@ -79,7 +79,7 @@ development build.
       marker in each profile and retain the routing evidence.
 - [ ] **MVP-5:** For each selected browser, verify tab list/activate/create/
       close, navigation, snapshot/HTML, click, fill, wait, and viewport
-      screenshot.
+      screenshot after invoking the extension action on the target tab.
 - [ ] **MVP-6:** Parallel requests correlate with their own responses and show
       no duplicate, lost, or cross-browser completion.
 - [ ] **MVP-7:** Terminating the MV3 service worker causes automatic reconnect
@@ -129,6 +129,9 @@ the same signing identity/store listing; never commit or attach a private `.pem`
 key to evidence.
 
 - [ ] Fresh install shows only the expected Core warnings.
+- [ ] Invoking the extension action grants temporary `activeTab` access only to
+      the current tab/origin; viewport capture fails with actionable
+      `PERMISSION_REQUIRED` before invocation and succeeds afterward.
 - [ ] Observe, Debug, and Personal data remain optional and are requested only
       after a user action in settings.
 - [ ] Before accepting each optional prompt, cancel once and verify no grant or

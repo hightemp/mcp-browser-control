@@ -230,6 +230,12 @@ export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } =
         try {
           dataURL = await chromeAPI.tabs.captureVisibleTab(tab.windowId, options);
         } catch (error) {
+          if (isMissingActiveTabPermission(error)) {
+            throw protocolError(
+              ErrorCode.PERMISSION_REQUIRED,
+              "Viewport capture requires temporary active-tab access. Open the target tab, click the extension action, and retry.",
+            );
+          }
           throw mapChromeError(error);
         }
         throwIfCancelled(signal);
@@ -268,6 +274,15 @@ export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } =
         }
       }
     });
+  }
+
+  function isMissingActiveTabPermission(error) {
+    const message = String(error?.message || error || "").toLowerCase();
+    return (
+      message.includes("activetab") ||
+      message.includes("active tab") ||
+      message.includes("<all_urls>")
+    );
   }
 
   async function executeCDPScreenshot(request, tab, signal) {

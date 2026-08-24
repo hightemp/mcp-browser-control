@@ -9767,7 +9767,7 @@ Capture a tab viewport, full page, or located element and store it as a temporar
 
 - MCP profile: `standard`
 - Extension capability: `page.screenshot`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; `fullPage` and `element` modes also require Debug (`debugger`)
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; `viewport` requires temporary Core `activeTab` access from invoking the extension action, while `fullPage` and `element` require Debug (`debugger`)
 - Result: image metadata plus `artifactUri` and artifact metadata URI; binary data stays in the artifact store
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `PAYLOAD_TOO_LARGE` or artifact storage failure; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION` for element capture
 

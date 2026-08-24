@@ -81,6 +81,7 @@ func launchChrome(
 		"--disable-background-networking",
 		"--disable-component-update",
 		"--disable-default-apps",
+		"--enable-unsafe-extension-debugging",
 		"--no-default-browser-check",
 		"--no-first-run",
 		"--remote-debugging-address=127.0.0.1",
@@ -193,6 +194,45 @@ func (c *chromeInstance) waitForServiceWorker(
 		case <-time.After(25 * time.Millisecond):
 		}
 	}
+}
+
+func (c *chromeInstance) triggerExtensionAction(
+	ctx context.Context,
+	extensionID string,
+	targetURL string,
+) error {
+	var tabTarget cdpTarget
+	for {
+		var result struct {
+			TargetInfos []cdpTarget `json:"targetInfos"`
+		}
+		if err := c.cdp.call(ctx, "", "Target.getTargets", map[string]any{
+			"filter": []map[string]any{{"type": "tab"}},
+		}, &result); err != nil {
+			return err
+		}
+		for _, target := range result.TargetInfos {
+			if target.Type == "tab" && target.URL == targetURL {
+				tabTarget = target
+				break
+			}
+		}
+		if tabTarget.TargetID != "" {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("wait for extension action target %q: %w", targetURL, ctx.Err())
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
+	if err := c.cdp.call(ctx, "", "Extensions.triggerAction", map[string]any{
+		"id":       extensionID,
+		"targetId": tabTarget.TargetID,
+	}, nil); err != nil {
+		return fmt.Errorf("trigger extension action on %q: %w", targetURL, err)
+	}
+	return nil
 }
 
 func (c *chromeInstance) attach(ctx context.Context, targetID string) (string, error) {

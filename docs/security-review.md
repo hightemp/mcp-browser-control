@@ -87,7 +87,7 @@ the next section.
 | Downloads | Create and lifecycle/status operations; redact paths; never read downloaded file contents | `full` plus Personal data; erase-history batches require confirmation |
 | History, bookmarks, reading list | Paginated scoped reads and single-item mutations; separately named read/mutate tools | `full` plus Personal data; bulk deletion requires confirmation and audit |
 | Performance metrics and tracing | Bounded sessions, safe category allowlist, automatic stop/detach, artifact output | `full` plus Debug; no heap snapshots or unbounded profiler/coverage streams |
-| Browsing-data clearing | Exact data-type/time/origin scope with dry-run summary | `full` plus Personal data, explicit product opt-in, and `confirm: true` |
+| Browsing-data clearing | Two-phase, exact data-type/time/origin plan; dry run reports scope rather than unverifiable deletion counts | `full` plus a dedicated cleanup permission, explicit product-owner opt-in, one-shot plan, and `confirm: true` |
 | Clipboard write | One-shot bounded plain text supplied by the MCP caller and copied directly from an explicit extension-popup click | `full` plus Personal data; 30-second pending request, no persistence or batch |
 | Clipboard read | One-shot bounded plain text read directly from an explicit extension-popup click | Not approved until focused implementation review; requires `full`, Personal data, sensitive-data mode, and visible disclosure to the user |
 | File input | Native user selection, or a dedicated typed CDP tool using only MCP-supplied server-owned artifacts | `full`; automated mode also requires Debug, exact origin, confirmation, and no path parameter |
@@ -172,7 +172,7 @@ task can be marked complete:
 | T-067 performance | Conditional approval for bounded metrics/traces in artifacts; heap snapshots prohibited |
 | T-070–T-073 personal data | Conditional approval with Personal data profile, pagination/redaction, separated mutation, and confirmation |
 | T-074 clipboard/file input | Security design completed in [`clipboard-file-input-design.md`](clipboard-file-input-design.md); one-shot popup clipboard write and artifact-only typed file input are conditional, clipboard read needs a focused implementation review, and arbitrary paths remain prohibited |
-| T-075 proxy/content settings/browsing data | Browsing-data clear is conditional; proxy/content settings remain prohibited pending a new product/security decision |
+| T-075 proxy/content settings/browsing data | Design completed in [`proxy-content-settings-browsing-data-design.md`](proxy-content-settings-browsing-data-design.md); proxy/content settings remain prohibited, while browsing-data clear is conditional on a dedicated permission, product opt-in, exact origins, and two-phase confirmation |
 
 This review must be reopened if the server gains remote binding, supports
 multiple OS users, accepts third-party extensions, changes credential storage,

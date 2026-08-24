@@ -465,6 +465,9 @@ approved there remain disabled even when a browser permission exists.
 The focused [clipboard and file-input design](docs/clipboard-file-input-design.md)
 defines the required one-shot user gesture and server-owned artifact boundary;
 it does not enable either runtime feature.
+The separate [proxy, content-settings, and browsing-data design](docs/proxy-content-settings-browsing-data-design.md)
+keeps proxy and content settings prohibited and defines the disabled-by-default,
+two-phase boundary for any future origin-scoped data cleanup.
 
 ## Development
 

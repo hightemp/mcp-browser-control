@@ -965,9 +965,23 @@ bypass запрещены. Security review обновлён этими гран�
 
 - Приоритет: P2
 - Зависимости: T-083
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Отдельный design review. Эти функции не должны входить в стандартную сборку без явного решения владельца продукта.
+
+Подготовлен английский
+`docs/proxy-content-settings-browsing-data-design.md` с browser matrix,
+официальными источниками, threat analysis, rollout/recovery и обязательными
+негативными и real-browser тестами. Proxy запрещён из-за browser-wide влияния,
+неoptional permission и install warning; content settings запрещены даже для
+read-only до нового продуктового и security review. Browsing-data cleanup
+условно разрешён только после явного решения владельца продукта: отдельный
+permission consent, выключенный по умолчанию feature flag, MCP `full`, точные
+HTTP(S) origins, ограниченный allowlist типов и двухфазный одноразовый plan с
+`confirm: true`. Global/exclusion scopes, protected/extension origins,
+autofill/password/history/download deletion, batch/raw bypass и автоматический
+retry запрещены. Runtime capability в рамках исследовательской задачи не
+добавлялась.
 
 ## 13. Этап 8 — безопасность и ограничения
 

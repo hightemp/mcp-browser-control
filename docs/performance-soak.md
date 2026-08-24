@@ -56,6 +56,10 @@ version, Chrome/Edge version used by the preceding E2E gate, and whether the
 host was otherwise idle. A release candidate passes only when both processes
 exit successfully and the JSON values meet the table above.
 
+`SIGINT`, `SIGTERM`, and `SIGHUP` terminate and reap both component processes.
+The harness exits with the conventional signal status and prints
+`Soak interrupted`; `make soak-harness-test` verifies this cleanup path.
+
 ## What Is Exercised
 
 The Go component repeatedly closes and authenticates the same persistent

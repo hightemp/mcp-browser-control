@@ -31,7 +31,7 @@ SOAK_TIMEOUT ?= 9h
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build version release release-check release-readiness release-readiness-check tool-reference tool-reference-check run test test-race coverage coverage-check coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e performance soak soak-smoke workflow-check security-check check verify clean
+.PHONY: help deps fmt fmt-check build version release release-check release-readiness release-readiness-check tool-reference tool-reference-check run test test-race coverage coverage-check coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e performance soak soak-harness-test soak-smoke workflow-check security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -59,6 +59,7 @@ help:
 		'  extension-build Build the unpacked production extension' \
 		'  e2e             Run two-profile Chrome for Testing E2E' \
 		'  performance     Verify latency NFRs and print Go benchmarks' \
+		'  soak-harness-test  Verify signal-safe soak process cleanup' \
 		'  soak-smoke      Run the reconnect/event soak harness for 5 seconds' \
 		'  soak            Run the reconnect/event soak harness for 8 hours' \
 		'  security-check  Scan vulnerabilities, licenses, and secrets' \
@@ -167,7 +168,10 @@ soak:
 	MCP_BROWSER_SOAK_DURATION="$(SOAK_DURATION)" MCP_BROWSER_SOAK_TIMEOUT="$(SOAK_TIMEOUT)" \
 		GO="$(GO)" bash scripts/run-soak.sh
 
-soak-smoke:
+soak-harness-test:
+	bash scripts/test-run-soak-interrupt.sh
+
+soak-smoke: soak-harness-test
 	MCP_BROWSER_SOAK_DURATION="$(SOAK_SMOKE_DURATION)" MCP_BROWSER_SOAK_TIMEOUT="2m" \
 		MCP_BROWSER_SOAK_RECONNECT_INTERVAL="25ms" \
 		MCP_BROWSER_SOAK_EVENT_INTERVAL="50ms" \

@@ -1453,6 +1453,9 @@ WebSocket reconnect/event transport и production CDP event queue расшире
 `make soak-smoke` выполняется в CI, а `make soak` по умолчанию запускает
 8-часовую release-квалификацию и печатает два JSON `SOAK_REPORT` с reconnect
 rate, heap, goroutines, latency, очередью и полностью учтёнными dropped events.
+Оба дочерних процесса завершаются и ожидаются при ошибке или сигнале;
+`make soak-harness-test` регрессионно проверяет SIGINT exit status, диагностику
+и отсутствие оставшихся процессов.
 Пороги, команды, требования к evidence и измеренный 5-секундный baseline
 зафиксированы в `docs/performance-soak.md`; восьмичасовой лог обязателен в
 release checklist и хранится вне репозитория.

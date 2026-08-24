@@ -56,6 +56,29 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 	}
 }
 
+func TestToolProfileName(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name    string
+		profile string
+		ok      bool
+	}{
+		{name: "browser_list", profile: "minimal", ok: true},
+		{name: "browser_click_element", profile: "standard", ok: true},
+		{name: "browser_send_command", profile: "full", ok: true},
+		{name: "browser_future_unreviewed"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			profile, ok := ToolProfileName(test.name)
+			if profile != test.profile || ok != test.ok {
+				t.Fatalf("ToolProfileName(%q) = (%q, %v), want (%q, %v)", test.name, profile, ok, test.profile, test.ok)
+			}
+		})
+	}
+}
+
 func TestEveryRegisteredBrowserToolHasProfileClassification(t *testing.T) {
 	t.Parallel()
 

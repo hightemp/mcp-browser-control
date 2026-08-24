@@ -90,6 +90,26 @@ var browserToolLevels = map[string]toolProfileLevel{
 	"browser_send_command":        toolProfileFull,
 }
 
+// ToolProfileName returns the least-privileged MCP tool profile that exposes a
+// registered browser tool. Documentation generators use the same fail-closed
+// classification as the runtime tool filter.
+func ToolProfileName(name string) (string, bool) {
+	level, ok := browserToolLevels[name]
+	if !ok {
+		return "", false
+	}
+	switch level {
+	case toolProfileMinimal:
+		return "minimal", true
+	case toolProfileStandard:
+		return "standard", true
+	case toolProfileFull:
+		return "full", true
+	default:
+		return "", false
+	}
+}
+
 // ToolProfileFilter hides browser tools outside the configured profile.
 func ToolProfileFilter(profile string) server.ToolFilterFunc {
 	return func(_ context.Context, available []mcp.Tool) []mcp.Tool {

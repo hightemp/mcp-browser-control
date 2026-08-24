@@ -192,6 +192,12 @@ needed. The store never includes original secret values in redaction metadata.
 
 ## Available MCP Tools
 
+The generated [complete tool reference](docs/tool-reference.md) documents the
+purpose, exact input schema, result, MCP profile, extension capability,
+permissions, errors, and an example for every registered tool. Regenerate it
+after changing a tool definition with `make tool-reference`; `make check`
+rejects stale output.
+
 ### Browser discovery
 
 - `browser_list`

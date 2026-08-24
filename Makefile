@@ -26,7 +26,7 @@ E2E_EXTENSION_DIR := $(CURDIR)/chrome-extension/dist/e2e-extension
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build version release release-check run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e security-check check verify clean
+.PHONY: help deps fmt fmt-check build version release release-check tool-reference tool-reference-check run test test-race coverage coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -38,6 +38,8 @@ help:
 		'  version         Print build version metadata' \
 		'  release         Build cross-platform release artifacts' \
 		'  release-check   Build twice and compare release checksums' \
+		'  tool-reference  Generate docs/tool-reference.md' \
+		'  tool-reference-check  Check generated tool documentation' \
 		'  run             Run the server; pass flags through ARGS' \
 		'  test            Run all Go tests' \
 		'  test-race       Run all Go tests with the race detector' \
@@ -80,6 +82,12 @@ release-check: release
 	VERSION="$(VERSION)" COMMIT="$(COMMIT)" SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
 		TARGETS="$(TARGETS)" RELEASE_DIR="$(RELEASE_DIR)" \
 		sh scripts/check-release-reproducibility.sh
+
+tool-reference:
+	$(GO) run ./cmd/tool-reference -output docs/tool-reference.md
+
+tool-reference-check:
+	$(GO) run ./cmd/tool-reference -check -output docs/tool-reference.md
 
 run:
 	$(GO) run "$(COMMAND)" $(ARGS)
@@ -132,7 +140,7 @@ security-check: extension-license-check
 	$(NPM) audit --prefix chrome-extension --audit-level=high
 	$(GITLEAKS) git --redact --no-banner .
 
-check: fmt-check vet lint test-race extension-check
+check: fmt-check vet lint test-race extension-check tool-reference-check
 
 verify: fmt check coverage build
 

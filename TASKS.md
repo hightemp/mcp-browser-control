@@ -1214,9 +1214,17 @@ revocation и identity reset, поля diagnostics, безопасный uninsta
 
 - Приоритет: P1
 - Зависимости: T-033, core tools
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Для каждого tool: назначение, input schema, result, permissions, capabilities, errors и пример.
+
+Добавлен детерминированный английский `docs/tool-reference.md` для всех 66
+зарегистрированных tools. Генератор получает реальные описания и input schemas
+через production-регистрацию `tools/list`, объединяет их с fail-closed MCP
+profiles, extension capabilities, permission requirements, результатами,
+ошибками и примерами. `make tool-reference` обновляет документ, а Go-тесты и
+`make tool-reference-check` не позволяют добавить tool или изменить schema без
+синхронного обновления reference.
 
 ### T-103 — Настроить CI
 

@@ -60,7 +60,7 @@ func TestToolProfilesAreExplicitAndNested(t *testing.T) {
 	}
 	for _, name := range []string{
 		"browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation",
-		"browser_evaluate_javascript",
+		"browser_evaluate_javascript", "browser_send_cdp_command",
 	} {
 		if filtered["standard"][name] || !filtered["full"][name] {
 			t.Fatalf("sensitive CDP tool %q must remain full-profile only", name)
@@ -82,6 +82,7 @@ func TestToolProfileName(t *testing.T) {
 		{name: "browser_list", profile: "minimal", ok: true},
 		{name: "browser_click_element", profile: "standard", ok: true},
 		{name: "browser_send_command", profile: "full", ok: true},
+		{name: "browser_send_cdp_command", profile: "full", ok: true},
 		{name: "browser_future_unreviewed"},
 	} {
 		t.Run(test.name, func(t *testing.T) {

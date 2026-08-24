@@ -2534,6 +2534,128 @@ Example MCP tool payload:
 }
 ```
 
+### `browser_send_cdp_command`
+
+Send one reviewed read-only CDP method through a bounded managed session.
+
+- MCP profile: `full`
+- Extension capability: `cdp.sendReadOnly`
+- Permissions: Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, MCP `full`, and the disabled-by-default raw CDP feature flag
+- Result: the independently validated, bounded, redacted result of one reviewed read-only CDP method plus truncation metadata
+- Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `INVALID_COMMAND` for a prohibited or unreviewed CDP method; `PAYLOAD_TOO_LARGE` for a result above the configured byte limit
+
+Input schema:
+
+```json
+{
+  "properties": {
+    "browserId": {
+      "description": "Browser instance ID; omit to use the current MCP session selection",
+      "type": "string"
+    },
+    "documentId": {
+      "description": "Current document ID used to reject stale targets",
+      "type": "string"
+    },
+    "maxBytes": {
+      "default": 524288,
+      "description": "Maximum extension response bytes",
+      "maximum": 1000000,
+      "minimum": 65536,
+      "type": "number"
+    },
+    "maxDepth": {
+      "default": 12,
+      "description": "Maximum normalized response depth",
+      "maximum": 20,
+      "minimum": 1,
+      "type": "number"
+    },
+    "maxNodes": {
+      "default": 2000,
+      "description": "Maximum normalized response values",
+      "maximum": 5000,
+      "minimum": 2,
+      "type": "number"
+    },
+    "maxStringChars": {
+      "default": 2000,
+      "description": "Maximum characters per response string",
+      "maximum": 10000,
+      "minimum": 1,
+      "type": "number"
+    },
+    "method": {
+      "description": "Reviewed read-only Chrome DevTools Protocol method",
+      "enum": [
+        "Accessibility.getFullAXTree",
+        "Accessibility.getPartialAXTree",
+        "Accessibility.queryAXTree",
+        "DOM.describeNode",
+        "DOM.getBoxModel",
+        "Page.getLayoutMetrics",
+        "Performance.getMetrics"
+      ],
+      "type": "string"
+    },
+    "params": {
+      "additionalProperties": false,
+      "description": "Method-specific parameters; identifiers are restricted to backendNodeId",
+      "properties": {
+        "accessibleName": {
+          "maxLength": 500,
+          "type": "string"
+        },
+        "backendNodeId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "depth": {
+          "maximum": 50,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "fetchRelatives": {
+          "type": "boolean"
+        },
+        "role": {
+          "maxLength": 100,
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "tabId": {
+      "description": "Browser tab ID; omit to use the active tab",
+      "type": "number"
+    },
+    "timeoutMs": {
+      "default": 10000,
+      "description": "Command timeout in milliseconds",
+      "maximum": 30000,
+      "minimum": 100,
+      "type": "number"
+    }
+  },
+  "required": [
+    "method"
+  ],
+  "type": "object"
+}
+```
+
+Example MCP tool payload:
+
+```json
+{
+  "arguments": {
+    "method": "Performance.getMetrics",
+    "params": {}
+  },
+  "name": "browser_send_cdp_command"
+}
+```
+
 ### `browser_snapshot`
 
 Get a compact semantic tree with document-scoped element references.

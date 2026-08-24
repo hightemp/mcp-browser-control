@@ -253,10 +253,50 @@ func (w *valueWalker) walkObject(value map[string]any, depth int, contextRule st
 			result[key] = redactedValue
 			continue
 		}
+		if normalizeKey(key) == "attributes" {
+			if attributes, ok := w.redactFlatDOMAttributes(value[key]); ok {
+				result[key] = w.walk(attributes, depth+1, "")
+				continue
+			}
+		}
 		nextContext := contextRuleForKey(key)
 		result[key] = w.walk(value[key], depth+1, nextContext)
 	}
 	return result
+}
+
+func (w *valueWalker) redactFlatDOMAttributes(value any) ([]any, bool) {
+	attributes, ok := value.([]any)
+	if !ok || len(attributes)%2 != 0 {
+		return nil, false
+	}
+	result := append([]any(nil), attributes...)
+	passwordInput := false
+	for index := 0; index < len(result); index += 2 {
+		name, nameOK := result[index].(string)
+		attributeValue, valueOK := result[index+1].(string)
+		if !nameOK || !valueOK {
+			return nil, false
+		}
+		if normalizeKey(name) == "type" && strings.EqualFold(attributeValue, "password") {
+			passwordInput = true
+		}
+	}
+	for index := 0; index < len(result); index += 2 {
+		name := result[index].(string)
+		rule := keyRule(name)
+		if rule == "" && sensitiveIdentityPattern.MatchString(name) {
+			rule = "password-fields"
+		}
+		if rule == "" && passwordInput && normalizeKey(name) == "value" {
+			rule = "password-fields"
+		}
+		if rule != "" {
+			result[index+1] = redactedValue
+			w.mark(rule)
+		}
+	}
+	return result, true
 }
 
 func (w *valueWalker) sanitizeString(value string) string {

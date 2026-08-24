@@ -18,6 +18,7 @@ test("router dispatches every allowlisted command to its domain handler", async 
       browser: { ping: handler },
       emulation: { set: handler, get: handler, reset: handler },
       evaluation: { evaluate: handler },
+      rawCDP: { sendReadOnly: handler },
       windows: {
         list: handler,
         get: handler,
@@ -215,6 +216,14 @@ test("router dispatches every allowlisted command to its domain handler", async 
       maxStringChars: 10_000,
       maxBytes: 524_288,
     },
+    "cdp.sendReadOnly": {
+      method: "Performance.getMetrics",
+      params: {},
+      maxDepth: 12,
+      maxNodes: 2_000,
+      maxStringChars: 2_000,
+      maxBytes: 524_288,
+    },
     "console.start": {
       bufferSize: 500,
       captureConsole: true,
@@ -254,6 +263,22 @@ test("router rejects unknown and currently unavailable commands", async () => {
   assert.equal(
     (await execute(router, createRequest("tabs.list", {}))).error.code,
     ErrorCode.CAPABILITY_UNAVAILABLE,
+  );
+  assert.equal(
+    (
+      await execute(
+        createRouter(),
+        createRequest("cdp.sendReadOnly", {
+          method: "Runtime.evaluate",
+          params: {},
+          maxDepth: 12,
+          maxNodes: 2_000,
+          maxStringChars: 2_000,
+          maxBytes: 524_288,
+        }),
+      )
+    ).error.code,
+    ErrorCode.INVALID_COMMAND,
   );
 });
 
@@ -498,6 +523,14 @@ test("router validates target and command params before invoking handlers", asyn
       maxDepth: 6,
       maxNodes: 1_000,
       maxStringChars: 10_000,
+      maxBytes: 524_288,
+    }),
+    createRequest("cdp.sendReadOnly", {
+      method: "DOM.describeNode",
+      params: { backendNodeId: 7, objectId: "forbidden" },
+      maxDepth: 12,
+      maxNodes: 2_000,
+      maxStringChars: 2_000,
       maxBytes: 524_288,
     }),
     createRequest("runtime.evaluateIsolated", {

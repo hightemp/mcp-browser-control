@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; used by typed console, PDF, accessibility, emulation, and evaluation tools
+Status: implemented infrastructure; used by typed console, PDF, accessibility, emulation, evaluation, and reviewed raw CDP tools
 
 Last reviewed: 2026-08-24
 
@@ -183,3 +183,9 @@ restricted isolated world, evaluates through exact `Page`/`Runtime` methods,
 releases its unique object group in `finally`, and releases the lease after one
 request. No remote handle is returned. See
 [`javascript-evaluation.md`](javascript-evaluation.md).
+
+Reviewed raw CDP is also a short-lived root-tab consumer, but its lease contains
+exactly one method and its one domain. Both protocol boundaries independently
+validate method-specific parameters and result shape; no events, child targets,
+remote handles, streams, or session IDs are exposed. See
+[`raw-cdp.md`](raw-cdp.md).

@@ -152,6 +152,7 @@ func run(
 		browsertools.WithArtifactStore(artifactStore),
 		browsertools.WithMaxResultBytes(config.MCPMaxResultBytes),
 		browsertools.WithActionPolicy(actionPolicy),
+		browsertools.WithAuditLogger(log.New(logger.Writer(), "[Audit] ", log.LstdFlags)),
 	).Register(mcpServer)
 	artifactStore.RegisterResources(mcpServer)
 

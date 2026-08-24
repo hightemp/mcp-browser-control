@@ -48,6 +48,27 @@ func TestJSONRedactsSensitiveBrowserData(t *testing.T) {
 	}
 }
 
+func TestJSONRedactsFlatDOMAttributeLists(t *testing.T) {
+	t.Parallel()
+
+	result, report, err := JSON(
+		[]byte(`{"node":{"attributes":["type","password","value","swordfish","data-token","raw-token","title","visible"]}}`),
+		DefaultLimits(32<<10),
+	)
+	if err != nil {
+		t.Fatalf("JSON() error = %v", err)
+	}
+	for _, secret := range []string{"swordfish", "raw-token"} {
+		if strings.Contains(string(result), secret) {
+			t.Errorf("redacted flat attributes contain %q: %s", secret, result)
+		}
+	}
+	if !strings.Contains(string(result), `"title","visible"`) ||
+		!report.Applied || !reflect.DeepEqual(report.Rules, []string{"password-fields"}) {
+		t.Fatalf("result = %s, report = %#v", result, report)
+	}
+}
+
 func TestJSONAppliesStructuralAndOutputLimits(t *testing.T) {
 	t.Parallel()
 

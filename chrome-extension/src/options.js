@@ -12,6 +12,7 @@ const elements = {
   autoConnect: document.querySelector("#auto-connect"),
   pageAutomation: document.querySelector("#page-automation"),
   javascriptEvaluation: document.querySelector("#javascript-evaluation"),
+  rawCDP: document.querySelector("#raw-cdp"),
   retry: document.querySelector("#retry"),
   refresh: document.querySelector("#refresh"),
   browserRuntime: document.querySelector("#browser-runtime"),
@@ -40,6 +41,7 @@ elements.form.addEventListener("submit", (event) => {
           featureFlags: {
             pageAutomation: elements.pageAutomation.checked,
             javascriptEvaluation: elements.javascriptEvaluation.checked,
+            rawCDP: elements.rawCDP.checked,
           },
         },
       }),
@@ -90,6 +92,7 @@ async function renderResponse(response) {
   elements.pageAutomation.checked = data.settings?.featureFlags?.pageAutomation !== false;
   elements.javascriptEvaluation.checked =
     data.settings?.featureFlags?.javascriptEvaluation === true;
+  elements.rawCDP.checked = data.settings?.featureFlags?.rawCDP === true;
   elements.browserRuntime.textContent =
     [data.browserName, data.browserVersion].filter(Boolean).join(" ") || "Chromium";
   elements.browserId.textContent = data.browserId || "—";

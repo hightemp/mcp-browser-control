@@ -157,6 +157,8 @@ const (
 
 	// CommandRuntimeEvaluateIsolated evaluates a bounded expression in an ephemeral isolated world.
 	CommandRuntimeEvaluateIsolated = "runtime.evaluateIsolated"
+	// CommandCDPSendReadOnly sends one allowlisted read-only CDP method.
+	CommandCDPSendReadOnly = "cdp.sendReadOnly"
 
 	// CommandConsoleStart starts console and page error capture.
 	CommandConsoleStart = "console.start"

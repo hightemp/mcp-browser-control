@@ -56,12 +56,12 @@ and select them independently.
 The extension separates permissions into profiles. Optional permissions are
 requested only after a user clicks the corresponding button in settings.
 
-| Profile           | Access                                                                                     | When to enable it                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| **Core**          | Alarms, scripting, storage, tabs, and navigation metadata                                  | Installed automatically for connection, window, and tab management                |
-| **Observe**       | HTTP/HTTPS site access and `webRequest` metadata                                           | Page inspection, actions, waits, screenshots, and base console capture            |
-| **Debug**         | Chrome debugger backend                                                                    | PDF, accessibility, emulation, opt-in isolated evaluation, and future diagnostics |
-| **Personal data** | Cookies, downloads, sessions, tab groups, bookmarks, history, clipboard, and browsing data | Only when a required personal-data tool is implemented and explicitly needed      |
+| Profile           | Access                                                                                     | When to enable it                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| **Core**          | Alarms, scripting, storage, tabs, and navigation metadata                                  | Installed automatically for connection, window, and tab management                                  |
+| **Observe**       | HTTP/HTTPS site access and `webRequest` metadata                                           | Page inspection, actions, waits, screenshots, and base console capture                              |
+| **Debug**         | Chrome debugger backend                                                                    | PDF, accessibility, emulation, opt-in isolated evaluation, reviewed raw CDP, and future diagnostics |
+| **Personal data** | Cookies, downloads, sessions, tab groups, bookmarks, history, clipboard, and browsing data | Only when a required personal-data tool is implemented and explicitly needed                        |
 
 The Personal data profile also enables its Observe dependency. Removing one
 optional profile removes only that profile's grants. The server immediately
@@ -84,6 +84,8 @@ optional access.
    tools.
 10. For isolated JavaScript evaluation only, grant **Debug** and enable the
     separate advanced evaluation checkbox in settings. It is off by default.
+11. For the reviewed read-only CDP tool only, grant **Debug** and enable the
+    separate advanced raw CDP checkbox. It is also off by default.
 
 A pairing code expires after ten minutes by default and is consumed by one
 successful pairing. Later connections use the browser credential stored in

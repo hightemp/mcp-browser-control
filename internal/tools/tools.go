@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ type Service struct {
 	selections   *selection.Store
 	artifacts    *artifacts.Store
 	actionPolicy *policy.Action
+	auditLogger  *log.Logger
 	resultLimits redaction.Limits
 }
 
@@ -61,6 +63,13 @@ func WithMaxResultBytes(maxBytes int64) ServiceOption {
 func WithActionPolicy(actionPolicy *policy.Action) ServiceOption {
 	return func(service *Service) {
 		service.actionPolicy = actionPolicy
+	}
+}
+
+// WithAuditLogger records safe metadata for sensitive browser operations.
+func WithAuditLogger(logger *log.Logger) ServiceOption {
+	return func(service *Service) {
+		service.auditLogger = logger
 	}
 }
 
@@ -322,6 +331,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 	s.registerAccessibilityTool(mcpServer)
 	s.registerEmulationTools(mcpServer)
 	s.registerEvaluationTool(mcpServer)
+	s.registerRawCDPTool(mcpServer)
 	s.registerConsoleTools(mcpServer)
 	mcpServer.AddTool(
 		mcp.NewTool(
@@ -913,10 +923,11 @@ func (s *Service) browserSendCommandHandler(
 	_ mcp.CallToolRequest,
 	args sendCommandArgs,
 ) (*mcp.CallToolResult, error) {
-	if args.Command == protocol.CommandRuntimeEvaluateIsolated {
+	if args.Command == protocol.CommandRuntimeEvaluateIsolated ||
+		args.Command == protocol.CommandCDPSendReadOnly {
 		return errorResult(protocol.NewError(
 			protocol.CodeInvalidCommand,
-			"isolated evaluation requires the dedicated browser_evaluate_javascript tool",
+			"the command requires its dedicated MCP tool",
 			false,
 		))
 	}

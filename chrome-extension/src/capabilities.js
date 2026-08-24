@@ -115,6 +115,9 @@ export function detectCapabilities({
       if (featureFlags.javascriptEvaluation === true) {
         capabilities.push("runtime.evaluateIsolated");
       }
+      if (featureFlags.rawCDP === true) {
+        capabilities.push("cdp.sendReadOnly");
+      }
     }
     capabilities.push("console.start", "console.stop", "console.clear", "console.read");
   }

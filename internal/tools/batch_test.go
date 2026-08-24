@@ -301,6 +301,7 @@ func TestBrowserBatchRejectsUnsafeOrCrossBrowserSteps(t *testing.T) {
 	}{
 		{name: "server local", steps: []map[string]any{{"tool": "browser_list"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "raw command", steps: []map[string]any{{"tool": "browser_send_command"}}, wantCode: protocol.CodeInvalidCommand},
+		{name: "raw CDP", steps: []map[string]any{{"tool": "browser_send_cdp_command"}}, wantCode: protocol.CodeInvalidCommand},
 		{name: "recursive", steps: []map[string]any{{"tool": "browser_batch"}}, wantCode: protocol.CodeInvalidCommand},
 		{
 			name: "different browser",
@@ -404,6 +405,7 @@ func TestBatchAllowedToolsAreRegisteredAndClassified(t *testing.T) {
 		"browser_list", "browser_select", "browser_print_to_pdf", "browser_get_accessibility_tree",
 		"browser_set_emulation", "browser_get_emulation_state", "browser_reset_emulation",
 		"browser_evaluate_javascript",
+		"browser_send_cdp_command",
 		"browser_send_command", "browser_batch",
 	} {
 		if _, allowed := batchAllowedTools[denied]; allowed {

@@ -292,6 +292,11 @@ const COMMANDS = Object.freeze({
     handler: "evaluate",
     validate: validateEvaluation,
   }),
+  "cdp.sendReadOnly": Object.freeze({
+    domain: "rawCDP",
+    handler: "sendReadOnly",
+    validate: validateRawCDP,
+  }),
   "console.start": Object.freeze({
     domain: "console",
     handler: "start",
@@ -1445,6 +1450,95 @@ function validateEvaluationTarget(target) {
       ErrorCode.INVALID_MESSAGE,
       "JavaScript evaluation accepts only the root frame of a tab",
     );
+  }
+}
+
+const RAW_CDP_METHODS = Object.freeze([
+  "Accessibility.getFullAXTree",
+  "Accessibility.getPartialAXTree",
+  "Accessibility.queryAXTree",
+  "DOM.describeNode",
+  "DOM.getBoxModel",
+  "Page.getLayoutMetrics",
+  "Performance.getMetrics",
+]);
+
+function validateRawCDP(params, target) {
+  validateParamsObject(params);
+  validateRawCDPTarget(target);
+  assertAllowedProperties(params, [
+    "method",
+    "params",
+    "maxDepth",
+    "maxNodes",
+    "maxStringChars",
+    "maxBytes",
+  ]);
+  if (!RAW_CDP_METHODS.includes(params.method)) {
+    throw protocolError(ErrorCode.INVALID_COMMAND, "params.method is not allowlisted");
+  }
+  requireIntegerRange(params.maxDepth, "params.maxDepth", 1, 20);
+  requireIntegerRange(params.maxNodes, "params.maxNodes", 2, 5_000);
+  requireIntegerRange(params.maxStringChars, "params.maxStringChars", 1, 10_000);
+  requireIntegerRange(params.maxBytes, "params.maxBytes", 64 * 1_024, 1_000_000);
+  validateParamsObject(params.params);
+
+  const allowed = {
+    "Accessibility.getFullAXTree": ["depth"],
+    "Accessibility.getPartialAXTree": ["backendNodeId", "fetchRelatives"],
+    "Accessibility.queryAXTree": ["backendNodeId", "accessibleName", "role"],
+    "DOM.describeNode": ["backendNodeId", "depth"],
+    "DOM.getBoxModel": ["backendNodeId"],
+    "Page.getLayoutMetrics": [],
+    "Performance.getMetrics": [],
+  }[params.method];
+  assertAllowedProperties(params.params, allowed);
+  if (
+    [
+      "Accessibility.getPartialAXTree",
+      "Accessibility.queryAXTree",
+      "DOM.describeNode",
+      "DOM.getBoxModel",
+    ].includes(params.method)
+  ) {
+    requireIntegerRange(
+      params.params.backendNodeId,
+      "params.params.backendNodeId",
+      1,
+      Number.MAX_SAFE_INTEGER,
+    );
+  }
+  if (params.method === "Accessibility.getPartialAXTree") {
+    validateOptionalBoolean(params.params.fetchRelatives, "params.params.fetchRelatives");
+  }
+  if (params.method === "Accessibility.queryAXTree") {
+    assertOptionalBoundedString(params.params.accessibleName, "params.params.accessibleName", 500);
+    assertOptionalBoundedString(params.params.role, "params.params.role", 100);
+  }
+  if (params.method === "Accessibility.getFullAXTree") {
+    validateIntegerRange(params.params.depth, "params.params.depth", 0, 50);
+  }
+  if (params.method === "DOM.describeNode") {
+    validateIntegerRange(params.params.depth, "params.params.depth", 0, 10);
+  }
+}
+
+function validateRawCDPTarget(target) {
+  if (target === undefined || target === null) return;
+  if (!Number.isInteger(target.tabId) || target.tabId < 0) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, "target.tabId is required when target is set");
+  }
+  if (target.windowId !== undefined || (target.frameId !== undefined && target.frameId !== 0)) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "Raw CDP commands accept only the root frame of a tab",
+    );
+  }
+}
+
+function assertOptionalBoundedString(value, path, maximum) {
+  if (value !== undefined && (typeof value !== "string" || [...value].length > maximum)) {
+    throw protocolError(ErrorCode.INVALID_MESSAGE, `${path} exceeds its string limit`);
   }
 }
 

@@ -18,6 +18,7 @@ import { createAccessibilityHandlers } from "./handlers/accessibility.js";
 import { createConsoleHandlers } from "./handlers/console.js";
 import { createEmulationHandlers } from "./handlers/emulation.js";
 import { createEvaluationHandlers } from "./handlers/evaluation.js";
+import { createRawCDPHandlers } from "./handlers/raw-cdp.js";
 import { createPageHandlers } from "./handlers/page.js";
 import { createTabHandlers } from "./handlers/tabs.js";
 import { createTabGroupHandlers } from "./handlers/tab-groups.js";
@@ -33,6 +34,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   featureFlags: Object.freeze({
     pageAutomation: true,
     javascriptEvaluation: false,
+    rawCDP: false,
   }),
 });
 const RECONNECT_ALARM = "mcp-browser-control-reconnect";
@@ -61,6 +63,7 @@ const commandRouter = new CommandRouter({
     console: createConsoleHandlers(chrome, { cdpSessions }),
     emulation: createEmulationHandlers(chrome, { cdpSessions }),
     evaluation: createEvaluationHandlers(chrome, { cdpSessions }),
+    rawCDP: createRawCDPHandlers(chrome, { cdpSessions }),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),
@@ -122,6 +125,7 @@ async function handleRuntimeMessage(message) {
           javascriptEvaluation:
             message.settings?.featureFlags?.javascriptEvaluation ??
             currentSettings.featureFlags.javascriptEvaluation,
+          rawCDP: message.settings?.featureFlags?.rawCDP ?? currentSettings.featureFlags.rawCDP,
         },
       };
       await chrome.storage.local.set({ settings });

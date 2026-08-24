@@ -987,9 +987,23 @@ feature flag включает только isolated world. Добавлены Go
 
 - Приоритет: P2
 - Зависимости: T-060, security review T-083
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Выключен по умолчанию. Добавить allowlist/denylist методов, params/result size limits, audit и запрет команд, выходящих за доступные домены `chrome.debugger`.
+
+Добавлен full-profile MCP tool `browser_send_cdp_command` и отдельная
+extension-команда `cdp.sendReadOnly`, выключенная по умолчанию feature flag.
+Разрешены только семь прошедших review read-only методов Accessibility, DOM,
+Page layout и Performance metrics; для каждого заданы точные params/result
+schemas и одноимённый exact-method lease общего CDP manager. Runtime, Network,
+Target, cookies/storage, interception, streams, handles и mutating methods
+запрещены явными deny boundaries. Команда работает только с root frame HTTP(S),
+требует Observe, Debug и MCP `full`, повторно проверяет origin/document, имеет
+depth/node/string/key/byte/timeout limits и двойную extension/server validation
+с redaction. Audit содержит только method, browser/tab, outcome, size и duration
+без params/result. Tool исключён из batch, а `browser_send_command` не может
+обойти dedicated validation. Добавлены Go/extension tests и
+`docs/raw-cdp.md`.
 
 ### T-067 — Реализовать performance diagnostics
 

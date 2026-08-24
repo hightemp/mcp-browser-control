@@ -946,9 +946,20 @@ Create/list/status/pause/resume/cancel/erase history. Не читать соде
 
 - Приоритет: P2
 - Зависимости: T-003, T-083
-- Статус: `[ ]`
+- Статус: `[x]`
 
 Подготовить security design и browser matrix до реализации. Не добавлять обход user gesture или произвольный доступ к файловой системе.
+
+Подготовлен английский `docs/clipboard-file-input-design.md` с актуальными
+официальными источниками, browser matrix, threat model и обязательными
+негативными тестами. MCP-вызов явно не считается user gesture. Для clipboard
+условно разрешён только одноразовый popup flow с коротким TTL, без background,
+batch, persistence и логирования содержимого; read требует отдельного focused
+implementation review. File input разделён на ручной native chooser и будущий
+типизированный CDP tool, принимающий только server-owned artifact URI. Параметры
+локального пути, directory upload, filesystem discovery, raw-command и batch
+bypass запрещены. Security review обновлён этими границами; runtime capability
+в рамках исследовательской задачи не добавлялась.
 
 ### T-075 — Исследовать proxy/content settings/browsing data
 

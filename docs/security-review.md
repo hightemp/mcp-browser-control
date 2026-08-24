@@ -70,7 +70,7 @@ multi-user shared-host operation are not approved by this review.
 | SR-04 | A stolen browser credential or pairing code is replayed. | Pairing codes are random, rate-limited, expire, and rotate after one use. Browser credentials are random, browser-ID-bound, revocable, stored raw only in extension storage, and persisted server-side only as hashes in owner-only files. | A stolen long-lived extension credential and browser ID can be replayed locally until revocation. Credential rotation is mandatory before any future remote mode; local MVP accepts this residual risk. Authentication failures must not reveal credential validity details. |
 | SR-05 | Secrets escape through logs, errors, artifacts, screenshots, traces, or response bodies. | Extension redaction plus an independent server redaction boundary, safe errors, output limits, owner-only artifact files, random artifact IDs, TTL, quota, and authenticated resource access. Audit records omit arguments/results and full URLs. | Pixels, PDFs, traces, network bodies, and some personal-data exports are inherently sensitive and cannot be reliably redacted. They require an explicit sensitive-content warning and artifact storage; never inline them in normal logs/results. |
 | SR-06 | Raw CDP or JavaScript evaluation bypasses tool, origin, permission, or data controls. | Raw CDP is absent from the extension command allowlist; `browser_send_command` cannot bypass it and is hidden outside `full`. Debugger permission is optional and user-granted. | Every future CDP consumer must use one ref-counted session manager and a versioned method allowlist. Typed tools must reapply origin, permission, deadline, redaction, result-size, and audit checks. Main-world and persistent evaluation remain prohibited by default. |
-| SR-07 | History, bookmarks, cookies, clipboard, downloads, or storage reveal personal data or permit destructive changes. | Personal-data permissions are optional and only requested by a settings-page click. Current capability checks fail before unavailable commands. Server redaction masks secret-shaped values and local paths. | Each domain requires separate read/mutate tools, pagination, exact scopes, field-level redaction, and audit. Bulk mutation requires confirmation. Clipboard read and arbitrary file input remain blocked pending a user-gesture-safe design. |
+| SR-07 | History, bookmarks, cookies, clipboard, downloads, or storage reveal personal data or permit destructive changes. | Personal-data permissions are optional and only requested by a settings-page click. Current capability checks fail before unavailable commands. Server redaction masks secret-shaped values and local paths. | Each domain requires separate read/mutate tools, pagination, exact scopes, field-level redaction, and audit. Bulk mutation requires confirmation. Clipboard access must use the one-shot popup flow in the T-074 design; unattended read and arbitrary file paths remain prohibited. Automated file input may accept only server-owned artifacts through a dedicated typed CDP command. |
 | SR-08 | Oversized commands/results, event floods, capture buffers, CDP streams, or artifacts exhaust memory, disk, goroutines, or browser resources. | HTTP/WebSocket size limits, per-session/per-connection token buckets, bounded send queues, command deadlines/cancellation, result traversal/output budgets, bounded console buffers, artifact quota/TTL, and backpressure errors. | CDP event domains, HAR, tracing, coverage, and batch need independent item/byte/time/concurrency limits and deterministic detach/cleanup. Soak and forced-disconnect tests are required before enablement. |
 
 ## Approved Conditional Features
@@ -88,8 +88,9 @@ the next section.
 | History, bookmarks, reading list | Paginated scoped reads and single-item mutations; separately named read/mutate tools | `full` plus Personal data; bulk deletion requires confirmation and audit |
 | Performance metrics and tracing | Bounded sessions, safe category allowlist, automatic stop/detach, artifact output | `full` plus Debug; no heap snapshots or unbounded profiler/coverage streams |
 | Browsing-data clearing | Exact data-type/time/origin scope with dry-run summary | `full` plus Personal data, explicit product opt-in, and `confirm: true` |
-| Clipboard write | Explicit bounded text supplied by the MCP caller | `full` plus Personal data and a browser/user-gesture-compatible design |
-| File input | Only data already supplied by the MCP client or a server-owned artifact | `full`; never accept or discover arbitrary local filesystem paths |
+| Clipboard write | One-shot bounded plain text supplied by the MCP caller and copied directly from an explicit extension-popup click | `full` plus Personal data; 30-second pending request, no persistence or batch |
+| Clipboard read | One-shot bounded plain text read directly from an explicit extension-popup click | Not approved until focused implementation review; requires `full`, Personal data, sensitive-data mode, and visible disclosure to the user |
+| File input | Native user selection, or a dedicated typed CDP tool using only MCP-supplied server-owned artifacts | `full`; automated mode also requires Debug, exact origin, confirmation, and no path parameter |
 
 ### Raw CDP Boundary
 
@@ -119,7 +120,8 @@ The following are not approved for a raw tool or standard production build:
   handling, arbitrary headers, or traffic redirection;
 - raw cookie commands, cache/cookie clearing, and unscoped storage deletion;
 - `DOM.setFileInputFiles` with local paths and any filesystem discovery/read;
-- clipboard read without a reviewed user-gesture flow;
+- unattended clipboard read, clipboard watching, or any attempt to synthesize
+  or bypass the reviewed popup user-gesture flow;
 - password manager, autofill, payment, browser-sync, or credential-store data;
 - silent proxy, privacy, content-setting, certificate, or geolocation-policy
   changes;
@@ -169,7 +171,7 @@ task can be marked complete:
 | T-066 raw CDP | Conditional approval for the initial read-only method list above; disabled by default |
 | T-067 performance | Conditional approval for bounded metrics/traces in artifacts; heap snapshots prohibited |
 | T-070–T-073 personal data | Conditional approval with Personal data profile, pagination/redaction, separated mutation, and confirmation |
-| T-074 clipboard/file input | Design work approved; clipboard read and arbitrary local paths are not approved for implementation |
+| T-074 clipboard/file input | Security design completed in [`clipboard-file-input-design.md`](clipboard-file-input-design.md); one-shot popup clipboard write and artifact-only typed file input are conditional, clipboard read needs a focused implementation review, and arbitrary paths remain prohibited |
 | T-075 proxy/content settings/browsing data | Browsing-data clear is conditional; proxy/content settings remain prohibited pending a new product/security decision |
 
 This review must be reopened if the server gains remote binding, supports

@@ -462,6 +462,9 @@ The threat model and binding decisions for CDP, evaluation, personal data,
 clipboard, file input, performance artifacts, and other sensitive features are
 documented in [docs/security-review.md](docs/security-review.md). Features not
 approved there remain disabled even when a browser permission exists.
+The focused [clipboard and file-input design](docs/clipboard-file-input-design.md)
+defines the required one-shot user gesture and server-owned artifact boundary;
+it does not enable either runtime feature.
 
 ## Development
 

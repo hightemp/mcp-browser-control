@@ -82,6 +82,7 @@ the next section.
 | --- | --- | --- |
 | Print to PDF, accessibility, emulation | Dedicated typed tools with target/origin checks and bounded results/artifacts | `standard` for page-bridge accessibility; `full` plus Debug for PDF and CDP-only controls |
 | Full-page and element screenshots | Dedicated typed capture modes with root-document checks, fixed CDP methods, bounded artifact output, and no scroll/viewport mutation | `standard` plus Observe/Debug; viewport mode needs no Debug permission |
+| Trusted pointer/keyboard input | Typed interaction tools with content-script locator/actionability preparation and fixed managed Input methods | `standard` plus Observe/Debug for explicit root-document `cdp`; `auto` remains content-first |
 | JavaScript evaluation | Ephemeral isolated-world expression, fixed timeout, JSON-safe bounded result, no retained handles | `full` plus Debug and explicit feature flag; main world requires a later review |
 | Network diagnostics | Metadata first; allowlisted response bodies only with MIME/size/origin filters and redaction | `full` plus Observe/Debug; no interception or modification |
 | Cookies and origin storage | Exact-origin list/get/set/remove; masked values by default; bounded metadata | `full` plus Personal data and Observe; unmasked values require explicit sensitive-data mode |
@@ -164,6 +165,7 @@ task can be marked complete:
 
 | Task | Outcome |
 | --- | --- |
+| T-056 interactions | Implemented with content-script coverage for every typed action and explicit trusted CDP input for the faithful pointer, text, key, check, and wheel subset; CDP mode is root-document only, uses exact request-scoped Input method leases, rechecks target/document state, redacts protected values, preserves navigation waits, and never silently falls back; DOM-semantic actions remain content-only; see [`trusted-input.md`](trusted-input.md) |
 | T-058 screenshots | Implemented through one typed standard-profile tool with viewport/full-page/element modes, root tab/origin/document checks, exact managed `Page.getLayoutMetrics`/`Page.captureScreenshot` leases for Debug modes, no scroll or viewport mutation, independent PNG/JPEG dimension and byte validation, artifact-only output, and a sensitive-content warning; see [`screenshots.md`](screenshots.md) |
 | T-059 print to PDF | Implemented through a typed full-profile tool, an exact `Page.printToPDF` lease, independently validated bounded PDF artifact output, Observe + Debug gates, and no header/footer templates or batch path |
 | T-060 CDP Session Manager | Implemented as documented in [`cdp-session-manager.md`](cdp-session-manager.md): one root session per tab, reference-counted leases, exact command/event allowlists, bounded fan-out, version-gated child sessions, and forced detach |

@@ -1,5 +1,5 @@
 (() => {
-  const BRIDGE_VERSION = "1.5";
+  const BRIDGE_VERSION = "1.6";
   const DEFAULT_MAX_CHARS = 100_000;
   const DEFAULT_MAX_DEPTH = 50;
   const DEFAULT_QUERY_LIMIT = 25;
@@ -116,6 +116,10 @@
         return getElement(params, context);
       case "page.snapshot":
         return getSnapshot(params, context);
+      case "page.prepareTrustedInput":
+        return prepareTrustedInput(params, context);
+      case "page.readTrustedInputResult":
+        return readTrustedInputResult(params, context);
       case "page.click":
         return click(params, context);
       case "page.fill":
@@ -479,6 +483,150 @@
       button,
       clickCount: count,
     });
+  }
+
+  async function prepareTrustedInput(params, context) {
+    const command = params.command;
+    const inputParams = params.inputParams || {};
+    if (command === "page.scroll" && !hasElementAddress(inputParams)) {
+      return {
+        target: "page",
+        point: trustedInputPoint({
+          left: 0,
+          top: 0,
+          width: window.innerWidth,
+          height: window.innerHeight,
+        }),
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    const resolved = resolveElement(inputParams, context, true);
+    const element = resolved.element;
+    let rect;
+    switch (command) {
+      case "page.click":
+      case "page.hover":
+      case "page.scroll":
+        rect = await locatorEngine.ensureActionable(element, { pointer: true });
+        break;
+      case "page.setChecked": {
+        if (element.tagName !== "INPUT" || !["checkbox", "radio"].includes(element.type)) {
+          throw commandError("INVALID_MESSAGE", "The matched element is not checkable");
+        }
+        const desired = inputParams.checked ?? !element.checked;
+        if (element.type === "radio" && !desired) {
+          throw commandError("INVALID_MESSAGE", "A radio input cannot be unchecked directly");
+        }
+        rect = await locatorEngine.ensureActionable(element, { pointer: true });
+        return {
+          matchCount: resolved.count,
+          element: locatorEngine.describeElement(element, resolved.index, context.documentId),
+          point: trustedInputPoint(rect),
+          skip: element.checked === desired,
+          timestamp: new Date().toISOString(),
+        };
+      }
+      case "page.fill":
+        if (element.tagName === "SELECT") {
+          throw commandError(
+            "CAPABILITY_UNAVAILABLE",
+            "Trusted fill does not support select controls; use browser_select_option",
+          );
+        }
+        assertEditable(element);
+        rect = await locatorEngine.ensureActionable(element);
+        element.focus({ preventScroll: true });
+        break;
+      case "page.type":
+      case "page.clear":
+        assertEditable(element);
+        rect = await locatorEngine.ensureActionable(element);
+        element.focus({ preventScroll: true });
+        break;
+      case "page.press":
+        rect = await locatorEngine.ensureActionable(element);
+        element.focus({ preventScroll: true });
+        break;
+      default:
+        throw commandError(
+          "CAPABILITY_UNAVAILABLE",
+          `Trusted CDP input is unavailable for ${String(command)}`,
+        );
+    }
+    return {
+      matchCount: resolved.count,
+      element: locatorEngine.describeElement(element, resolved.index, context.documentId),
+      point: trustedInputPoint(rect),
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  async function readTrustedInputResult(params, context) {
+    const command = params.command;
+    const inputParams = params.inputParams || {};
+    await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    if (command === "page.scroll" && !hasElementAddress(inputParams)) {
+      return {
+        target: "page",
+        backend: "cdp",
+        scroll: { x: window.scrollX, y: window.scrollY },
+        timestamp: new Date().toISOString(),
+      };
+    }
+    const resolved = resolveElement(inputParams, context, true);
+    const extra = { backend: "cdp" };
+    switch (command) {
+      case "page.click":
+        extra.button = inputParams.button ?? "left";
+        extra.clickCount = inputParams.clickCount ?? 1;
+        break;
+      case "page.fill":
+      case "page.type":
+      case "page.clear":
+        extra.value = sensitiveValue(resolved.element);
+        break;
+      case "page.press":
+        extra.key = inputParams.key;
+        extra.modifiers = inputParams.modifiers || [];
+        break;
+      case "page.setChecked":
+        extra.checked = Boolean(resolved.element.checked);
+        break;
+      case "page.scroll":
+        extra.scroll = {
+          left: resolved.element.scrollLeft,
+          top: resolved.element.scrollTop,
+        };
+        break;
+      case "page.hover":
+        break;
+      default:
+        throw commandError(
+          "CAPABILITY_UNAVAILABLE",
+          `Trusted CDP input is unavailable for ${String(command)}`,
+        );
+    }
+    return interactionResult(resolved.element, resolved, context, extra);
+  }
+
+  function hasElementAddress(params) {
+    return Boolean(params.selector || params.coordinates || params.locator);
+  }
+
+  function trustedInputPoint(rect) {
+    if (
+      !rect ||
+      ![rect.left, rect.top, rect.width, rect.height].every(Number.isFinite) ||
+      rect.width <= 0 ||
+      rect.height <= 0
+    ) {
+      throw commandError("INVALID_MESSAGE", "The element has no trusted input point");
+    }
+    return {
+      x: Math.min(Math.max(rect.left + rect.width / 2, 0), Math.max(window.innerWidth - 1, 0)),
+      y: Math.min(Math.max(rect.top + rect.height / 2, 0), Math.max(window.innerHeight - 1, 0)),
+    };
   }
 
   async function fill(params, context) {

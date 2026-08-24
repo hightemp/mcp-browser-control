@@ -369,7 +369,7 @@ test("page handlers preserve addressing and structured content errors", async ()
       sendMessage: async (...args) => {
         sent.push(args);
         if (args[1].type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.5" };
+          return { ready: true, bridgeVersion: "1.6" };
         }
         if (args[1].command === "page.info") {
           return { success: true, result: { url: "https://example.com/page" } };
@@ -453,7 +453,7 @@ test("page interaction optionally waits for the addressed frame navigation", asy
       get: async () => ({ id: 7, url: "https://example.com/start" }),
       sendMessage: async (_tabId, message) => {
         if (message.type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.5" };
+          return { ready: true, bridgeVersion: "1.6" };
         }
         queueMicrotask(() =>
           completed.emit({
@@ -654,6 +654,384 @@ test("page network-idle wait requires and uses the activity observer", async () 
   assert.equal(observed.signal instanceof AbortSignal, true);
 });
 
+test("page trusted click uses an exact managed Input lease and root-document point", async () => {
+  const cdpCalls = [];
+  const bridgeCommands = [];
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
+      sendMessage: async (_tabId, message) => {
+        if (message.type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: "1.6" };
+        }
+        bridgeCommands.push([message.command, message.params]);
+        if (message.command === "page.prepareTrustedInput") {
+          return {
+            success: true,
+            result: {
+              matchCount: 1,
+              element: { id: "save", reference: { elementId: "e1", documentId: "doc-1" } },
+              point: { x: 25, y: 40 },
+            },
+          };
+        }
+        return {
+          success: true,
+          result: {
+            matchCount: 1,
+            element: { id: "save", reference: { elementId: "e1", documentId: "doc-1" } },
+            backend: "cdp",
+            button: "right",
+            clickCount: 2,
+          },
+        };
+      },
+    },
+    scripting: { executeScript: async () => assert.fail("the ready bridge must be reused") },
+    permissions: { contains: async () => true },
+    webNavigation: { getFrame: async () => ({ documentId: "doc-1" }) },
+  };
+  const cdpSessions = {
+    withSession: async (target, options, operation) => {
+      assert.deepEqual(target, { tabId: 7 });
+      assert.deepEqual(options.domains, ["Input"]);
+      assert.deepEqual(options.commands, ["Input.dispatchMouseEvent"]);
+      return operation({
+        sendCommand: async (method, params) => {
+          cdpCalls.push([method, params]);
+          return {};
+        },
+      });
+    },
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const result = await page.click(
+    {
+      requestId: "trusted-click",
+      command: "page.click",
+      target: { tabId: 7, documentId: "doc-1" },
+      params: {
+        locator: { css: "#save" },
+        button: "right",
+        clickCount: 2,
+        backend: "cdp",
+      },
+    },
+    new AbortController().signal,
+  );
+
+  assert.equal(result.backend, "cdp");
+  assert.deepEqual(bridgeCommands[0], [
+    "page.prepareTrustedInput",
+    {
+      command: "page.click",
+      inputParams: {
+        locator: { css: "#save" },
+        button: "right",
+        clickCount: 2,
+      },
+    },
+  ]);
+  assert.deepEqual(
+    cdpCalls.map((call) => call[1]),
+    [
+      { type: "mouseMoved", x: 25, y: 40 },
+      {
+        type: "mousePressed",
+        x: 25,
+        y: 40,
+        button: "right",
+        buttons: 2,
+        clickCount: 1,
+      },
+      {
+        type: "mouseReleased",
+        x: 25,
+        y: 40,
+        button: "right",
+        buttons: 0,
+        clickCount: 1,
+      },
+      {
+        type: "mousePressed",
+        x: 25,
+        y: 40,
+        button: "right",
+        buttons: 2,
+        clickCount: 2,
+      },
+      {
+        type: "mouseReleased",
+        x: 25,
+        y: 40,
+        button: "right",
+        buttons: 0,
+        clickCount: 2,
+      },
+    ],
+  );
+});
+
+test("page trusted click preserves the frame navigation waiter across document replacement", async () => {
+  const completed = fakeChromeEvent();
+  const history = fakeChromeEvent();
+  const fragment = fakeChromeEvent();
+  const failed = fakeChromeEvent();
+  let bridgeOperations = 0;
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/start",
+      }),
+      sendMessage: async (_tabId, message) => {
+        if (message.type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: "1.6" };
+        }
+        bridgeOperations += 1;
+        return {
+          success: true,
+          result: {
+            matchCount: 1,
+            element: { id: "next", reference: { elementId: "e1", documentId: "doc-1" } },
+            point: { x: 20, y: 30 },
+          },
+        };
+      },
+    },
+    permissions: { contains: async () => true },
+    webNavigation: {
+      getFrame: async () => ({ documentId: "doc-1" }),
+      onCompleted: completed,
+      onHistoryStateUpdated: history,
+      onReferenceFragmentUpdated: fragment,
+      onErrorOccurred: failed,
+    },
+  };
+  const cdpSessions = {
+    withSession: async (_target, _options, operation) =>
+      operation({
+        sendCommand: async (_method, params) => {
+          if (params.type === "mouseReleased") {
+            queueMicrotask(() =>
+              completed.emit({
+                tabId: 7,
+                frameId: 0,
+                documentId: "doc-2",
+                url: "https://example.com/next",
+              }),
+            );
+          }
+          return {};
+        },
+      }),
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const result = await page.click(
+    {
+      requestId: "trusted-navigation",
+      command: "page.click",
+      target: { tabId: 7, documentId: "doc-1" },
+      params: {
+        locator: { css: "#next" },
+        backend: "cdp",
+        waitForNavigation: true,
+      },
+    },
+    new AbortController().signal,
+  );
+
+  assert.equal(result.backend, "cdp");
+  assert.equal(result.element.id, "next");
+  assert.equal(result.navigation.documentId, "doc-2");
+  assert.equal(bridgeOperations, 1);
+  assert.equal(completed.listenerCount(), 0);
+});
+
+test("page trusted fill clears through editing commands without bridging the value", async () => {
+  const cdpCalls = [];
+  const bridgeParams = [];
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
+      sendMessage: async (_tabId, message) => {
+        if (message.type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: "1.6" };
+        }
+        bridgeParams.push(message.params);
+        return message.command === "page.prepareTrustedInput"
+          ? {
+              success: true,
+              result: { matchCount: 1, element: { id: "password" }, point: { x: 10, y: 10 } },
+            }
+          : {
+              success: true,
+              result: {
+                matchCount: 1,
+                element: { id: "password" },
+                backend: "cdp",
+                value: "[REDACTED]",
+              },
+            };
+      },
+    },
+    permissions: { contains: async () => true },
+    webNavigation: { getFrame: async () => ({ documentId: "doc-1" }) },
+  };
+  const cdpSessions = {
+    withSession: async (_target, options, operation) => {
+      assert.deepEqual(options.commands, ["Input.dispatchKeyEvent", "Input.insertText"]);
+      return operation({
+        sendCommand: async (method, params) => {
+          cdpCalls.push([method, params]);
+          return {};
+        },
+      });
+    },
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const result = await page.fill(
+    {
+      requestId: "trusted-fill",
+      command: "page.fill",
+      target: { tabId: 7, documentId: "doc-1" },
+      params: {
+        locator: { css: "#password" },
+        value: "new-secret",
+        backend: "cdp",
+      },
+    },
+    new AbortController().signal,
+  );
+
+  assert.equal(result.value, "[REDACTED]");
+  assert.equal(JSON.stringify(bridgeParams).includes("new-secret"), false);
+  assert.deepEqual(cdpCalls.at(-1), ["Input.insertText", { text: "new-secret" }]);
+  assert.deepEqual(cdpCalls[0], [
+    "Input.dispatchKeyEvent",
+    {
+      type: "rawKeyDown",
+      key: "a",
+      code: "KeyA",
+      windowsVirtualKeyCode: 65,
+      commands: ["selectAll"],
+    },
+  ]);
+});
+
+test("page trusted delayed typing stops immediately on cancellation", async () => {
+  const controller = new AbortController();
+  let insertions = 0;
+  let resultReads = 0;
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
+      sendMessage: async (_tabId, message) => {
+        if (message.type === "MCP_BROWSER_BRIDGE_READY") {
+          return { ready: true, bridgeVersion: "1.6" };
+        }
+        if (message.command === "page.readTrustedInputResult") resultReads += 1;
+        return {
+          success: true,
+          result: { matchCount: 1, element: { id: "name" }, point: { x: 10, y: 10 } },
+        };
+      },
+    },
+    permissions: { contains: async () => true },
+    webNavigation: { getFrame: async () => ({ documentId: "doc-1" }) },
+  };
+  const cdpSessions = {
+    withSession: async (_target, _options, operation) =>
+      operation({
+        sendCommand: async (method) => {
+          if (method === "Input.insertText") {
+            insertions += 1;
+            controller.abort();
+          }
+          return {};
+        },
+      }),
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+
+  await assert.rejects(
+    page.type(
+      {
+        requestId: "trusted-cancel",
+        command: "page.type",
+        target: { tabId: 7, documentId: "doc-1" },
+        params: {
+          locator: { css: "#name" },
+          text: "abc",
+          delayMs: 50,
+          backend: "cdp",
+        },
+      },
+      controller.signal,
+    ),
+    (error) => error.code === ErrorCode.CANCELLED,
+  );
+  assert.equal(insertions, 1);
+  assert.equal(resultReads, 0);
+});
+
+test("page trusted input rejects missing Debug, child frames, and content-only actions", async () => {
+  let sessionCalls = 0;
+  const chromeAPI = {
+    tabs: {
+      get: async (tabId) => ({
+        id: tabId,
+        windowId: 3,
+        url: "https://example.com/page",
+      }),
+    },
+    permissions: {
+      contains: async (request) => !request.permissions?.includes("debugger"),
+    },
+    webNavigation: { getFrame: async () => ({ documentId: "doc-1" }) },
+  };
+  const cdpSessions = {
+    withSession: async () => {
+      sessionCalls += 1;
+    },
+  };
+  const page = createPageHandlers(chromeAPI, { cdpSessions });
+  const base = {
+    requestId: "trusted-denied",
+    target: { tabId: 7, documentId: "doc-1" },
+    params: { locator: { css: "#save" }, backend: "cdp" },
+  };
+  await assert.rejects(
+    page.click({ ...base, command: "page.click" }, new AbortController().signal),
+    (error) => error.code === ErrorCode.PERMISSION_REQUIRED,
+  );
+  await assert.rejects(
+    page.focus({ ...base, command: "page.focus" }, new AbortController().signal),
+    (error) => error.code === ErrorCode.CAPABILITY_UNAVAILABLE,
+  );
+  await assert.rejects(
+    page.click(
+      { ...base, target: { tabId: 7, frameId: 2, documentId: "doc-1" }, command: "page.click" },
+      new AbortController().signal,
+    ),
+    (error) => error.code === ErrorCode.CAPABILITY_UNAVAILABLE,
+  );
+  assert.equal(sessionCalls, 0);
+});
+
 test("page viewport screenshot captures and restores the addressed tab", async () => {
   let activeTabId = 9;
   const updates = [];
@@ -843,7 +1221,7 @@ test("page element screenshot resolves the root-document locator into a page cli
       sendMessage: async (_tabId, message, options) => {
         messages.push([message, options]);
         if (message.type === "MCP_BROWSER_BRIDGE_READY") {
-          return { ready: true, bridgeVersion: "1.5" };
+          return { ready: true, bridgeVersion: "1.6" };
         }
         return {
           success: true,

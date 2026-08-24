@@ -130,7 +130,8 @@ an enforced allowlist for both `tools/list` and direct calls:
   read-only window/tab metadata;
 - `standard` adds normal tab, window, page, screenshot, wait, and console
   automation; full-page and element screenshot modes additionally require the
-  browser's optional Debug permission;
+  browser's optional Debug permission, as does an explicit trusted `cdp`
+  interaction backend;
 - `full` also exposes tab-group/session tools, network diagnostics, and the
   expert `browser_send_command` entry point.
 

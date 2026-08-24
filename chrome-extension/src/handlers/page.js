@@ -1,10 +1,12 @@
 import { ErrorCode, assertFreshDocument, mapChromeError, protocolError } from "../protocol.js";
 import { ContentScriptBridge } from "../content-bridge.js";
+import { createTrustedInputExecutor } from "../trusted-input.js";
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 30_000;
 
 export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } = {}) {
   const bridge = new ContentScriptBridge(chromeAPI);
+  const trustedInput = createTrustedInputExecutor(chromeAPI, { cdpSessions, bridge });
   const captureQueues = new Map();
   let screenshotSequence = 0;
   let printSequence = 0;
@@ -46,14 +48,36 @@ export function createPageHandlers(chromeAPI, { networkActivity, cdpSessions } =
       : null;
     let result;
     try {
-      result = await bridge.execute({
-        tabId: tab.id,
-        frameId,
-        documentId,
-        command: request.command,
-        params: request.params,
-        signal,
-      });
+      if (request.params.backend === "cdp") {
+        result = await trustedInput.execute(request, {
+          tab,
+          frameId,
+          documentId,
+          signal,
+        });
+        if (!navigation) {
+          const finalTab = await resolveTab(tab.id);
+          if (finalTab.windowId !== tab.windowId) {
+            throw protocolError(
+              ErrorCode.STALE_TARGET,
+              "The target tab moved to another window during trusted input",
+              true,
+            );
+          }
+          await assertPageAccess(finalTab);
+          const finalDocumentId = await currentDocument(request, finalTab.id, frameId);
+          assertFreshDocument(documentId, finalDocumentId);
+        }
+      } else {
+        result = await bridge.execute({
+          tabId: tab.id,
+          frameId,
+          documentId,
+          command: request.command,
+          params: request.params,
+          signal,
+        });
+      }
     } catch (error) {
       navigation?.cancel();
       throw error;

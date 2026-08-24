@@ -4027,11 +4027,10 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "DOM interaction backend",
       "enum": [
         "auto",
-        "content",
-        "cdp"
+        "content"
       ],
       "type": "string"
     },
@@ -4247,7 +4246,7 @@ Clear an editable element.
 
 - MCP profile: `standard`
 - Extension capability: `page.clear`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -4257,7 +4256,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -4477,7 +4476,7 @@ Click one actionable element using a strict locator by default.
 
 - MCP profile: `standard`
 - Extension capability: `page.click`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -4487,7 +4486,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -4749,7 +4748,7 @@ Open an element's context menu.
 
 - MCP profile: `standard`
 - Extension capability: `page.click`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -4759,7 +4758,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -4989,11 +4988,10 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "DOM interaction backend",
       "enum": [
         "auto",
-        "content",
-        "cdp"
+        "content"
       ],
       "type": "string"
     },
@@ -5220,7 +5218,7 @@ Double-click an actionable element.
 
 - MCP profile: `standard`
 - Extension capability: `page.click`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -5230,7 +5228,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -5460,11 +5458,10 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "DOM interaction backend",
       "enum": [
         "auto",
-        "content",
-        "cdp"
+        "content"
       ],
       "type": "string"
     },
@@ -5874,11 +5871,10 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "DOM interaction backend",
       "enum": [
         "auto",
-        "content",
-        "cdp"
+        "content"
       ],
       "type": "string"
     },
@@ -6094,7 +6090,7 @@ Hover over an actionable element.
 
 - MCP profile: `standard`
 - Extension capability: `page.hover`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -6104,7 +6100,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -6324,7 +6320,7 @@ Fill one actionable input using a strict locator by default.
 
 - MCP profile: `standard`
 - Extension capability: `page.fill`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -6334,7 +6330,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -6559,6 +6555,7 @@ Input schema:
     },
     "value": {
       "description": "Value to enter",
+      "maxLength": 100000,
       "type": "string"
     },
     "waitForNavigation": {
@@ -6593,7 +6590,7 @@ Dispatch a keyboard chord to an element.
 
 - MCP profile: `standard`
 - Extension capability: `page.press`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -6603,7 +6600,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -6626,6 +6623,7 @@ Input schema:
     },
     "key": {
       "description": "KeyboardEvent key value",
+      "maxLength": 100,
       "type": "string"
     },
     "locator": {
@@ -6843,7 +6841,7 @@ Scroll the page or a located element.
 
 - MCP profile: `standard`
 - Extension capability: `page.scroll`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`
 
@@ -6853,7 +6851,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -7098,11 +7096,10 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "DOM interaction backend",
       "enum": [
         "auto",
-        "content",
-        "cdp"
+        "content"
       ],
       "type": "string"
     },
@@ -7331,7 +7328,7 @@ Set or toggle a checkbox or radio input.
 
 - MCP profile: `standard`
 - Extension capability: `page.setChecked`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -7341,7 +7338,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -7576,11 +7573,10 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "DOM interaction backend",
       "enum": [
         "auto",
-        "content",
-        "cdp"
+        "content"
       ],
       "type": "string"
     },
@@ -7796,7 +7792,7 @@ Append text to an editable element.
 
 - MCP profile: `standard`
 - Extension capability: `page.type`
-- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`
+- Permissions: Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)
 - Result: the addressed action acknowledgement and resulting element/page state in `data`
 - Errors: `INVALID_MESSAGE` for invalid arguments; browser selection/connection errors; `CAPABILITY_UNAVAILABLE`; `TIMEOUT` or `CANCELLED`; `TAB_NOT_FOUND`, `FRAME_NOT_FOUND`, or `STALE_TARGET`; `PERMISSION_REQUIRED` or `RESTRICTED_URL`; `ELEMENT_NOT_FOUND` or `STRICT_MODE_VIOLATION`
 
@@ -7806,7 +7802,7 @@ Input schema:
 {
   "properties": {
     "backend": {
-      "description": "Input backend",
+      "description": "Input backend; cdp requires the root document and Debug permission",
       "enum": [
         "auto",
         "content",
@@ -7999,6 +7995,7 @@ Input schema:
     },
     "text": {
       "description": "Text to type",
+      "maxLength": 100000,
       "type": "string"
     },
     "timeoutMs": {

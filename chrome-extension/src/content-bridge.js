@@ -1,6 +1,6 @@
 import { ErrorCode, mapChromeError, protocolError } from "./protocol.js";
 
-export const CONTENT_BRIDGE_VERSION = "1.5";
+export const CONTENT_BRIDGE_VERSION = "1.6";
 
 const READY_MESSAGE = Object.freeze({
   type: "MCP_BROWSER_BRIDGE_READY",

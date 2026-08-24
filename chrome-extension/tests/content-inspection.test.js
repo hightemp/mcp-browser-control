@@ -215,6 +215,20 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   assert.equal(appended.result.element.value, "[REDACTED]");
   assert.equal(password.value, "top-secretabcxyz");
 
+  const trustedPreparation = await command(listener, "page.prepareTrustedInput", {
+    command: "page.fill",
+    inputParams: { locator: { css: "#password" } },
+  });
+  assert.equal(trustedPreparation.success, true);
+  assert.deepEqual(trustedPreparation.result.point, { x: 50, y: 15 });
+  assert.equal(JSON.stringify(trustedPreparation.result).includes("top-secret"), false);
+  const trustedResult = await command(listener, "page.readTrustedInputResult", {
+    command: "page.fill",
+    inputParams: { locator: { css: "#password" } },
+  });
+  assert.equal(trustedResult.result.backend, "cdp");
+  assert.equal(trustedResult.result.value, "[REDACTED]");
+
   const hovered = await command(listener, "page.hover", {
     locator: { css: "#save" },
   });
@@ -327,7 +341,7 @@ test("content inspection bounds output, redacts secrets, paginates, and describe
   listener(
     {
       type: "MCP_BROWSER_CANCEL",
-      bridgeVersion: "1.5",
+      bridgeVersion: "1.6",
       operationId: cancelledOperation,
     },
     { id: "extension-id" },
@@ -365,7 +379,7 @@ function command(listener, name, params, operationId = `${name}-${Date.now()}-${
     const handled = listener(
       {
         type: "MCP_BROWSER_COMMAND",
-        bridgeVersion: "1.5",
+        bridgeVersion: "1.6",
         operationId,
         command: name,
         params,

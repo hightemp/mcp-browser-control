@@ -19,7 +19,7 @@ The first multi-browser vertical slice is implemented:
 - STDIO and authenticated Streamable HTTP transports are available; deprecated
   legacy SSE requires an explicit opt-in;
 - window, tab, tab-group, session, bounded page inspection, semantic snapshot,
-  locator, DOM interaction, waits, viewport/full-page/element screenshots, managed-CDP PDF
+  locator, DOM and trusted-CDP interaction, waits, viewport/full-page/element screenshots, managed-CDP PDF
   artifacts, bounded accessibility trees, reversible tab emulation,
   opt-in isolated-world JavaScript evaluation, a reviewed opt-in read-only CDP
   subset, bounded performance metrics/capture artifacts, and bridge/CDP console
@@ -27,7 +27,7 @@ The first multi-browser vertical slice is implemented:
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-Trusted CDP input and request interception are planned but not complete. Remote mode is not
+Request interception is planned but not complete. Remote mode is not
 implemented; do not expose either server port outside the local machine.
 Review the complete [known limitations](docs/known-limitations.md) before a
 production rollout.
@@ -340,13 +340,15 @@ navigation, detachment, or expiry. Locator failures include the match count and
 bounded candidate diagnostics; actionability checks cover attachment,
 visibility, disabled state, viewport placement, and pointer obstruction.
 
-Interaction tools use the synthetic content-script backend when `backend` is
-`auto` or `content`. Requesting `cdp` currently returns
-`CAPABILITY_UNAVAILABLE`; trusted input will be enabled by the CDP session
-manager. Actions that can navigate accept `waitForNavigation: true` and then
-wait for the addressed frame to complete either a document or same-document
-navigation within the command deadline. Password values remain redacted in
-every interaction result.
+Interaction tools use the content backend by default. Click/hover, text
+fill/type/clear, key chords, checkbox/radio clicks, and wheel scrolling can opt
+into root-document trusted input with `backend: "cdp"`; this requires the Debug
+permission and an exact managed `Input.*` lease. DOM-semantic operations stay
+content-only and explicit CDP requests never silently fall back. Actions that
+can navigate accept `waitForNavigation: true` and wait for the addressed frame
+to complete either a document or same-document navigation within the command
+deadline. Password values remain redacted in every interaction result. See
+[`docs/trusted-input.md`](docs/trusted-input.md).
 
 `browser_wait` shares the command deadline and supports delay, document ready
 state, exact or wildcard URL, element state, text, value, match count,

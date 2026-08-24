@@ -503,10 +503,23 @@ func permissionDescription(capability string) string {
 		return "Debug (`debugger`) plus Observe (HTTP/HTTPS site access), Core `webNavigation`, and MCP `full`"
 	case capability == protocol.CommandPageScreenshot:
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; `fullPage` and `element` modes also require Debug (`debugger`)"
+	case trustedInputCapability(capability):
+		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`; explicit root-document `cdp` input also requires Debug (`debugger`)"
 	case strings.HasPrefix(capability, "page.") || strings.HasPrefix(capability, "console."):
 		return "Observe (HTTP/HTTPS site access) plus Core `scripting` and `webNavigation`"
 	default:
 		return "Core; `tabs` is required for tab metadata and operations"
+	}
+}
+
+func trustedInputCapability(capability string) bool {
+	switch capability {
+	case protocol.CommandPageClick, protocol.CommandPageFill, protocol.CommandPageHover,
+		protocol.CommandPageType, protocol.CommandPageClear, protocol.CommandPagePress,
+		protocol.CommandPageSetChecked, protocol.CommandPageScroll:
+		return true
+	default:
+		return false
 	}
 }
 

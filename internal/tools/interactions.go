@@ -5,6 +5,7 @@ import (
 	"math"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/protocol"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -12,6 +13,12 @@ import (
 )
 
 var interactionEventTypePattern = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9:_-]{0,99}$`)
+
+const (
+	maxInteractionTextChars = 100_000
+	maxDelayedTypeChars     = 10_000
+	maxInteractionKeyChars  = 100
+)
 
 type interactionTargetArgs struct {
 	BrowserID         string           `json:"browserId,omitempty"`
@@ -102,6 +109,9 @@ func (s *Service) registerInteractionTools(mcpServer *server.MCPServer) {
 				_ mcp.CallToolRequest,
 				args interactionTargetArgs,
 			) (*mcp.CallToolResult, error) {
+				if err := validateToolInteractionBackend(name, args.Backend); err != nil {
+					return errorResult(err)
+				}
 				params, target, err := interactionParams(args)
 				if err != nil {
 					return errorResult(err)
@@ -119,12 +129,12 @@ func (s *Service) registerInteractionTools(mcpServer *server.MCPServer) {
 
 	mcpServer.AddTool(newLocatorActionTool(
 		"browser_type", "Append text to an editable element",
-		mcp.WithString("text", mcp.Required(), mcp.Description("Text to type")),
+		mcp.WithString("text", mcp.Required(), mcp.Description("Text to type"), mcp.MaxLength(maxInteractionTextChars)),
 		mcp.WithNumber("delayMs", mcp.Description("Delay per character in milliseconds"), mcp.Min(0), mcp.Max(1_000)),
 	), mcp.NewTypedToolHandler(s.browserTypeHandler))
 	mcpServer.AddTool(newLocatorActionTool(
 		"browser_press", "Dispatch a keyboard chord to an element",
-		mcp.WithString("key", mcp.Required(), mcp.Description("KeyboardEvent key value")),
+		mcp.WithString("key", mcp.Required(), mcp.Description("KeyboardEvent key value"), mcp.MaxLength(maxInteractionKeyChars)),
 		mcp.WithArray("modifiers", mcp.Description("Alt, Control, Meta, or Shift"),
 			mcp.Items(map[string]any{"type": "string", "enum": []string{"Alt", "Control", "Meta", "Shift"}}),
 			mcp.MaxItems(4)),
@@ -172,8 +182,14 @@ func newPageActionTool(name, description string, extra ...mcp.ToolOption) mcp.To
 		optionalFrameID(), optionalDocumentID(),
 	}
 	options = append(options, extra...)
+	backends := []string{"auto", "content"}
+	backendDescription := "DOM interaction backend"
+	if trustedCDPBackendTool(name) {
+		backends = append(backends, "cdp")
+		backendDescription = "Input backend; cdp requires the root document and Debug permission"
+	}
 	options = append(options,
-		mcp.WithString("backend", mcp.Description("Input backend"), mcp.Enum("auto", "content", "cdp")),
+		mcp.WithString("backend", mcp.Description(backendDescription), mcp.Enum(backends...)),
 		mcp.WithBoolean("waitForNavigation", mcp.Description("Wait for navigation completion after the action")),
 		optionalTimeout(),
 	)
@@ -188,8 +204,14 @@ func (s *Service) browserTypeHandler(ctx context.Context, _ mcp.CallToolRequest,
 	if strings.TrimSpace(args.Text) == "" {
 		return errorResult(invalidInteraction("text must not be empty"))
 	}
+	if utf8.RuneCountInString(args.Text) > maxInteractionTextChars {
+		return errorResult(invalidInteraction("text must contain at most 100000 characters"))
+	}
 	if args.DelayMS != nil && (*args.DelayMS < 0 || *args.DelayMS > 1_000) {
 		return errorResult(invalidInteraction("delayMs must be between 0 and 1000"))
+	}
+	if args.DelayMS != nil && *args.DelayMS > 0 && utf8.RuneCountInString(args.Text) > maxDelayedTypeChars {
+		return errorResult(invalidInteraction("delayed text must contain at most 10000 characters"))
 	}
 	params["text"] = args.Text
 	putOptional(params, "delayMs", args.DelayMS)
@@ -201,8 +223,8 @@ func (s *Service) browserPressHandler(ctx context.Context, _ mcp.CallToolRequest
 	if err != nil {
 		return errorResult(err)
 	}
-	if strings.TrimSpace(args.Key) == "" {
-		return errorResult(invalidInteraction("key must not be empty"))
+	if strings.TrimSpace(args.Key) == "" || utf8.RuneCountInString(args.Key) > maxInteractionKeyChars {
+		return errorResult(invalidInteraction("key must contain between 1 and 100 characters"))
 	}
 	if err := validateModifiers(args.Modifiers); err != nil {
 		return errorResult(err)
@@ -215,6 +237,9 @@ func (s *Service) browserPressHandler(ctx context.Context, _ mcp.CallToolRequest
 }
 
 func (s *Service) browserSelectOptionHandler(ctx context.Context, _ mcp.CallToolRequest, args interactionSelectArgs) (*mcp.CallToolResult, error) {
+	if err := validateToolInteractionBackend("browser_select_option", args.Backend); err != nil {
+		return errorResult(err)
+	}
 	params, target, err := interactionParams(args.interactionTargetArgs)
 	if err != nil {
 		return errorResult(err)
@@ -261,6 +286,9 @@ func (s *Service) browserScrollHandler(ctx context.Context, _ mcp.CallToolReques
 	if args.Behavior != "" && args.Behavior != "auto" && args.Behavior != "smooth" {
 		return errorResult(invalidInteraction("behavior must be auto or smooth"))
 	}
+	if args.Backend == "cdp" && args.Behavior == "smooth" {
+		return errorResult(invalidInteraction("smooth behavior is unavailable with the cdp backend"))
+	}
 	params["deltaX"], params["deltaY"] = args.DeltaX, args.DeltaY
 	if args.Behavior != "" {
 		params["behavior"] = args.Behavior
@@ -269,6 +297,9 @@ func (s *Service) browserScrollHandler(ctx context.Context, _ mcp.CallToolReques
 }
 
 func (s *Service) browserDragHandler(ctx context.Context, _ mcp.CallToolRequest, args interactionDragArgs) (*mcp.CallToolResult, error) {
+	if err := validateToolInteractionBackend("browser_drag_and_drop", args.Backend); err != nil {
+		return errorResult(err)
+	}
 	target := pageTarget(args.TabID, args.FrameID, args.DocumentID)
 	if err := validateInteractionBackend(args.Backend); err != nil {
 		return errorResult(err)
@@ -301,6 +332,9 @@ func (s *Service) browserDragHandler(ctx context.Context, _ mcp.CallToolRequest,
 }
 
 func (s *Service) browserDispatchHandler(ctx context.Context, _ mcp.CallToolRequest, args interactionDispatchArgs) (*mcp.CallToolResult, error) {
+	if err := validateToolInteractionBackend("browser_dispatch_event", args.Backend); err != nil {
+		return errorResult(err)
+	}
 	params, target, err := interactionParams(args.interactionTargetArgs)
 	if err != nil {
 		return errorResult(err)
@@ -333,6 +367,27 @@ func validateInteractionBackend(backend string) error {
 		return nil
 	}
 	return invalidInteraction("backend must be auto, content, or cdp")
+}
+
+func validateToolInteractionBackend(toolName, backend string) error {
+	if err := validateInteractionBackend(backend); err != nil {
+		return err
+	}
+	if backend == "cdp" && !trustedCDPBackendTool(toolName) {
+		return invalidInteraction("the cdp backend is unavailable for this DOM-semantic action")
+	}
+	return nil
+}
+
+func trustedCDPBackendTool(name string) bool {
+	switch name {
+	case "browser_click_element", "browser_double_click", "browser_context_click",
+		"browser_input_data", "browser_hover", "browser_type", "browser_clear",
+		"browser_press", "browser_set_checked", "browser_scroll":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateModifiers(modifiers []string) error {

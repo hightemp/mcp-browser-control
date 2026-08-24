@@ -38,6 +38,7 @@ const PROFILE_DEFINITIONS = Object.freeze([
     tools: Object.freeze([
       "PDF",
       "full-page and element screenshots",
+      "trusted root-document input",
       "accessibility",
       "console enrichment",
       "emulation",

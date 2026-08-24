@@ -310,12 +310,12 @@ const COMMANDS = Object.freeze({
   "page.focus": Object.freeze({
     domain: "page",
     handler: "focus",
-    validate: validateSimpleAction,
+    validate: validateContentOnlySimpleAction,
   }),
   "page.blur": Object.freeze({
     domain: "page",
     handler: "blur",
-    validate: validateSimpleAction,
+    validate: validateContentOnlySimpleAction,
   }),
   "page.type": Object.freeze({
     domain: "page",
@@ -360,7 +360,7 @@ const COMMANDS = Object.freeze({
   "page.submit": Object.freeze({
     domain: "page",
     handler: "submit",
-    validate: validateSimpleAction,
+    validate: validateContentOnlySimpleAction,
   }),
   "page.wait": Object.freeze({
     domain: "page",
@@ -896,9 +896,7 @@ function validateFill(params, target) {
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
-  if (params.value === undefined || params.value === null) {
-    throw protocolError(ErrorCode.INVALID_MESSAGE, "params.value is required");
-  }
+  assertBoundedString(params.value, "params.value", 100_000, true);
   if (params.clear !== undefined && typeof params.clear !== "boolean") {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.clear must be a boolean");
   }
@@ -920,6 +918,11 @@ function validateSimpleAction(params, target) {
   validateInteractionOptions(params);
 }
 
+function validateContentOnlySimpleAction(params, target) {
+  validateSimpleAction(params, target);
+  rejectCDPBackend(params);
+}
+
 function validateType(params, target) {
   validateParamsObject(params);
   assertAllowedProperties(params, [
@@ -934,8 +937,14 @@ function validateType(params, target) {
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
-  assertNonEmptyString(params.text, "params.text");
+  assertBoundedString(params.text, "params.text", 100_000);
   validateIntegerRange(params.delayMs, "params.delayMs", 0, 1_000);
+  if (params.delayMs > 0 && [...params.text].length > 10_000) {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.text must contain at most 10000 characters when delayMs is non-zero",
+    );
+  }
   validateInteractionOptions(params);
 }
 
@@ -953,7 +962,7 @@ function validatePress(params, target) {
   ]);
   validateElementAddress(params, target);
   validateIndex(params.index);
-  assertNonEmptyString(params.key, "params.key");
+  assertBoundedString(params.key, "params.key", 100);
   if (
     params.modifiers !== undefined &&
     (!Array.isArray(params.modifiers) ||
@@ -988,6 +997,7 @@ function validateSelect(params, target) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.values must contain 1 to 100 strings");
   }
   validateInteractionOptions(params);
+  rejectCDPBackend(params);
 }
 
 function validateSetChecked(params, target) {
@@ -1035,6 +1045,12 @@ function validateScroll(params, target) {
   }
   validateEnum(params.behavior, "params.behavior", ["auto", "smooth"]);
   validateInteractionOptions(params);
+  if (params.backend === "cdp" && params.behavior === "smooth") {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.behavior smooth is unavailable with the cdp backend",
+    );
+  }
 }
 
 function validateDrag(params, target) {
@@ -1061,6 +1077,7 @@ function validateDrag(params, target) {
     validateLocator({ coordinates: params.targetCoordinates }, target);
   }
   validateInteractionOptions(params);
+  rejectCDPBackend(params);
 }
 
 function validateDispatch(params, target) {
@@ -1090,11 +1107,21 @@ function validateDispatch(params, target) {
     throw protocolError(ErrorCode.INVALID_MESSAGE, "params.detail must be an object");
   }
   validateInteractionOptions(params);
+  rejectCDPBackend(params);
 }
 
 function validateInteractionOptions(params) {
   validateEnum(params.backend, "params.backend", ["auto", "content", "cdp"]);
   validateOptionalBoolean(params.waitForNavigation, "params.waitForNavigation");
+}
+
+function rejectCDPBackend(params) {
+  if (params.backend === "cdp") {
+    throw protocolError(
+      ErrorCode.INVALID_MESSAGE,
+      "params.backend cdp is unavailable for this DOM-semantic action",
+    );
+  }
 }
 
 function validateWait(params, target) {

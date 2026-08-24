@@ -701,7 +701,7 @@ Snapshot должен быть компактным и пригодным для
 
 - Приоритет: P0
 - Зависимости: T-053
-- Статус: `[~]`
+- Статус: `[x]`
 
 Click, double/context click, hover, focus/blur, fill/type/clear, press/chord, select, check/uncheck, scroll, drag/drop, dispatch и submit.
 
@@ -714,16 +714,22 @@ Click, double/context click, hover, focus/blur, fill/type/clear, press/chord, se
 - password value не возвращается;
 - действие возвращает фактический element/target.
 
-Реализована content-script часть: click/double/context click, hover,
-focus/blur, fill/type/clear, press с modifiers, select, set/toggle checked,
-page/element scroll, drag/drop, CustomEvent dispatch и submit доступны как
-типизированные MCP tools. Все действия используют общий locator/actionability
-pipeline, возвращают фактический element/target, редактируют password values и
-могут ожидать document или same-document navigation в пределах общего
-deadline. `backend: auto|content` работает сейчас; явный `backend: cdp`
-возвращает `CAPABILITY_UNAVAILABLE` до завершения CDP Session Manager в T-060,
-поэтому задача остаётся частично выполненной. Добавлены проверки параметров и
-тесты маршрутизации, DOM-событий, redaction и navigation listener cleanup.
+Все перечисленные действия реализованы через content-script backend и общий
+locator/actionability pipeline: они возвращают фактический element/target,
+редактируют password values и могут ожидать document или same-document
+navigation в пределах общего deadline. Для click/double/context click, hover,
+fill/type/clear текстовых полей, key chords, set/toggle checked и page/element
+wheel scroll добавлен явный `backend: cdp`: root-document locator разрешается и
+проверяется в content script, после чего расширение использует request-scoped
+managed lease с точным минимальным набором `Input.dispatchMouseEvent`,
+`Input.dispatchKeyEvent` и `Input.insertText`. Debug permission, root document,
+origin/window/document rechecks, cancellation и отсутствие silent fallback
+обязательны; `auto` остаётся content-first. Focus/blur, select, drag/drop,
+CustomEvent dispatch, submit и smooth scroll осознанно content-only, поскольку
+их типизированная DOM-семантика не имеет точного соответствия в разрешённых
+low-level Input methods. Тесты покрывают маршрутизацию, exact method leases,
+actionability preparation, navigation cleanup, permission/frame denial,
+защиту password values и отсутствие значения fill в bridge preparation.
 
 ### T-057 — Реализовать wait engine
 

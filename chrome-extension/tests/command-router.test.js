@@ -650,6 +650,12 @@ test("router validates target and command params before invoking handlers", asyn
     createRequest("page.fill", { selector: "input" }),
     createRequest("page.fill", { selector: "input", value: "x", clear: "yes" }),
     createRequest("page.type", { locator: { css: "input" }, text: "" }),
+    createRequest("page.type", {
+      locator: { css: "input" },
+      text: "x".repeat(10_001),
+      delayMs: 1,
+    }),
+    createRequest("page.press", { locator: { css: "input" }, key: "x".repeat(101) }),
     createRequest("page.press", {
       locator: { css: "input" },
       key: "A",
@@ -663,6 +669,13 @@ test("router validates target and command params before invoking handlers", asyn
       eventType: "bad event",
     }),
     createRequest("page.hover", { locator: { css: "#a" }, backend: "native" }),
+    createRequest("page.focus", { locator: { css: "#a" }, backend: "cdp" }),
+    createRequest("page.select", {
+      locator: { css: "select" },
+      values: ["US"],
+      backend: "cdp",
+    }),
+    createRequest("page.scroll", { deltaY: 100, behavior: "smooth", backend: "cdp" }),
     createRequest("page.wait", { condition: "delay" }),
     createRequest("page.wait", { condition: "url", url: "a", urlPattern: "*" }),
     createRequest("page.wait", {

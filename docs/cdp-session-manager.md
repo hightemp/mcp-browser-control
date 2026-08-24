@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; used by typed screenshots, console, PDF, accessibility, emulation, evaluation, reviewed raw CDP, and performance tools
+Status: implemented infrastructure; used by typed input, screenshots, console, PDF, accessibility, emulation, evaluation, reviewed raw CDP, and performance tools
 
 Last reviewed: 2026-08-24
 
@@ -21,6 +21,7 @@ attached tab or closing the target causes `onDetach`. See the official
 tabId
   └─ one root chrome.debugger attachment
        ├─ console consumer lease
+       ├─ input consumer lease
        ├─ screenshot consumer lease
        ├─ emulation consumer lease
        ├─ network consumer lease

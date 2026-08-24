@@ -10,6 +10,7 @@ import (
 	"log"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/artifacts"
 	"github.com/hightemp/go_mcp_browser_ext_tool/internal/policy"
@@ -463,7 +464,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			optionalLocator(),
 			mcp.WithString("button", mcp.Description("Mouse button"), mcp.Enum("left", "middle", "right")),
 			mcp.WithNumber("clickCount", mcp.Description("One or two clicks"), mcp.Min(1), mcp.Max(2)),
-			mcp.WithString("backend", mcp.Description("Input backend"), mcp.Enum("auto", "content", "cdp")),
+			mcp.WithString("backend", mcp.Description("Input backend; cdp requires the root document and Debug permission"), mcp.Enum("auto", "content", "cdp")),
 			mcp.WithBoolean("waitForNavigation", mcp.Description("Wait for navigation completion")),
 			optionalTimeout(),
 		),
@@ -478,7 +479,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 			optionalFrameID(),
 			optionalDocumentID(),
 			mcp.WithString("selector", mcp.Description("CSS selector")),
-			mcp.WithString("value", mcp.Required(), mcp.Description("Value to enter")),
+			mcp.WithString("value", mcp.Required(), mcp.Description("Value to enter"), mcp.MaxLength(maxInteractionTextChars)),
 			mcp.WithNumber("index", mcp.Description("Legacy zero-based CSS match index")),
 			optionalCoordinates(),
 			optionalLocator(),
@@ -487,7 +488,7 @@ func (s *Service) registerBrowserCommandTools(mcpServer *server.MCPServer) {
 				mcp.Description("Clear the field before entering the value"),
 				mcp.DefaultBool(true),
 			),
-			mcp.WithString("backend", mcp.Description("Input backend"), mcp.Enum("auto", "content", "cdp")),
+			mcp.WithString("backend", mcp.Description("Input backend; cdp requires the root document and Debug permission"), mcp.Enum("auto", "content", "cdp")),
 			mcp.WithBoolean("waitForNavigation", mcp.Description("Wait for navigation completion")),
 			optionalTimeout(),
 		),
@@ -864,6 +865,9 @@ func (s *Service) browserInputHandler(
 	}
 	if err := validateInteractionBackend(args.Backend); err != nil {
 		return errorResult(err)
+	}
+	if utf8.RuneCountInString(args.Value) > maxInteractionTextChars {
+		return errorResult(invalidInteraction("value must contain at most 100000 characters"))
 	}
 	params := map[string]any{
 		"value": args.Value,

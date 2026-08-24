@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -862,6 +863,37 @@ func TestCommandHandlerValidation(t *testing.T) {
 						BrowserID: "browser-a", Locator: locator,
 					},
 					Text: " ",
+				})
+			},
+		},
+		{
+			name: "delayed text bound",
+			call: func() (*mcp.CallToolResult, error) {
+				delay := 1
+				return service.browserTypeHandler(context.Background(), mcp.CallToolRequest{}, interactionTypeArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", Locator: locator, Backend: "cdp",
+					},
+					Text: strings.Repeat("x", maxDelayedTypeChars+1), DelayMS: &delay,
+				})
+			},
+		},
+		{
+			name: "content-only cdp backend",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserSelectOptionHandler(context.Background(), mcp.CallToolRequest{}, interactionSelectArgs{
+					interactionTargetArgs: interactionTargetArgs{
+						BrowserID: "browser-a", Locator: locator, Backend: "cdp",
+					},
+					Values: []string{"US"},
+				})
+			},
+		},
+		{
+			name: "smooth cdp scroll",
+			call: func() (*mcp.CallToolResult, error) {
+				return service.browserScrollHandler(context.Background(), mcp.CallToolRequest{}, interactionScrollArgs{
+					BrowserID: "browser-a", DeltaY: 100, Behavior: "smooth", Backend: "cdp",
 				})
 			},
 		},

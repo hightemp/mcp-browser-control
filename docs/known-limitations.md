@@ -23,8 +23,10 @@ security review, browser matrix, tests, and user documentation are complete.
 
 ## Automation Boundaries
 
-- DOM interaction uses the content-script backend. Explicit trusted CDP input
-  is not yet implemented.
+- Trusted CDP input is root-document only and limited to approved pointer,
+  keyboard, checkbox/radio, and wheel actions. Focus/blur, select-option,
+  drag/drop, custom-event dispatch, submit, and smooth scrolling use the
+  content backend.
 - Full-page and element screenshots are limited to the root document and
   require the optional Debug permission. They do not stitch child-frame
   captures or apply pixel redaction.

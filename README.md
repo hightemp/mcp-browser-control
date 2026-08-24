@@ -20,13 +20,13 @@ The first multi-browser vertical slice is implemented:
   legacy SSE requires an explicit opt-in;
 - window, tab, tab-group, session, bounded page inspection, semantic snapshot,
   locator, DOM interaction, waits, viewport screenshots, managed-CDP PDF
-  artifacts, bounded accessibility trees, and basic console diagnostics work
-  through the extension;
+  artifacts, bounded accessibility trees, and bridge/CDP console diagnostics
+  work through the extension;
 - Go race tests, real WebSocket tests, extension protocol tests, and a
   two-browser/two-MCP-session integration test are included.
 
-Full-page and element screenshots, trusted CDP input, CDP-enriched diagnostics,
-and full network capture are planned but not complete. Remote mode is not
+Full-page and element screenshots, trusted CDP input, and full network capture
+are planned but not complete. Remote mode is not
 implemented; do not expose either server port outside the local machine.
 The internal [CDP Session Manager](docs/cdp-session-manager.md) now provides
 shared, bounded debugger lifecycle infrastructure, but it does not advertise a
@@ -354,15 +354,16 @@ Debug, and the MCP `full` profile and is excluded from batch. See
 [`docs/accessibility-tree.md`](docs/accessibility-tree.md).
 
 Console capture injects packaged, versioned bridges into the selected document's
-MAIN and ISOLATED worlds; it does not require the optional debugger permission.
-Start, stop, clear, and paginated read operations are available. Reads support
-level, kind, timestamp, and cursor filters. Console calls, JavaScript exceptions,
-unhandled rejections, and failed resource loads enter a per-document ring buffer
-bounded by both entry count and serialized size. Object serialization avoids
-getters, limits depth and breadth, handles cycles, and redacts credentials,
-authorization values, and sensitive URL query parameters in both bridge worlds.
-Capture is document-scoped and must be started again after navigation. CDP
-Runtime and Log enrichment remains part of the P1 debugger implementation.
+MAIN and ISOLATED worlds; this baseline does not require the optional debugger
+permission. When Debug is granted for a root-frame capture, one managed CDP
+lease also collects bounded `Runtime`, `Log`, and failed `Network` events. Both
+backends feed the same per-document ring buffer and cursor, with `backend` and
+`scope` fields identifying their origin. Start, stop, clear, and paginated read
+operations support level, kind, timestamp, and cursor filters. Serialization
+avoids getters, limits depth and breadth, handles cycles, and redacts credentials,
+authorization values, and sensitive URL query parameters. Capture is released
+after navigation, stop, debugger detach, permission revocation, or disconnect.
+See [`docs/console-capture.md`](docs/console-capture.md).
 
 `browser_batch` runs up to 25 typed commands sequentially against one resolved
 browser. It uses a shared 30-second deadline by default (configurable up to 120

@@ -37,6 +37,26 @@ export class ConsoleCaptureBridge {
     return unwrapConsoleResponse(response);
   }
 
+  async ingest({ tabId, frameId, documentId, entry, timestamp }) {
+    try {
+      const response = await this.chromeAPI.tabs.sendMessage(
+        tabId,
+        {
+          type: "MCP_BROWSER_CONSOLE_CDP_EVENT",
+          bridgeVersion: CONSOLE_BRIDGE_VERSION,
+          frameId,
+          documentId,
+          entry,
+          timestamp,
+        },
+        messageOptions(frameId, documentId),
+      );
+      return response?.accepted === true;
+    } catch {
+      return false;
+    }
+  }
+
   async ensureContentReady(tabId, frameId, documentId, options, signal) {
     try {
       const response = await abortable(

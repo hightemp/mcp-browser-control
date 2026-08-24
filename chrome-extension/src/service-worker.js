@@ -55,7 +55,7 @@ const commandRouter = new CommandRouter({
   handlers: {
     accessibility: createAccessibilityHandlers(chrome, { cdpSessions }),
     browser: createBrowserHandlers(),
-    console: createConsoleHandlers(chrome),
+    console: createConsoleHandlers(chrome, { cdpSessions }),
     page: createPageHandlers(chrome, { networkActivity, cdpSessions }),
     sessions: createSessionHandlers(chrome),
     tabs: createTabHandlers(chrome),

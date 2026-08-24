@@ -31,7 +31,7 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
     const listener = runtimeListeners[0];
 
     const started = await consoleCommand(listener, "console.start", {
-      bufferSize: 3,
+      bufferSize: 4,
       captureConsole: true,
       captureErrors: true,
     });
@@ -56,6 +56,28 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
       target: fakeWindow,
       reason: new Error("Bearer rejection-secret"),
     });
+    const cdpAccepted = await consoleCDPEvent(listener, {
+      backend: "cdp",
+      scope: "tab",
+      kind: "exception",
+      level: "error",
+      method: "entryAdded",
+      args: [{ password: "cdp-object-secret" }],
+      source: "https://example.com/cdp.js?token=cdp-source-secret",
+    });
+    assert.equal(cdpAccepted.accepted, true);
+    const wrongDocument = await consoleCDPEvent(
+      listener,
+      {
+        backend: "cdp",
+        scope: "frame",
+        kind: "console",
+        level: "log",
+        args: ["wrong-document"],
+      },
+      { documentId: "document-2" },
+    );
+    assert.equal(wrongDocument.accepted, false);
 
     const read = await consoleCommand(listener, "console.read", {
       levels: ["warn", "error"],
@@ -63,11 +85,13 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
       cursor: "0",
       limit: 10,
     });
-    assert.equal(read.result.entries.length, 3);
+    assert.equal(read.result.entries.length, 4);
     assert.equal(read.result.entries[0].level, "warn");
     assert.equal(read.result.entries[1].kind, "exception");
     assert.equal(read.result.entries[2].kind, "unhandledRejection");
-    assert.equal(read.result.nextCursor, "3");
+    assert.equal(read.result.entries[3].backend, "cdp");
+    assert.equal(read.result.entries[3].scope, "tab");
+    assert.equal(read.result.nextCursor, "4");
     const serialized = JSON.stringify(read.result.entries);
     for (const secret of [
       "visible-secret",
@@ -78,6 +102,8 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
       "stack-secret",
       "source-secret",
       "rejection-secret",
+      "cdp-object-secret",
+      "cdp-source-secret",
     ]) {
       assert.equal(serialized.includes(secret), false, `${secret} was not redacted`);
     }
@@ -88,7 +114,7 @@ test("main-world console capture buffers, filters, redacts, stops, and clears", 
     assert.equal(stopped.result.active, false);
     fakeConsole.error("after-stop");
     const afterStop = await consoleCommand(listener, "console.read", {
-      cursor: "3",
+      cursor: "4",
     });
     assert.equal(afterStop.result.entries.length, 0);
 
@@ -148,6 +174,24 @@ test("console ring buffer reports eviction and cursor expiry", async () => {
     delete globalThis.__mcpBrowserConsoleContentBridge;
   }
 });
+
+function consoleCDPEvent(listener, entry, target = {}) {
+  return new Promise((resolve, reject) => {
+    const handled = listener(
+      {
+        type: "MCP_BROWSER_CONSOLE_CDP_EVENT",
+        bridgeVersion: "1.0",
+        frameId: target.frameId ?? 2,
+        documentId: target.documentId ?? "document-1",
+        entry,
+        timestamp: "2026-08-24T10:00:04.000Z",
+      },
+      { id: "extension-id" },
+      resolve,
+    );
+    if (handled !== false) reject(new Error("Unexpected async CDP console handling"));
+  });
+}
 
 function consoleCommand(listener, command, params) {
   return new Promise((resolve, reject) => {

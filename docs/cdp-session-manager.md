@@ -1,6 +1,6 @@
 # CDP Session Manager
 
-Status: implemented infrastructure; used by typed PDF and accessibility tools
+Status: implemented infrastructure; used by typed console, PDF, and accessibility tools
 
 Last reviewed: 2026-08-24
 
@@ -166,3 +166,8 @@ Each CDP-backed feature must add handler, protocol-contract,
 multi-browser-isolation, permission-revocation, real Chrome, and Edge smoke
 tests. The session manager alone does not cause a CDP capability to be
 advertised and does not make any MCP tool available.
+
+Console capture is the first long-running consumer. A root-frame start may hold
+one lease for exact `Runtime`, `Log`, `Network`, and `Page` methods/events; stop,
+navigation, detach, Debug permission revocation, and server disconnect release
+or invalidate it. See [`console-capture.md`](console-capture.md).

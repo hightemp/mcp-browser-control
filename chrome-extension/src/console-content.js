@@ -42,8 +42,7 @@
       return;
     const entry = normalizeEntry(event.data.entry, event.data.timestamp);
     if (!entry) return;
-    if (entry.kind === "console" && !state.captureConsole) return;
-    if (entry.kind !== "console" && !state.captureErrors) return;
+    if (!acceptsEntry(entry)) return;
     appendEntry(entry);
   });
 
@@ -51,6 +50,19 @@
     if (sender?.id !== chrome.runtime.id) return false;
     if (message?.type === "MCP_BROWSER_CONSOLE_READY") {
       sendResponse({ ready: true, bridgeVersion: BRIDGE_VERSION });
+      return false;
+    }
+    if (
+      message?.type === "MCP_BROWSER_CONSOLE_CDP_EVENT" &&
+      message.bridgeVersion === BRIDGE_VERSION
+    ) {
+      const matchesTarget =
+        message.frameId === state.frameId && message.documentId === state.documentId;
+      const entry =
+        state.active && matchesTarget ? normalizeEntry(message.entry, message.timestamp) : null;
+      const accepted = Boolean(entry && acceptsEntry(entry));
+      if (accepted) appendEntry(entry);
+      sendResponse({ accepted });
       return false;
     }
     if (
@@ -197,6 +209,10 @@
     enforceBufferBounds();
   }
 
+  function acceptsEntry(entry) {
+    return entry.kind === "console" ? state.captureConsole : state.captureErrors;
+  }
+
   function enforceBufferBounds() {
     while (state.entries.length > state.bufferSize || state.bufferedChars > MAX_BUFFER_CHARS) {
       const removed = state.entries.shift();
@@ -218,6 +234,8 @@
       timestamp: normalizedTimestamp,
       level: candidate.level,
       kind: candidate.kind,
+      backend: candidate.backend === "cdp" ? "cdp" : "bridge",
+      scope: candidate.scope === "tab" ? "tab" : "frame",
       method: typeof candidate.method === "string" ? candidate.method.slice(0, 100) : "",
       args: sanitizeValue(Array.isArray(candidate.args) ? candidate.args : []),
       ...(typeof candidate.stack === "string"

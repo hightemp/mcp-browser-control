@@ -854,7 +854,7 @@ CDP-backed MCP capabilities этой инфраструктурной задач
 
 - Приоритет: P0
 - Зависимости: T-046
-- Статус: `[~]`
+- Статус: `[x]`
 
 Заменить некорректное разовое получение console API на event-driven capture. Базовый P0-вариант реализовать через упакованный main-world bridge и content-script bridge без обязательного `debugger` permission. При наличии CDP capability расширять его событиями Runtime, Log и Network.
 
@@ -879,8 +879,16 @@ RFC 3339 time filter, cursor и limit, а также сообщает eviction/c
 authorization values и чувствительные URL query parameters в обоих bridge
 worlds. Capture явно document-scoped и после navigation запускается заново.
 Добавлены негативные contract tests и сквозные тесты capture/filter/redaction,
-exceptions, stop/clear и ring eviction. Расширение событиями CDP Runtime/Log
-остаётся P1 после T-060, поэтому общий статус задачи частичный.
+exceptions, stop/clear и ring eviction. Для capture корневого frame при выданном
+Debug permission добавлен долгоживущий lease через общий CDP Session Manager с
+точными allowlists для Page/Runtime/Log/Network. Runtime events фильтруются по
+execution context корневого frame; Log и Network failures явно помечаются как
+tab-scoped. RemoteObject преобразуется только из value/description/preview без
+getters и дополнительных CDP-запросов. Оба backend складывают записи в общий
+ограниченный ring buffer с едиными cursor, redaction и полями backend/scope.
+Конфликт debugger не ломает базовый bridge capture, а lease освобождается при
+stop, navigation, detach, отзыве permission и отключении сервера. Покрыты
+allowlists, фильтрация context, безопасный fallback, target identity и cleanup.
 
 ### T-062 — Реализовать network capture
 

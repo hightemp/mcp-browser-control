@@ -11,7 +11,7 @@ import {
 import { getStoredIdentity, initializeStoredState, resetStoredIdentity } from "./identity.js";
 import { badgeForStatus, permissionProfilesFor } from "./status.js";
 import { detectCapabilities } from "./capabilities.js";
-import { detectBrowserInfo } from "./browser-info.js";
+import { detectBrowserEngineVersion, detectBrowserInfo } from "./browser-info.js";
 import { CommandRouter } from "./command-router.js";
 import { createBrowserHandlers } from "./handlers/browser.js";
 import { createAccessibilityHandlers } from "./handlers/accessibility.js";
@@ -69,7 +69,9 @@ let pendingRevocation = null;
 let lastError = "";
 let lastPingSentAt = 0;
 const networkActivity = createNetworkActivityObserver(chrome);
-const cdpSessions = createCDPSessionManager(chrome, { browserVersion: getBrowserVersion() });
+const cdpSessions = createCDPSessionManager(chrome, {
+  browserVersion: getBrowserEngineVersion(),
+});
 const personalDataHandlers = createPersonalDataHandlers(chrome);
 const commandRouter = new CommandRouter({
   getBrowserId: getIdentity,
@@ -529,7 +531,7 @@ async function getCurrentCapabilities() {
 
 function capabilitiesFor(permissions, featureFlags = DEFAULT_SETTINGS.featureFlags) {
   return detectCapabilities({
-    browserVersion: getBrowserVersion(),
+    browserVersion: getBrowserEngineVersion(),
     apis: {
       tabs: Boolean(chrome.tabs),
       captureVisibleTab: Boolean(chrome.tabs?.captureVisibleTab),
@@ -714,4 +716,8 @@ function getBrowserName() {
 
 function getBrowserVersion() {
   return detectBrowserInfo(navigator).version;
+}
+
+function getBrowserEngineVersion() {
+  return detectBrowserEngineVersion(navigator);
 }

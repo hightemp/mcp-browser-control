@@ -24,6 +24,20 @@ export function detectBrowserInfo(navigatorLike = {}) {
   return { name: "Chromium", version: "" };
 }
 
+export function detectBrowserEngineVersion(navigatorLike = {}) {
+  const brands = Array.isArray(navigatorLike.userAgentData?.brands)
+    ? navigatorLike.userAgentData.brands.filter(isRealBrand)
+    : [];
+  const chromium = brands.find((entry) => /^Chromium$/iu.test(entry.brand));
+  if (chromium?.version) {
+    return String(chromium.version);
+  }
+
+  const userAgent = String(navigatorLike.userAgent || "");
+  const match = userAgent.match(/(?:Chromium|Chrome)\/([\d.]+)/u);
+  return match?.[1] || "";
+}
+
 function isRealBrand(entry) {
   const normalized = String(entry?.brand || "")
     .replace(/[^a-z]/giu, "")

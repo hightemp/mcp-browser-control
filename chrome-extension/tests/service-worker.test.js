@@ -13,6 +13,7 @@ class FakeWebSocket {
     this.readyState = FakeWebSocket.CONNECTING;
     this.listeners = new Map();
     this.sent = [];
+    this.closeCalls = [];
     FakeWebSocket.instances.push(this);
   }
 
@@ -37,13 +38,22 @@ class FakeWebSocket {
   }
 
   close(code = 1000, reason = "") {
+    if (code !== 1000 && (code < 3000 || code > 4999)) {
+      throw new DOMException(
+        "The close code must be either 1000, or between 3000 and 4999",
+        "InvalidAccessError",
+      );
+    }
     if (this.readyState === FakeWebSocket.CLOSED) return;
+    this.closeCalls.push({ code, reason });
     this.readyState = FakeWebSocket.CLOSED;
     this.emit("close", { code, reason });
   }
 
   serverClose() {
-    this.close(1006, "Connection lost");
+    if (this.readyState === FakeWebSocket.CLOSED) return;
+    this.readyState = FakeWebSocket.CLOSED;
+    this.emit("close", { code: 1006, reason: "Connection lost" });
   }
 
   emit(type, event) {
@@ -146,6 +156,31 @@ test("service worker pairs and reconnects with the stored credential", async () 
   assert.equal(chromeMock.storageValues.settings.featureFlags.rawCDP, true);
   assert.equal(statusResponse.data.settings.featureFlags.sensitiveData, true);
   assert.equal(chromeMock.storageValues.settings.featureFlags.sensitiveData, true);
+
+  statusResponse = await chromeMock.sendRuntimeMessage({ type: "CONNECT" });
+  assert.equal(statusResponse.success, true);
+  const authenticationSocket = await waitForSocket(2);
+  authenticationSocket.open();
+  await waitForSentMessage(authenticationSocket, "hello");
+  authenticationSocket.receive({
+    protocolVersion: "1.0",
+    type: "auth_error",
+    browserId,
+    error: {
+      code: "PAIRING_REQUIRED",
+      message: "the browser credential is invalid or revoked",
+      retryable: false,
+    },
+    timestamp: new Date().toISOString(),
+  });
+  await waitFor(async () => {
+    const response = await chromeMock.sendRuntimeMessage({ type: "GET_STATUS" });
+    return response.data.status === "pairing_required";
+  });
+  assert.deepEqual(authenticationSocket.closeCalls, [
+    { code: 4008, reason: "Browser authentication failed" },
+  ]);
+  assert.equal(chromeMock.storageValues.credential, undefined);
 });
 
 const reconnectAlarm = "mcp-browser-control-reconnect";

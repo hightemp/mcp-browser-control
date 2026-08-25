@@ -47,6 +47,15 @@ const DEFAULT_SETTINGS = Object.freeze({
 const RECONNECT_ALARM = "mcp-browser-control-reconnect";
 const KEEPALIVE_INTERVAL_MS = 20_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
+// The browser WebSocket API only lets clients send 1000 or application-defined
+// close codes in the 3000-4999 range. RFC close codes such as 1002, 1008, and
+// 1011 can be received from a server, but passing them to WebSocket.close()
+// throws a DOMException in Chromium.
+const CLIENT_CLOSE_CODE = Object.freeze({
+  PROTOCOL_ERROR: 4002,
+  AUTHENTICATION_FAILED: 4008,
+  MESSAGE_PROCESSING_FAILED: 4011,
+});
 
 let socket = null;
 let connectionId = "";
@@ -273,7 +282,10 @@ async function connect() {
       .then(() => handleSocketMessage(currentSocket, event.data))
       .catch(async (error) => {
         await updateStatus("error", error.message || "Failed to process a server message");
-        currentSocket.close(1011, "Message processing failed");
+        currentSocket.close(
+          CLIENT_CLOSE_CODE.MESSAGE_PROCESSING_FAILED,
+          "Message processing failed",
+        );
       });
   });
   currentSocket.addEventListener("close", () => {
@@ -353,7 +365,7 @@ async function handleSocketMessage(currentSocket, rawMessage) {
     validateIncomingMessage(message, await getIdentity());
   } catch (error) {
     await updateStatus("error", error.message);
-    currentSocket.close(1002, "Invalid protocol message");
+    currentSocket.close(CLIENT_CLOSE_CODE.PROTOCOL_ERROR, "Invalid protocol message");
     return;
   }
 
@@ -389,7 +401,7 @@ async function handleSocketMessage(currentSocket, rawMessage) {
         authenticationBlocked ? "pairing_required" : "error",
         authError.message || "Browser authentication failed",
       );
-      currentSocket.close(1008, "Browser authentication failed");
+      currentSocket.close(CLIENT_CLOSE_CODE.AUTHENTICATION_FAILED, "Browser authentication failed");
       break;
     }
     case MessageType.REVOKE: {

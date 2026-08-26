@@ -108,10 +108,12 @@ Chrome, Edge и другие Chromium-продукты независимо от
 `activeTab` для временного user-invoked viewport capture, optional Observe
 (`http://*/*`, `https://*/*`, `webRequest`), Debug (`debugger`) и Personal data (`bookmarks`,
 `browsingData`, `clipboardRead`, `clipboardWrite`, `cookies`, `downloads`,
-`history`, `readingList`, `sessions`, `tabGroups`). Для каждого профиля указаны системные
+`history`, `sessions`, `tabGroups`). Для каждого профиля указаны системные
 предупреждения, связанные tool domains, redaction и зависимость Personal data
 от Observe для origin-scoped данных. Permission events применяются без
-reload/reconnect.
+reload/reconnect. `readingList` исключён из portable-манифеста: Yandex Browser
+принимает optional permission, но фатально завершает extension process при
+создании bindings неизвестного API до запуска runtime feature detection.
 
 ## 6. Этап 1 — структура проекта и контракт
 
@@ -1151,8 +1153,11 @@ History mutations и recursive bookmark tree removal требуют `confirm: tr
 не допускаются через generic command или batch. Audit содержит только domain,
 tool, browser ID, count, outcome и duration — без query, title, URL и bookmark
 ID. Reading List capability объявляется только при наличии Chrome 120+ API и
-выданного optional `readingList` permission. Добавлены unit/negative tests и
-английская документация с browser matrix и ограничениями пагинации.
+выданного optional `readingList` permission. Реализация и capability gates
+сохранены для будущей browser-specific сборки, но permission исключён из
+portable-манифеста из-за фатального сбоя Yandex Browser до выполнения
+JavaScript. Добавлены unit/negative tests и английская документация с browser
+matrix и ограничениями пагинации.
 
 ### T-074 — Исследовать clipboard и file input
 

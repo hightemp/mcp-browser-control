@@ -27,7 +27,6 @@ const optionalPermissions = [
   "debugger",
   "downloads",
   "history",
-  "readingList",
   "sessions",
   "tabGroups",
   "webRequest",
@@ -50,6 +49,10 @@ test("manifest and locked package metadata use one release version", () => {
 test("sensitive capabilities and site access remain optional", () => {
   assert.deepEqual([...manifest.optional_permissions].sort(), optionalPermissions);
   assert.deepEqual(manifest.optional_host_permissions, ["http://*/*", "https://*/*"]);
+});
+
+test("portable manifest excludes APIs that crash supported Chromium forks", () => {
+  assert.equal(manifest.optional_permissions.includes("readingList"), false);
 });
 
 test("manifest entrypoints are local files", async () => {

@@ -64,7 +64,7 @@ change. The server rejects a command that is not currently advertised.
 | Download lifecycle and safe metadata | `downloads.search/download/pause/resume/cancel/erase`; absolute paths reduced to basenames | Personal data (`downloads`) plus MCP `full`; incognito follows server action policy | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | History search/visits/deletion | `history.search/getVisits/deleteUrl/deleteRange/deleteAll` | Personal data (`history`) plus MCP `full`; every deletion requires confirmation | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Bookmark read and mutation | `bookmarks.search/getChildren/get/create/update/move/remove/removeTree` | Personal data (`bookmarks`) plus MCP `full`; recursive removal requires confirmation | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
-| Reading List read and mutation | `readingList.query/addEntry/updateEntry/removeEntry`; Chrome 120+ | Personal data (`readingList`) plus MCP `full` | Capability-gated on Chrome 120+ | Capability-gated; release smoke required | Not supported until tested |
+| Reading List read and mutation | `readingList.query/addEntry/updateEntry/removeEntry`; Chrome 120+ | Excluded from the portable manifest; reserved for a future browser-specific package | Implementation retained behind capability gates | Not available in the portable package | Not supported until tested |
 | CDP session infrastructure | `debugger`; flat child sessions require browser 125+ | Debug plus MCP `full` profile | Root manager implemented | Root manager implemented; release smoke still required | Not supported until tested |
 | Print to PDF | managed `Page.printToPDF` | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Accessibility tree | managed `Accessibility.getFullAXTree`/`getPartialAXTree` plus bounded frame metadata | Observe + Debug plus MCP `full` profile | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
@@ -72,12 +72,18 @@ change. The server rejects a command that is not currently advertised.
 | Isolated JavaScript evaluation | managed `Page.createIsolatedWorld` and bounded `Runtime.evaluate` | Observe + Debug, MCP `full`, and disabled-by-default feature flag | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Reviewed read-only CDP | exact allowlist of Accessibility, DOM, Page layout, and Performance metric methods | Observe + Debug, MCP `full`, and disabled-by-default feature flag | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
 | Performance diagnostics | managed Performance metrics, fixed-category Tracing/IO, Profiler coverage/CPU, and Audits sessions | Observe + Debug plus MCP `full`; capture output is artifact-only | Capability-gated | Capability-gated; release smoke required | Not supported until tested |
-| Other personal-data tools beyond implemented cookies/storage/downloads/sessions/groups/history/bookmarks/reading list | domain-specific optional APIs | Personal data plus MCP `full` profile | Planned | Planned | Not supported until tested |
+| Other personal-data tools beyond portable-enabled cookies/storage/downloads/sessions/groups/history/bookmarks | domain-specific optional APIs | Personal data plus MCP `full` profile | Planned | Planned | Not supported until tested |
 
 `browser_get_capabilities` exposes the server's current view. A missing API,
 permission, site grant, feature flag, or acceptable browser version removes the
 corresponding command. Consumers must handle `CAPABILITY_UNAVAILABLE` and must
 not infer support merely from a browser name or version.
+
+The portable manifest excludes `readingList` even on Chrome. Yandex Browser
+accepts that optional permission but terminates the extension process while
+creating bindings for the unknown API, before JavaScript feature detection can
+run. A browser-specific build must therefore own this permission and its
+compatibility testing.
 
 ## Namespace and Compatibility Layer
 

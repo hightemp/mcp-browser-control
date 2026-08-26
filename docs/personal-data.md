@@ -1,8 +1,9 @@
 # History, Bookmarks, and Reading List
 
-Status: implemented as optional Personal data capabilities
+Status: history and bookmarks are enabled in the portable package; Reading
+List is implemented but reserved for a future browser-specific package
 
-Last reviewed: 2026-08-24
+Last reviewed: 2026-08-25
 
 These tools are browser-scoped. They require the MCP `full` tool profile and
 the matching optional extension permission. They do not require a selected tab
@@ -82,8 +83,12 @@ cannot be rolled back.
 - Reading List requires the optional `readingList` permission and an API that
   exposes query/add/update/remove. Chrome documents this API as Chrome 120+ and
   notes that entries are keyed by exact URL, including query and fragment.
-  The project removes fragments from returned metadata, so callers must retain
-  the exact input URL for later mutation when fragment identity matters.
+  The portable manifest does not declare this permission because Yandex
+  Browser accepts it but fatally fails while creating bindings for the unknown
+  API, before runtime feature detection can run. The handlers and capability
+  gates remain for a future browser-specific package. The project removes
+  fragments from returned metadata, so callers must retain the exact input URL
+  for later mutation when fragment identity matters.
 - Edge and other Chromium browsers remain capability-gated until release smoke
   testing confirms the corresponding API and permission behavior.
 

@@ -56,12 +56,12 @@ and select them independently.
 The extension separates permissions into profiles. Optional permissions are
 requested only after a user clicks the corresponding button in settings.
 
-| Profile           | Access                                                                                                                   | When to enable it                                                                                                                 |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
-| **Core**          | Active-tab gesture, alarms, scripting, storage, tabs, and navigation metadata                                            | Installed automatically for connection, window/tab management, and user-invoked viewport screenshots                              |
-| **Observe**       | HTTP/HTTPS site access and `webRequest` metadata                                                                         | Page inspection, actions, waits, screenshots, and base console capture                                                            |
-| **Debug**         | Chrome debugger backend                                                                                                  | PDF, accessibility, emulation, network capture, opt-in isolated evaluation, reviewed raw CDP, and bounded performance diagnostics |
-| **Personal data** | Cookies, origin storage, downloads, sessions, tab groups, bookmarks, history, reading list, clipboard, and browsing data | Personal-data tools including history, bookmarks, and Reading List; grant only while explicitly needed                            |
+| Profile           | Access                                                                                                     | When to enable it                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Core**          | Active-tab gesture, alarms, scripting, storage, tabs, and navigation metadata                              | Installed automatically for connection, window/tab management, and user-invoked viewport screenshots                              |
+| **Observe**       | HTTP/HTTPS site access and `webRequest` metadata                                                           | Page inspection, actions, waits, screenshots, and base console capture                                                            |
+| **Debug**         | Chrome debugger backend                                                                                    | PDF, accessibility, emulation, network capture, opt-in isolated evaluation, reviewed raw CDP, and bounded performance diagnostics |
+| **Personal data** | Cookies, origin storage, downloads, sessions, tab groups, bookmarks, history, clipboard, and browsing data | Personal-data tools including history and bookmarks; grant only while explicitly needed                                           |
 
 The Personal data profile also enables its Observe dependency. Removing one
 optional profile removes only that profile's grants. The server immediately
@@ -105,10 +105,14 @@ optional access.
     erase, grant **Personal data**. Download results expose only a basename,
     never an absolute path or file content. History erase requires
     `confirm: true` and does not delete the file.
-18. For history, bookmarks, or Reading List, grant **Personal data** and use an
-    MCP server configured with the `full` tool profile. History deletion and
-    recursive bookmark-folder removal require explicit confirmation. Reading
-    List appears only when the browser exposes the Chrome 120+ API.
+18. For history or bookmarks, grant **Personal data** and use an MCP server
+    configured with the `full` tool profile. History deletion and recursive
+    bookmark-folder removal require explicit confirmation.
+
+The portable extension intentionally does not declare the Chrome-only
+`readingList` permission. Some Chromium forks accept that optional permission
+but fatally fail while creating the extension bindings. Reading List handlers
+remain capability-gated in the codebase for a future browser-specific package.
 
 A pairing code expires after ten minutes by default and is consumed by one
 successful pairing. Later connections use the browser credential stored in

@@ -13,6 +13,9 @@ SOURCE_DATE_EPOCH ?= $(shell git show -s --format=%ct HEAD)
 BUILD_DATE := $(shell date -u --date="@$(SOURCE_DATE_EPOCH)" +%Y-%m-%dT%H:%M:%S.000Z)
 TARGETS ?= linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 RELEASE_DIR ?= release
+RELEASE_REMOTE ?= origin
+RELEASE_BRANCH ?= main
+RELEASE_TAG ?= v$(VERSION)
 VERSION_PACKAGE := github.com/hightemp/go_mcp_browser_ext_tool/internal/app
 BUILD_LDFLAGS := -s -w -buildid= -X $(VERSION_PACKAGE).Version=$(VERSION) -X $(VERSION_PACKAGE).Commit=$(COMMIT) -X $(VERSION_PACKAGE).BuildDate=$(BUILD_DATE)
 
@@ -31,7 +34,7 @@ SOAK_TIMEOUT ?= 9h
 .DEFAULT_GOAL := help
 .NOTPARALLEL: check verify
 
-.PHONY: help deps fmt fmt-check build version release release-check release-readiness release-readiness-check tool-reference tool-reference-check run test test-race coverage coverage-check coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e performance soak soak-harness-test soak-smoke workflow-check security-check check verify clean
+.PHONY: help deps fmt fmt-check build version release release-check publish-release release-readiness release-readiness-check tool-reference tool-reference-check run test test-race coverage coverage-check coverage-html vet lint extension-format-check extension-lint extension-test extension-build extension-e2e-build extension-license-check extension-check e2e performance soak soak-harness-test soak-smoke workflow-check security-check check verify clean
 
 help:
 	@printf '%s\n' \
@@ -43,6 +46,7 @@ help:
 		'  version         Print build version metadata' \
 		'  release         Build cross-platform release artifacts' \
 		'  release-check   Build twice and compare release checksums' \
+		'  publish-release Validate, tag, push, and trigger a GitHub release' \
 		'  release-readiness  Run every automated release-candidate gate' \
 		'  release-readiness-check  Check static release metadata and docs' \
 		'  tool-reference  Generate docs/tool-reference.md' \
@@ -94,6 +98,11 @@ release-check: release
 	VERSION="$(VERSION)" COMMIT="$(COMMIT)" SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
 		TARGETS="$(TARGETS)" RELEASE_DIR="$(RELEASE_DIR)" \
 		sh scripts/check-release-reproducibility.sh
+
+publish-release: release-readiness-check release-check
+	VERSION="$(VERSION)" RELEASE_TAG="$(RELEASE_TAG)" \
+		RELEASE_REMOTE="$(RELEASE_REMOTE)" RELEASE_BRANCH="$(RELEASE_BRANCH)" \
+		sh scripts/publish-release.sh
 
 release-readiness-check:
 	sh scripts/check-release-readiness.sh

@@ -167,7 +167,7 @@ async function writeReleaseNotes() {
     "",
     "## Known Limitations",
     "",
-    `Review the [published limitations](https://github.com/hightemp/go_mcp_browser_ext_tool/blob/${commit}/docs/known-limitations.md) for this source commit before installation or rollout.`,
+    `Review the [published limitations](https://github.com/hightemp/mcp-browser-control/blob/${commit}/docs/known-limitations.md) for this source commit before installation or rollout.`,
     "",
     "Verify every downloaded file with `sha256sum -c SHA256SUMS`.",
     "",

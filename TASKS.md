@@ -1532,7 +1532,7 @@ CI запускает:
 - secret scan;
 - build artifacts.
 
-Локальные команды `fmt-check`, `vet`, `lint`, `test-race`, `coverage`, extension format/lint/test/build и security checks добавлены в `Makefile`. GitHub Actions запускает их для push, pull request, ручного запуска и еженедельной проверки. Отдельный security job выполняет `govulncheck`, npm audit, проверку лицензий Go/npm dependencies и полный git-history secret scan через Gitleaks. Успешная проверка публикует server binary, coverage profile и production extension как краткоживущие CI artifacts; внешние Actions закреплены на полных commit SHA и работают с минимальным `contents: read`.
+Локальные команды `fmt-check`, `vet`, `lint`, `test-race`, `coverage`, extension format/lint/test/build и security checks добавлены в `Makefile`. GitHub Actions запускает их для push, pull request, ручного запуска и еженедельной проверки. Отдельный security job выполняет `govulncheck`, npm audit, проверку лицензий Go/npm dependencies и полный git-history secret scan через Gitleaks. Успешная проверка публикует server binary, coverage profile и production extension как краткоживущие CI artifacts; внешние Actions закреплены на полных commit SHA и работают с минимальным `contents: read`. Отдельный release workflow с `contents: write` запускается только для version tag, повторяет проверки и публикует GitHub Release с детерминированными артефактами.
 
 ### T-104 — Подготовить reproducible builds
 
@@ -1556,7 +1556,9 @@ SBOM, release manifest и автоматически сгенерированн�
 manifest/package/lock синхронизированы и проверяются тестом; `--version`
 показывает metadata бинарника. CI собирает, повторно проверяет и публикует
 release directory. Матрица, требования и verification flow описаны по-английски
-в `docs/releasing.md`.
+в `docs/releasing.md`. Команда `make publish-release VERSION=<version>`
+проверяет чистую ветку и согласованность версии, создаёт аннотированный tag и
+атомарно отправляет ветку с tag для запуска release workflow.
 
 ### T-105 — Подготовить release checklist
 

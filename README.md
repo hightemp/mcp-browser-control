@@ -675,6 +675,17 @@ Build and compare two byte-identical cross-platform release bundles:
 make release-check
 ```
 
+Publish a tagged GitHub release from a clean `main` branch after updating the
+extension version files:
+
+```bash
+make publish-release VERSION=0.3.1
+```
+
+The command validates and builds the release, creates the matching annotated
+tag (`v0.3.1`), and atomically pushes `main` and the tag. GitHub Actions then
+publishes the generated artifacts on the repository Releases page.
+
 The bundle includes versioned Go binaries, a deterministic extension ZIP,
 checksums, generated release notes, a release manifest, and a CycloneDX SBOM.
 See [docs/releasing.md](docs/releasing.md) for supported targets, required

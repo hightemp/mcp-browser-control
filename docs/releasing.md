@@ -79,8 +79,37 @@ sha256sum -c SHA256SUMS
 ```
 
 GitHub Actions checks reproducibility and uploads the release directory for
-every successful CI run. Publishing or signing a GitHub release remains a
-manual owner action until a separate signing policy is approved.
+every successful CI run. A tag matching the extension version triggers
+`.github/workflows/release.yml`, which independently tests the candidate,
+rebuilds the deterministic bundle, and publishes every file in `release/` to a
+GitHub Release. Release artifacts are not signed until a separate signing
+policy is approved.
+
+## Publish a GitHub Release
+
+Update the version in `chrome-extension/manifest.json`, `package.json`, and
+both root entries in `package-lock.json`, commit the changes, and ensure the
+`main` working tree is clean. Then run:
+
+```bash
+make publish-release VERSION=0.3.1
+```
+
+`publish-release` runs the static readiness and reproducibility checks before
+creating the annotated `v0.3.1` tag. It atomically pushes `main` and the tag to
+`origin`; the tag starts the release workflow. Override `RELEASE_REMOTE` or
+`RELEASE_BRANCH` only when publishing from a deliberately different Git
+layout:
+
+```bash
+make publish-release VERSION=0.3.1 RELEASE_REMOTE=upstream RELEASE_BRANCH=stable
+```
+
+The command rejects a dirty tree, detached HEAD, mismatched version/tag,
+missing remote, wrong branch, or an existing local/remote tag. If the atomic
+push fails, it removes only the local tag it just created. Re-running the
+GitHub workflow updates the release notes and replaces assets with the
+deterministic rebuild.
 
 ## Release Qualification
 

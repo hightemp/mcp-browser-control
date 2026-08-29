@@ -1,5 +1,13 @@
 # MCP Browser Control
 
+[![CI](https://github.com/hightemp/mcp-browser-control/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hightemp/mcp-browser-control/actions/workflows/ci.yml)
+[![Release](https://github.com/hightemp/mcp-browser-control/actions/workflows/release.yml/badge.svg)](https://github.com/hightemp/mcp-browser-control/actions/workflows/release.yml)
+[![Latest Release](https://img.shields.io/github/v/release/hightemp/mcp-browser-control)](https://github.com/hightemp/mcp-browser-control/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/hightemp/mcp-browser-control/total)](https://github.com/hightemp/mcp-browser-control/releases)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/hightemp/mcp-browser-control)](go.mod)
+[![License](https://img.shields.io/github/license/hightemp/mcp-browser-control)](LICENSE)
+[![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest_V3-4285F4?logo=googlechrome&logoColor=white)](chrome-extension/manifest.json)
+
 MCP Browser Control is a local Go server and Manifest V3 extension for
 controlling one or more Chromium browser profiles through the Model Context
 Protocol.
